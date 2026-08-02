@@ -12,8 +12,6 @@ dependencies = [
 ]
 ```
 
-# Computing with thermal noise
-
 This is an interactive adaptation of **Aifer et al., _Thermodynamic Linear
 Algebra_** [[1]](#ref-1).
 The paper is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
@@ -48,6 +46,15 @@ $$
 x\sim\mathcal N\!\left(A^{-1}b,\,\beta^{-1}A^{-1}\right).
 $$
 
+### The linear-system mean
+
+The first moment of this distribution is the solution $A^{-1}b$.
+
+### The inverse from covariance
+
+Its centered second moment is $\beta^{-1}A^{-1}$, so multiplying the measured
+covariance by $\beta$ recovers the inverse.
+
 That single identity supplies two algorithms:
 
 | Equilibrium observable | Linear-algebra result |
@@ -60,6 +67,8 @@ long trajectory [[1]](#ref-1). The first moment needs $d$ integrator outputs;
 the complete second moment needs $d^2$ multiplier-integrator channels.
 
 ## Build a two-dimensional system
+
+### Interactive controls
 
 Edit the coupling matrix and force, then choose the thermal and integration
 parameters. The page requires $A$ to remain positive definite.
@@ -152,6 +161,12 @@ mo.hstack(
 )
 ```
 
+### Positive-definiteness check
+
+The equilibrium distribution is normalizable only when every eigenvalue of
+$A$ is positive. This diagnostic also exposes the condition number and slowest
+relaxation time before the trajectory is generated.
+
 ```python marimo
 A_model = np.asarray(matrix_control.value, dtype=float)
 b_model = np.asarray(force_control.value, dtype=float)
@@ -185,6 +200,8 @@ mo.md(
 
 ## Watch equilibration
 
+### Langevin dynamics
+
 The paper analyzes both overdamped and underdamped motion. This demonstration
 uses the overdamped Langevin equation (paper Eq. 27):
 
@@ -196,6 +213,20 @@ $$
 The drift pulls the state toward $A^{-1}b$ while fluctuation-dissipation fixes
 the noise amplitude. Euler-Maruyama is used here only to emulate that continuous
 physical process on a digital computer [[2]](#ref-2).
+
+### Numerical integration
+
+The browser uses Euler-Maruyama with the selected finite time step.
+
+#### Burn-in
+
+The initial segment is discarded before moments are estimated so that the
+deliberately displaced initial state does not dominate the averages.
+
+#### Time averaging
+
+After burn-in, the same correlated trajectory supplies both first- and
+second-moment estimates.
 
 ```python marimo
 beta_model = float(beta_control.value)
@@ -320,6 +351,8 @@ as_responsive_svg(equilibrium_figure)
 
 ## Read two answers from one trajectory
 
+### Moment estimates
+
 ```python marimo
 mo.md(
     rf"""
@@ -334,6 +367,8 @@ mo.md(
 )
 ```
 
+### Sources of estimation error
+
 The estimates are imperfect for two distinct reasons. Burn-in may end before
 the slowest mode equilibrates, and successive samples are correlated. More
 integration time gives more effective samples, but not one independent sample
@@ -341,9 +376,19 @@ per numerical step.
 
 ## Convergence is observable-dependent
 
+### Mean and covariance convergence
+
 The running mean estimates a first moment; the running covariance estimates all
 second moments. The latter usually converges more slowly and requires many more
 physical readout channels.
+
+#### First-moment convergence
+
+The linear-system residual tracks convergence of the running mean.
+
+#### Second-moment convergence
+
+The inverse error tracks convergence of every centered covariance entry.
 
 ```python marimo
 convergence_counts_model = np.unique(
@@ -402,12 +447,16 @@ bounds rather than monotone guarantees.
 
 ## Why conditioning matters
 
+### Relaxation in the eigenbasis
+
 In the eigenbasis of $A$, overdamped dynamics separate into independent modes.
 A mode with eigenvalue $\lambda_j$ forgets its initial displacement as
 $\exp(-\lambda_jt/\gamma)$. The smallest eigenvalue is therefore the bottleneck.
 
 Use this idealized mode explorer to isolate the effect of the condition number
 $\kappa=\lambda_{\max}/\lambda_{\min}$ while fixing $\lambda_{\max}=1$.
+
+### Condition-number explorer
 
 ```python marimo
 condition_control = mo.ui.slider(
@@ -464,6 +513,8 @@ dimension and error factors.
 
 ## Four thermodynamic primitives
 
+### Moment-based protocols
+
 The paper develops a hierarchy based on which equilibrium information is read:
 
 1. **Linear system:** encode $b$ as a constant force and estimate the mean.
@@ -474,6 +525,8 @@ The paper develops a hierarchy based on which equilibrium information is read:
 4. **Determinant:** infer a free-energy difference while changing one quadratic
    potential into another. For zero force,
    $\Delta F=(2\beta)^{-1}\log(|A_2|/|A_1|)$.
+
+### Free-energy protocol
 
 The determinant protocol is qualitatively different. It uses work measurements
 and the Jarzynski equality [[3]](#ref-3)
@@ -488,6 +541,8 @@ points to Bennett and multistate Bennett estimators as better choices
 [[4]](#ref-4).
 
 ## Claimed asymptotic scaling
+
+### Dimension explorer
 
 The following explorer reproduces the leading dimension dependence reported in
 the paper's Table I for dense SPD problems. It deliberately suppresses constants,
@@ -553,6 +608,8 @@ for scaling_axis_marker in scaling_axes:
 as_responsive_svg(scaling_figure)
 ```
 
+### Full asymptotic bounds
+
 For the overdamped regime, Table I states the following full dependencies:
 
 | Problem | Digital comparison in paper | Thermodynamic bound |
@@ -569,6 +626,8 @@ energy advantage depends on hardware and all omitted constants.
 
 ## What the comparison assumes
 
+### Physical assumptions
+
 This is the most important qualification to the scaling story. The analytical
 model assumes:
 
@@ -577,6 +636,8 @@ model assumes:
 - The quadratic potential can represent them with arbitrary accuracy.
 - A convenient known Gaussian equilibrium state is available before a protocol.
 - Analog multipliers and integrators operate in parallel as the system grows.
+
+### Digital timing model
 
 For numerical timing comparisons, the authors model an electrical device with
 an $RC=1\,\mu\mathrm{s}$ timescale, 16-bit conversion, and 5,000 ADC/DAC
@@ -592,6 +653,8 @@ comparisons, not measurements from a large thermodynamic processor.
 
 ## Energy, time, and precision
 
+### Energy-time lower bound
+
 Rescaling the force can apparently shorten averaging time, but it also deepens
 the potential and costs energy. The paper reformulates this as a lower bound on
 the energy-time product. In the overdamped model,
@@ -605,6 +668,11 @@ $$
 Thus time is not a free resource that can be reduced indefinitely by increasing
 signal amplitude. Precision is costly too: the probabilistic integration bounds
 scale as $\epsilon^{-2}$, as expected for sampling.
+
+### Precision cost
+
+The same sampling interpretation explains why decreasing the target error
+requires quadratically more integration time in the stated bounds.
 
 ## What to take away
 
@@ -636,7 +704,7 @@ for future work.
     “Thermodynamic Linear Algebra,” arXiv:2308.05660v2, 2024.
     {' '}<a href="https://arxiv.org/pdf/2308.05660v2">PDF</a> ·
     {' '}<a href="https://doi.org/10.48550/arXiv.2308.05660">DOI</a>
-    {' '}<a href="#computing-with-thermal-noise">↩</a>
+    {' '}<a href="#the-equilibrium-identity">↩</a>
   </li>
   <li id="ref-2">
     C. W. Gardiner, <em>Handbook of Stochastic Methods</em>, Springer, 1985.

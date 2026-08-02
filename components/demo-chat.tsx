@@ -1,82 +1,94 @@
 'use client';
 
-import { Bot, MessageCircle, Send, X } from 'lucide-react';
-import { useState } from 'react';
+import { MessageCircle, Send, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export function DemoChat() {
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+      if ((event.metaKey || event.ctrlKey) && event.key === '/') {
+        event.preventDefault();
+        setOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full border bg-fd-primary px-4 py-3 text-sm font-medium text-fd-primary-foreground shadow-lg transition-transform hover:scale-[1.03]"
-        aria-label="Open research assistant preview"
-      >
-        <MessageCircle className="size-4" />
-        Ask AI
-      </button>
+      {open ? (
+        <button
+          type="button"
+          aria-label="Close AI chat"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 bg-fd-overlay backdrop-blur-xs lg:hidden"
+        />
+      ) : null}
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/20 p-3 backdrop-blur-[2px] sm:p-6">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="demo-chat-title"
-            className="flex h-[min(38rem,85vh)] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-fd-background shadow-2xl"
-          >
-            <header className="flex items-center gap-3 border-b px-4 py-3">
-              <div className="grid size-9 place-items-center rounded-full bg-fd-primary text-fd-primary-foreground">
-                <Bot className="size-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 id="demo-chat-title" className="font-semibold">Research Assistant</h2>
-                <p className="text-xs text-fd-muted-foreground">Interface preview</p>
+        <aside className="fixed inset-x-2 inset-y-4 z-30 overflow-hidden rounded-2xl border bg-fd-card text-fd-card-foreground shadow-xl lg:sticky lg:top-0 lg:in-[#nd-docs-layout]:[grid-area:toc] lg:ms-auto lg:h-dvh lg:w-[400px] lg:rounded-none lg:border-y-0 lg:border-e-0 lg:border-s lg:shadow-none 2xl:w-[460px]">
+          <div className="flex size-full flex-col p-2 lg:p-3">
+            <header className="flex items-start gap-2 rounded-xl border bg-fd-secondary text-fd-secondary-foreground shadow-sm">
+              <div className="flex-1 px-3 py-2">
+                <p className="mb-2 text-sm font-medium">AI Chat</p>
+                <p className="text-xs text-fd-muted-foreground">
+                  AI can be inaccurate, please verify the answers.
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md p-2 text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-accent-foreground"
-                aria-label="Close research assistant preview"
+                aria-label="Close"
+                className="m-1 rounded-full p-2 text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
               >
                 <X className="size-4" />
               </button>
             </header>
 
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-fd-muted px-4 py-3 text-sm">
-                Ask about the notebook, compare experiment notes, or find a mathematical definition.
-              </div>
-              <div className="ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-fd-primary px-4 py-3 text-sm text-fd-primary-foreground">
-                Summarize the eigenvalue experiment.
-              </div>
-              <div className="max-w-[85%] rounded-2xl rounded-tl-sm border px-4 py-3 text-sm">
-                A custom OpenAI-compatible provider has not been connected yet. This panel currently demonstrates the intended chat experience only.
-              </div>
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-fd-muted-foreground/80">
+              <MessageCircle className="size-5 fill-current" strokeWidth={0} />
+              <p>Start a new chat below.</p>
+              <p className="max-w-64 text-xs">
+                Preview only. Connect the custom provider to enable responses.
+              </p>
             </div>
 
-            <footer className="border-t p-3">
-              <div className="flex items-center gap-2 rounded-xl border bg-fd-muted/40 p-2">
-                <input
+            <div className="rounded-xl border bg-fd-secondary text-fd-secondary-foreground shadow-sm">
+              <div className="flex items-start pe-2">
+                <textarea
                   disabled
-                  placeholder="Connect a provider to start chatting"
-                  className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none disabled:cursor-not-allowed"
+                  rows={1}
+                  placeholder="Ask a question"
+                  className="min-h-12 flex-1 resize-none bg-transparent p-3 text-sm placeholder:text-fd-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   disabled
-                  className="grid size-9 place-items-center rounded-lg bg-fd-primary text-fd-primary-foreground opacity-50"
-                  aria-label="Send message"
+                  aria-label="Send"
+                  className="mt-2 grid size-8 place-items-center rounded-full bg-fd-primary text-fd-primary-foreground opacity-50"
                 >
                   <Send className="size-4" />
                 </button>
               </div>
-              <p className="mt-2 text-center text-xs text-fd-muted-foreground">Demo only. No messages leave your browser.</p>
-            </footer>
-          </section>
-        </div>
+            </div>
+          </div>
+        </aside>
       ) : null}
+
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        data-state={open ? 'open' : 'closed'}
+        className="fixed bottom-4 end-4 z-20 flex w-24 items-center gap-3 rounded-2xl border bg-fd-secondary px-3 py-2 text-sm text-fd-muted-foreground shadow-lg transition-[translate,opacity,background-color] hover:bg-fd-accent hover:text-fd-accent-foreground data-[state=open]:translate-y-10 data-[state=open]:opacity-0"
+      >
+        <MessageCircle className="size-4.5" />
+        Ask AI
+      </button>
     </>
   );
 }

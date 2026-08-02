@@ -4,6 +4,7 @@ import {
   encodeQueueRequest,
   extractNavigationTarget,
   findQueueResponse,
+  isExplicitNavigationRequest,
   parseQueueResponse,
   stripNavigationAction,
   type QueueRequest,
@@ -91,4 +92,12 @@ test('extracts only documentation navigation targets', () => {
     ),
     'Opening the page.',
   );
+});
+
+test('distinguishes navigation commands from link requests', () => {
+  assert.equal(isExplicitNavigationRequest('Take me to that page'), true);
+  assert.equal(isExplicitNavigationRequest('Navigate to the experiment'), true);
+  assert.equal(isExplicitNavigationRequest('Can you open it?'), true);
+  assert.equal(isExplicitNavigationRequest('Give me a link to that page'), false);
+  assert.equal(isExplicitNavigationRequest('What is the exact URL?'), false);
 });

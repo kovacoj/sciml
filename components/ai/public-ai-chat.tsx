@@ -19,16 +19,27 @@ import {
 import type { QueueConversationMessage } from './queue-protocol';
 import {
   extractNavigationTarget,
+  isExplicitNavigationRequest,
   stripNavigationAction,
 } from './queue-protocol';
 
 const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 const basePath =
   process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, '') ?? '';
+const conversationStorageKey = 'sciml-ai-chat-conversation-v1';
+const reopenStorageKey = 'sciml-ai-chat-reopen';
 
 function resolveChatLink(href: string | undefined): string | undefined {
   if (!href?.startsWith('/') || href.startsWith(`${basePath}/`)) return href;
   return `${basePath}${href}`;
+}
+
+function saveConversation(messages: QueueConversationMessage[]): void {
+  try {
+    sessionStorage.setItem(conversationStorageKey, JSON.stringify(messages));
+  } catch {
+    // Chat remains usable when session storage is unavailable.
+  }
 }
 
 export function PublicAIChat() {
@@ -38,6 +49,7 @@ export function PublicAIChat() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState<QueueProgress | null>(null);
+  const [hasRestoredMessages, setHasRestoredMessages] = useState(false);
   const abortController = useRef<AbortController | null>(null);
   const messageViewport = useRef<HTMLDivElement | null>(null);
 
@@ -53,6 +65,28 @@ export function PublicAIChat() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(conversationStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as QueueConversationMessage[];
+        if (Array.isArray(parsed)) setMessages(parsed);
+      }
+      if (sessionStorage.getItem(reopenStorageKey) === 'true') {
+        sessionStorage.removeItem(reopenStorageKey);
+        setOpen(true);
+      }
+    } catch {
+      sessionStorage.removeItem(conversationStorageKey);
+    } finally {
+      setHasRestoredMessages(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasRestoredMessages) saveConversation(messages);
+  }, [hasRestoredMessages, messages]);
 
   useEffect(() => {
     const viewport = messageViewport.current;
@@ -78,6 +112,7 @@ export function PublicAIChat() {
     const controller = new AbortController();
 
     setMessages(nextMessages);
+    saveConversation(nextMessages);
     setInput('');
     setError(null);
     setIsLoading(true);
@@ -98,12 +133,21 @@ export function PublicAIChat() {
       );
 
       const navigationTarget = extractNavigationTarget(answer, basePath);
-      const visibleAnswer = stripNavigationAction(answer);
-      setMessages([
+      const shouldNavigate =
+        navigationTarget !== null && isExplicitNavigationRequest(content);
+      let visibleAnswer = stripNavigationAction(answer);
+      if (navigationTarget && !shouldNavigate) {
+        const link = `[Open the requested documentation page](${navigationTarget})`;
+        visibleAnswer = visibleAnswer ? `${visibleAnswer}\n\n${link}` : link;
+      }
+      const completedMessages: QueueConversationMessage[] = [
         ...nextMessages,
         { role: 'assistant', content: visibleAnswer },
-      ]);
-      if (navigationTarget) {
+      ];
+      setMessages(completedMessages);
+      saveConversation(completedMessages);
+      if (navigationTarget && shouldNavigate) {
+        sessionStorage.setItem(reopenStorageKey, 'true');
         window.location.href = new URL(
           navigationTarget,
           window.location.origin,
@@ -137,6 +181,7 @@ export function PublicAIChat() {
   const clearConversation = () => {
     abortController.current?.abort();
     setMessages([]);
+    sessionStorage.removeItem(conversationStorageKey);
     setInput('');
     setError(null);
     setProgress(null);
@@ -211,16 +256,22 @@ export function PublicAIChat() {
                       remarkPlugins={[remarkGfm, remarkMath]}
                       rehypePlugins={[rehypeKatex]}
                       components={{
-                        a: ({ children, href }) => (
-                          <a
-                            href={resolveChatLink(href)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="font-medium text-fd-primary underline underline-offset-4"
-                          >
-                            {children}
-                          </a>
-                        ),
+                        a: ({ children, href }) => {
+                          const resolvedHref = resolveChatLink(href);
+                          const isExternal =
+                            resolvedHref?.startsWith('http://') ||
+                            resolvedHref?.startsWith('https://');
+                          return (
+                            <a
+                              href={resolvedHref}
+                              target={isExternal ? '_blank' : undefined}
+                              rel={isExternal ? 'noreferrer' : undefined}
+                              className="font-medium text-fd-primary underline underline-offset-4"
+                            >
+                              {children}
+                            </a>
+                          );
+                        },
                       }}
                     >
                       {message.content}

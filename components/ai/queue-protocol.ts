@@ -141,6 +141,12 @@ export function stripNavigationAction(answer: string): string {
   return answer.replace(NAVIGATION_PATTERN, '').trim();
 }
 
+export function isExplicitNavigationRequest(question: string): boolean {
+  return /\b(take me|navigate (?:me )?to|bring me|send me there|go to|open (?:it|the|that|this))\b/i.test(
+    question,
+  );
+}
+
 export async function pollForQueueResponse({
   requestId,
   timeoutMs,

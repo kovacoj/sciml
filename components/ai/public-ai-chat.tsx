@@ -38,6 +38,19 @@ const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 const basePath =
   process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, '') ?? '';
 const legacyConversationPrefix = 'sciml-ai-chat-conversation-v2';
+const katexOptions = {
+  throwOnError: false,
+  strict: false,
+  macros: {
+    '\\d': '\\mathrm{d}',
+    '\\dd': '\\mathrm{d}',
+    '\\R': '\\mathbb{R}',
+    '\\N': '\\mathbb{N}',
+    '\\Z': '\\mathbb{Z}',
+    '\\Q': '\\mathbb{Q}',
+    '\\C': '\\mathbb{C}',
+  },
+};
 
 function resolveChatLink(href: string | undefined): string | undefined {
   if (!href?.startsWith('/') || href.startsWith(`${basePath}/`)) return href;
@@ -462,7 +475,7 @@ export function PublicAIChat() {
                   {message.role === 'assistant' ? (
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
+                      rehypePlugins={[[rehypeKatex, katexOptions]]}
                       components={{
                         a: ({ children, href }) => {
                           const resolvedHref = resolveChatLink(href);

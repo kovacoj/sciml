@@ -218,6 +218,18 @@ class ResponseStore:
             )
             self.connection.commit()
 
+    def get(self, request_id: str) -> dict | None:
+        with self.lock:
+            row = self.connection.execute(
+                "SELECT state, response_json FROM responses WHERE request_id = ?",
+                (request_id,),
+            ).fetchone()
+        if not row:
+            return None
+        if row[0] == "completed":
+            return json.loads(row[1])
+        return {"version": 2, "requestId": request_id, "status": "pending"}
+
 
 class RateLimiter:
     def __init__(self) -> None:
@@ -300,6 +312,19 @@ class ChatHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/healthz":
             self.send_json(200, {"status": "ok"})
+            return
+        if self.path.startswith("/chat/"):
+            request_id = self.path.removeprefix("/chat/")
+            try:
+                uuid.UUID(request_id)
+            except ValueError:
+                self.send_json(400, {"error": "Request ID is invalid"})
+                return
+            response = self.store.get(request_id)
+            if response is None:
+                self.send_json(404, {"error": "Request not found"})
+                return
+            self.send_json(200, response)
             return
         self.send_json(404, {"error": "Not found"})
 

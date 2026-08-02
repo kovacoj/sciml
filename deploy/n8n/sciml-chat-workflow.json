@@ -59,6 +59,58 @@
           }
         }
       }
+    },
+    {
+      "id": "cc9af91d-e8e5-45be-9975-acde3e368aaf",
+      "name": "Chat Status Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 240],
+      "webhookId": "a149dfca-9278-47ec-a356-0827b885c67e",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sciml-ai-status",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://kovacoj.github.io"
+        }
+      }
+    },
+    {
+      "id": "0b0b4604-504e-4598-a0ed-6694a14e613c",
+      "name": "Read Chat Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 240],
+      "parameters": {
+        "url": "={{ 'http://gateway:8001/chat/' + $json.query.requestId }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "6ce7762b-176e-4f1d-ba99-27007941939d",
+      "name": "Return Chat Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [480, 240],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://kovacoj.github.io"
+              },
+              {
+                "name": "Vary",
+                "value": "Origin"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -78,6 +130,28 @@
         [
           {
             "node": "Return Chat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Status Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Chat Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Chat Status": {
+      "main": [
+        [
+          {
+            "node": "Return Chat Status",
             "type": "main",
             "index": 0
           }

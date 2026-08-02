@@ -53,9 +53,11 @@ class ResponseStoreTests(unittest.TestCase):
             request_id = str(uuid.uuid4())
             self.assertEqual(store.claim(request_id), (True, None))
             self.assertEqual(store.claim(request_id), (False, None))
+            self.assertEqual(store.get(request_id)["status"], "pending")
             response = {"status": "completed", "answer": "result"}
             store.complete(request_id, response)
             self.assertEqual(store.claim(request_id), (False, response))
+            self.assertEqual(store.get(request_id), response)
 
     def test_rate_limits_new_requests(self):
         limiter = RateLimiter()

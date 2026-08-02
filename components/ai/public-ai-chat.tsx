@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import {
   submitN8nChatRequest,
+  pollN8nChatRequest,
   type ChatProgress,
 } from './n8n-chat-client';
 import {
@@ -81,6 +82,9 @@ export function PublicAIChat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState<ChatProgress | null>(null);
+  const [backendStatus, setBackendStatus] = useState<
+    'online' | 'connecting' | 'offline'
+  >('online');
   const [hasRestoredMessages, setHasRestoredMessages] = useState(false);
   const abortController = useRef<AbortController | null>(null);
   const messageViewport = useRef<HTMLDivElement | null>(null);
@@ -234,6 +238,7 @@ export function PublicAIChat() {
       });
     }
     setMessages(completedMessages);
+    setBackendStatus('online');
     saveState(completedMessages);
     if (navigationTarget && shouldNavigate) {
       window.location.href = new URL(
@@ -261,6 +266,7 @@ export function PublicAIChat() {
         : item,
     );
     setMessages(failedMessages);
+    setBackendStatus('offline');
     saveState(failedMessages);
   };
 
@@ -273,18 +279,12 @@ export function PublicAIChat() {
     activeRequestId.current = pending.requestId;
     abortController.current = controller;
     setIsLoading(true);
+    setBackendStatus('connecting');
     setProgress('queued');
     setOpen(true);
     try {
-      const answer = await submitN8nChatRequest(
-        {
-          version: 2,
-          requestId: pending.requestId,
-          conversationId: conversationId.current,
-          question: pending.content,
-          currentPageUrl: window.location.href,
-          context: { recentMessages: buildRecentContext(sourceMessages) },
-        },
+      const answer = await pollN8nChatRequest(
+        pending.requestId,
         controller.signal,
         setProgress,
       );
@@ -329,6 +329,7 @@ export function PublicAIChat() {
     saveState(nextMessages);
     setInput('');
     setIsLoading(true);
+    setBackendStatus('connecting');
     setProgress(null);
     abortController.current = controller;
 
@@ -408,7 +409,11 @@ export function PublicAIChat() {
               <div className="flex-1">
                 <p className="text-sm font-medium">Ask the research notebook</p>
                 <p className="text-xs text-fd-muted-foreground">
-                  Answers use the published documentation as context.
+                  {backendStatus === 'connecting'
+                    ? 'Connecting…'
+                    : backendStatus === 'offline'
+                      ? 'Assistant temporarily unavailable'
+                      : 'Assistant online'}
                 </p>
               </div>
               <button

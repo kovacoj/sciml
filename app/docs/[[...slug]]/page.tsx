@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/components/mdx';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
+import { ExperimentMetadata } from '@/components/experiment-metadata';
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
@@ -27,6 +28,15 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
     >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
+      <ExperimentMetadata
+        status={page.data.status}
+        lastVerified={page.data.lastVerified}
+        sourceCommit={page.data.sourceCommit}
+        environment={page.data.environment}
+        randomSeed={page.data.randomSeed}
+        reproduce={page.data.reproduce}
+        reproducibility={page.data.reproducibility}
+      />
       <DocsBody>
         <MDX
           components={getMDXComponents({

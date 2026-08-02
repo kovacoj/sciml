@@ -27,7 +27,7 @@ const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 const basePath =
   process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, '') ?? '';
 const conversationStorageKey = 'sciml-ai-chat-conversation-v1';
-const reopenStorageKey = 'sciml-ai-chat-reopen';
+const openStorageKey = 'sciml-ai-chat-open-v1';
 
 function resolveChatLink(href: string | undefined): string | undefined {
   if (!href?.startsWith('/') || href.startsWith(`${basePath}/`)) return href;
@@ -36,9 +36,9 @@ function resolveChatLink(href: string | undefined): string | undefined {
 
 function saveConversation(messages: QueueConversationMessage[]): void {
   try {
-    sessionStorage.setItem(conversationStorageKey, JSON.stringify(messages));
+    localStorage.setItem(conversationStorageKey, JSON.stringify(messages));
   } catch {
-    // Chat remains usable when session storage is unavailable.
+    // Chat remains usable when browser storage is unavailable.
   }
 }
 
@@ -68,17 +68,14 @@ export function PublicAIChat() {
 
   useEffect(() => {
     try {
-      const stored = sessionStorage.getItem(conversationStorageKey);
+      const stored = localStorage.getItem(conversationStorageKey);
       if (stored) {
         const parsed = JSON.parse(stored) as QueueConversationMessage[];
         if (Array.isArray(parsed)) setMessages(parsed);
       }
-      if (sessionStorage.getItem(reopenStorageKey) === 'true') {
-        sessionStorage.removeItem(reopenStorageKey);
-        setOpen(true);
-      }
+      setOpen(localStorage.getItem(openStorageKey) === 'true');
     } catch {
-      sessionStorage.removeItem(conversationStorageKey);
+      // Ignore malformed or unavailable browser storage.
     } finally {
       setHasRestoredMessages(true);
     }
@@ -87,6 +84,15 @@ export function PublicAIChat() {
   useEffect(() => {
     if (hasRestoredMessages) saveConversation(messages);
   }, [hasRestoredMessages, messages]);
+
+  useEffect(() => {
+    if (!hasRestoredMessages) return;
+    try {
+      localStorage.setItem(openStorageKey, String(open));
+    } catch {
+      // Chat remains usable when browser storage is unavailable.
+    }
+  }, [hasRestoredMessages, open]);
 
   useEffect(() => {
     const viewport = messageViewport.current;
@@ -147,7 +153,11 @@ export function PublicAIChat() {
       setMessages(completedMessages);
       saveConversation(completedMessages);
       if (navigationTarget && shouldNavigate) {
-        sessionStorage.setItem(reopenStorageKey, 'true');
+        try {
+          localStorage.setItem(openStorageKey, 'true');
+        } catch {
+          // Navigation still works when browser storage is unavailable.
+        }
         window.location.href = new URL(
           navigationTarget,
           window.location.origin,
@@ -181,7 +191,11 @@ export function PublicAIChat() {
   const clearConversation = () => {
     abortController.current?.abort();
     setMessages([]);
-    sessionStorage.removeItem(conversationStorageKey);
+    try {
+      localStorage.removeItem(conversationStorageKey);
+    } catch {
+      // Chat remains usable when browser storage is unavailable.
+    }
     setInput('');
     setError(null);
     setProgress(null);

@@ -1,30 +1,219 @@
 ---
 title: Thermodynamic Linear Algebra
-description: An interactive marimo simulation estimating a matrix inverse from Langevin covariance.
+description: Native reactive marimo cells estimating a matrix inverse from Langevin covariance.
 ---
 
-This interactive notebook demonstrates how the inverse of a symmetric
-positive-definite matrix can be estimated from the time-averaged covariance of
-overdamped Langevin dynamics in a quadratic potential.
+```marimo-config
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "marimo==0.23.13",
+  "numpy==2.4.3",
+  "matplotlib==3.10.8",
+]
+```
 
-The notebook is by [Simone Conradi](https://profconradi.com/) and is adapted
-from the public [marimo gallery example](https://github.com/marimo-team/gallery-examples/blob/main/notebooks/math/thermodynamic_linear_algebra.py).
+_By [Simone Conradi](https://profconradi.com/). Adapted from the public
+[marimo gallery example](https://github.com/marimo-team/gallery-examples/blob/main/notebooks/math/thermodynamic_linear_algebra.py)._
+
+This page demonstrates a key idea from *Thermodynamic Linear Algebra* (Aifer
+et al., 2023): the inverse of a symmetric positive-definite matrix can be
+estimated from the time-averaged covariance of overdamped Langevin dynamics in
+the corresponding quadratic potential.
+
+For `U(x) = 1/2 x^T A x`, the thermal equilibrium distribution is a zero-mean
+Gaussian with covariance `beta^-1 A^-1`. Ergodicity therefore gives
+`A^-1 = beta <x x^T>_time` in the long-time limit.
 
 <Callout title="Interactive stochastic demonstration">
-  Edit the symmetric matrix and adjust the integration, inverse-temperature,
-  and damping controls. The trajectory and covariance estimate are computed
-  in your browser. Individual estimates vary because the simulation includes
-  thermal noise.
+  The controls and simulation below run directly inside this Fumadocs page.
+  Individual covariance estimates vary because the trajectory includes
+  thermal noise. This is an educational simulation, not a hardware benchmark
+  or a research result from this repository.
 </Callout>
 
-<MarimoNotebook
-  slug="thermodynamic-linear-algebra"
-  title="Thermodynamic linear algebra matrix inverse simulation"
-  height={1100}
-/>
+## Controls
 
-## Scope
+Edit the symmetric matrix and adjust the integration and physical parameters.
+The matrix must remain positive definite.
 
-This page reproduces an educational browser simulation. It is not evidence of
-hardware performance and does not report results from this repository's future
-research experiments.
+```python marimo
+import marimo as mo
+import matplotlib.pyplot as plt
+import numpy as np
+
+matrix_ui = mo.ui.matrix(
+    np.array([[4, 2], [2, 9]], dtype=np.int32),
+    step=1,
+    precision=0,
+    symmetric=True,
+    label=r"$A$",
+)
+n_iter_slider = mo.ui.slider(
+    10_000,
+    100_000,
+    10_000,
+    value=10_000,
+    label="Number of steps",
+)
+beta_slider = mo.ui.slider(
+    0.01,
+    2,
+    0.01,
+    value=0.1,
+    label=r"$\beta$",
+)
+gamma_slider = mo.ui.slider(
+    1,
+    50,
+    0.5,
+    value=10.0,
+    label=r"$\gamma$",
+)
+dt_slider = mo.ui.slider(
+    0.001,
+    0.5,
+    0.001,
+    value=0.01,
+    label=r"$\delta t$",
+)
+
+mo.hstack(
+    [
+        matrix_ui,
+        mo.vstack(
+            [mo.md("**Simulation**"), n_iter_slider, dt_slider],
+            align="stretch",
+        ),
+        mo.vstack(
+            [mo.md("**Physics**"), beta_slider, gamma_slider],
+            align="stretch",
+        ),
+    ],
+    justify="center",
+    align="center",
+    gap=4,
+)
+```
+
+## Matrix validation
+
+```python marimo
+A = np.array(matrix_ui.value)
+is_positive_definite = np.all(np.linalg.eigvals(A) > 0)
+
+mo.stop(
+    not is_positive_definite,
+    mo.md(
+        "**Matrix is not positive definite!** Please adjust the matrix elements."
+    ).style({"color": "red", "font-size": "1.1em"}),
+)
+```
+
+## Langevin simulation
+
+The trajectory is integrated with Euler-Maruyama. A burn-in transient is
+discarded before estimating the covariance.
+
+```python marimo
+D = 2
+gamma = gamma_slider.value
+beta = beta_slider.value
+dt = dt_slider.value
+n_iter = n_iter_slider.value
+x0 = np.array([15.0, 17.0])
+
+x = np.zeros((n_iter, D), dtype=np.float64)
+x[0] = x0
+for step_index in range(1, n_iter):
+    x[step_index] = (
+        x[step_index - 1]
+        - 1 / gamma * A @ x[step_index - 1] * dt
+        + np.random.normal(
+            0,
+            np.sqrt(2 / (gamma * beta) * dt),
+            size=(2,),
+        )
+    )
+```
+
+## Covariance estimate
+
+```python marimo
+skip = 5000
+n_max = n_iter - 1
+covariance_estimate = (
+    np.einsum("ti,tj->ij", x[skip:n_max], x[skip:n_max])
+    / (n_max - skip)
+    * beta
+)
+exact_inverse = np.linalg.inv(A)
+
+mo.md(
+    f"""
+    | Matrix | Row 1 | Row 2 |
+    |---|---:|---:|
+    | Exact inverse | `{exact_inverse[0, 0]:+.4f}, {exact_inverse[0, 1]:+.4f}` | `{exact_inverse[1, 0]:+.4f}, {exact_inverse[1, 1]:+.4f}` |
+    | Covariance estimate | `{covariance_estimate[0, 0]:+.4f}, {covariance_estimate[0, 1]:+.4f}` | `{covariance_estimate[1, 0]:+.4f}, {covariance_estimate[1, 1]:+.4f}` |
+    """
+)
+```
+
+## Potential and trajectory
+
+```python marimo
+n_grid = 100
+xmin, xmax, ymin, ymax = -17, 17, -10, 24
+xmesh, ymesh = np.meshgrid(
+    np.linspace(xmin, xmax, n_grid),
+    np.linspace(ymin, ymax, n_grid),
+)
+grid = np.vstack((xmesh.ravel(), ymesh.ravel())).T
+potential = np.einsum("ik,kl,il->i", grid, A, grid).reshape(
+    (n_grid, n_grid)
+)
+
+figure, axis = plt.subplots(figsize=(7, 7))
+figure.set_facecolor("#f4f0e8")
+axis.set_facecolor("#f4f0e8")
+
+axis.contour(
+    xmesh,
+    ymesh,
+    potential,
+    colors="#383b3e",
+    levels=40,
+    linewidths=0.2,
+    zorder=-10,
+)
+axis.plot(
+    x[:n_max, 0],
+    x[:n_max, 1],
+    color="blue",
+    linewidth=0.1,
+    alpha=0.7,
+)
+axis.scatter(
+    x[n_max, 0],
+    x[n_max, 1],
+    color="red",
+    s=14,
+    linewidths=0,
+    zorder=10,
+)
+axis.set_aspect("equal", "box")
+axis.set_xlim([xmin, xmax])
+axis.set_ylim([ymin, ymax])
+axis.set_xlabel(r"$x_1$")
+axis.set_ylabel(r"$x_2$")
+axis.set_title("Langevin trajectory in the quadratic potential")
+axis.grid(alpha=0.12)
+figure.tight_layout()
+figure
+```
+
+## Interpretation
+
+Longer trajectories generally improve the covariance estimate, while the
+temperature, damping, time step, and spectrum of `A` affect equilibration and
+sampling. The browser calculation is intentionally limited to a two-dimensional
+example and lightweight numerical dependencies.

@@ -48,4 +48,3 @@ export_notebook() {
 }
 
 export_notebook "laplacian_eigenmodes.py" "laplacian-eigenmodes"
-export_notebook "thermodynamic_linear_algebra.py" "thermodynamic-linear-algebra"

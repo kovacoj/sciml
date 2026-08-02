@@ -1,0 +1,4 @@
+{
+  "title": "Theory Notes",
+  "pages": ["index", "weak-formulations", "fem-fvm", "eigenproblems", "optimization"]
+}

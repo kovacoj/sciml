@@ -66,34 +66,64 @@ parameters. The page requires $A$ to remain positive definite.
 
 ```python marimo
 import marimo as mo
+import io
 import matplotlib.pyplot as plt
 import numpy as np
+
+plt.rcParams.update(
+    {
+        "svg.fonttype": "none",
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        "text.color": "#2f2b27",
+        "axes.labelcolor": "#2f2b27",
+        "axes.titlecolor": "#2f2b27",
+        "xtick.color": "#5f5952",
+        "ytick.color": "#5f5952",
+    }
+)
+
+def as_responsive_svg(figure_to_render):
+    svg_buffer = io.StringIO()
+    figure_to_render.savefig(
+        svg_buffer,
+        format="svg",
+        bbox_inches="tight",
+        transparent=True,
+    )
+    plt.close(figure_to_render)
+    svg_markup = svg_buffer.getvalue().replace(
+        "<svg ",
+        '<svg style="width:100%;height:auto;display:block" ',
+        1,
+    )
+    return mo.Html(svg_markup)
 
 matrix_control = mo.ui.matrix(
     np.array([[4.0, 2.0], [2.0, 9.0]]),
     step=0.5,
     precision=1,
     symmetric=True,
-    label=r"Coupling matrix $A$",
+    label="Coupling matrix A",
 )
 force_control = mo.ui.array(
     [
-        mo.ui.number(-10, 10, 0.5, value=4.0, label=r"$b_1$"),
-        mo.ui.number(-10, 10, 0.5, value=-2.0, label=r"$b_2$"),
+        mo.ui.number(-10, 10, 0.5, value=4.0, label="b₁"),
+        mo.ui.number(-10, 10, 0.5, value=-2.0, label="b₂"),
     ],
-    label=r"Force $b$",
+    label="Force vector b",
 )
 steps_control = mo.ui.slider(
     10_000, 80_000, 10_000, value=30_000, label="Integration steps"
 )
 beta_control = mo.ui.slider(
-    0.1, 3.0, 0.1, value=1.0, label=r"Inverse temperature $\beta$"
+    0.1, 3.0, 0.1, value=1.0, label="Inverse temperature β"
 )
 gamma_control = mo.ui.slider(
-    1.0, 20.0, 0.5, value=6.0, label=r"Damping $\gamma$"
+    1.0, 20.0, 0.5, value=6.0, label="Damping γ"
 )
 dt_control = mo.ui.slider(
-    0.001, 0.03, 0.001, value=0.008, label=r"Time step $\Delta t$"
+    0.001, 0.03, 0.001, value=0.008, label="Time step Δt"
 )
 
 mo.hstack(
@@ -130,7 +160,7 @@ inverse_exact = np.linalg.inv(A_model)
 covariance_exact = inverse_exact / beta_control.value
 
 mo.md(
-    f"""
+    rf"""
     | Diagnostic | Value |
     |---|---:|
     | Eigenvalues of $A$ | `{eigenvalues_model[0]:.3f}`, `{eigenvalues_model[1]:.3f}` |
@@ -273,14 +303,14 @@ equilibrium_axes[1].set_title("Equilibrate, then average")
 equilibrium_axes[1].set_xlabel("time")
 equilibrium_axes[1].set_ylabel("state")
 equilibrium_axes[1].legend(frameon=False, ncol=2)
-equilibrium_figure
+as_responsive_svg(equilibrium_figure)
 ```
 
 ## Read two answers from one trajectory
 
 ```python marimo
 mo.md(
-    f"""
+    rf"""
     | Quantity | Exact | Time-average estimate |
     |---|---:|---:|
     | Linear-system solution | `({solution_exact[0]:+.4f}, {solution_exact[1]:+.4f})` | `({mean_estimate_model[0]:+.4f}, {mean_estimate_model[1]:+.4f})` |
@@ -351,7 +381,7 @@ convergence_axis.set_title("Running estimates from this trajectory")
 convergence_axis.grid(alpha=0.18, which="both")
 convergence_axis.legend(frameon=False)
 convergence_figure.tight_layout()
-convergence_figure
+as_responsive_svg(convergence_figure)
 ```
 
 Do not expect either line to decrease monotonically: these are correlated,
@@ -369,7 +399,7 @@ $\kappa=\lambda_{\max}/\lambda_{\min}$ while fixing $\lambda_{\max}=1$.
 
 ```python marimo
 condition_control = mo.ui.slider(
-    1, 100, 1, value=12, label=r"Condition number $\kappa$"
+    1, 100, 1, value=12, label="Condition number κ"
 )
 condition_control
 ```
@@ -411,7 +441,7 @@ mode_axis_explorer.set_title("Ill-conditioning creates a slow physical mode")
 mode_axis_explorer.grid(alpha=0.18, which="both")
 mode_axis_explorer.legend(frameon=False)
 mode_figure_explorer.tight_layout()
-mode_figure_explorer
+as_responsive_svg(mode_figure_explorer)
 ```
 
 For the overdamped model, the paper bounds the equilibration time by a factor
@@ -454,7 +484,7 @@ condition-number factors, error dependence, and logarithms. It is an
 
 ```python marimo
 dimension_control = mo.ui.slider(
-    10, 10_000, 10, value=1_000, label=r"Matrix dimension $d$"
+    10, 10_000, 10, value=1_000, label="Matrix dimension d"
 )
 dimension_control
 ```
@@ -508,7 +538,7 @@ for scaling_axis_marker in scaling_axes:
     scaling_axis_marker.axvline(
         dimension_selected, color="#6b665f", linestyle="--", linewidth=1
     )
-scaling_figure
+as_responsive_svg(scaling_figure)
 ```
 
 For the overdamped regime, Table I states the following full dependencies:

@@ -72,21 +72,19 @@ import numpy as np
 
 plt.rcParams.update(
     {
+        "figure.dpi": 100,
+        "savefig.dpi": 300,
+        "figure.figsize": (6.75, 3.0),
+        "figure.autolayout": True,
+        "lines.linewidth": 1.0,
+        "lines.markersize": 3.0,
         "svg.fonttype": "none",
-        "font.family": "sans-serif",
-        "font.sans-serif": [
-            "Arial",
-            "Helvetica Neue",
-            "Noto Sans",
-            "DejaVu Sans",
-        ],
-        "font.size": 12,
-        "axes.titlesize": 13,
-        "axes.titleweight": "semibold",
-        "axes.labelsize": 12,
-        "xtick.labelsize": 10.5,
-        "ytick.labelsize": 10.5,
-        "legend.fontsize": 10.5,
+        "font.family": "serif",
+        "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
+        "font.size": 10.0,
+        "axes.titlesize": "medium",
+        "figure.titlesize": "medium",
+        "axes.titleweight": "normal",
         "mathtext.fontset": "stix",
         "mathtext.default": "it",
         "text.color": "#2f2b27",
@@ -110,11 +108,6 @@ def as_responsive_svg(figure_to_render):
         "<svg ",
         '<svg style="width:100%;height:auto;display:block" ',
         1,
-    )
-    svg_markup = svg_markup.replace(
-        "'DejaVu Sans'",
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, "
-        "'Helvetica Neue', 'Noto Sans', Arial, sans-serif",
     )
     return mo.Html(svg_markup)
 
@@ -261,7 +254,7 @@ potential_model = (
 ).reshape(grid_x_model.shape)
 
 equilibrium_figure, equilibrium_axes = plt.subplots(
-    1, 2, figsize=(11, 4.6), constrained_layout=True
+    1, 2, figsize=(6.75, 3.0), constrained_layout=True
 )
 equilibrium_figure.set_facecolor("#f4f0e8")
 for equilibrium_axis in equilibrium_axes:
@@ -377,21 +370,21 @@ for convergence_count_model in convergence_counts_model:
         / np.linalg.norm(inverse_exact, ord="fro")
     )
 
-convergence_figure, convergence_axis = plt.subplots(figsize=(8.5, 4.6))
+convergence_figure, convergence_axis = plt.subplots(figsize=(6.75, 3.0))
 convergence_figure.set_facecolor("#f4f0e8")
 convergence_axis.set_facecolor("#f4f0e8")
 convergence_axis.loglog(
     convergence_counts_model * dt_model,
     mean_errors_model,
     color="#167d9a",
-    linewidth=2,
+    linewidth=1,
     label="first moment: linear system",
 )
 convergence_axis.loglog(
     convergence_counts_model * dt_model,
     inverse_errors_model,
     color="#cf7a24",
-    linewidth=2,
+    linewidth=1,
     label="second moment: inverse",
 )
 convergence_axis.set_xlabel("post-burn-in integration time")
@@ -429,21 +422,21 @@ mode_times_explorer = np.linspace(0.0, 5.0 * condition_explorer, 400)
 fast_decay_explorer = np.exp(-mode_times_explorer)
 slow_decay_explorer = np.exp(-mode_times_explorer / condition_explorer)
 
-mode_figure_explorer, mode_axis_explorer = plt.subplots(figsize=(8.5, 4.2))
+mode_figure_explorer, mode_axis_explorer = plt.subplots(figsize=(6.75, 3.0))
 mode_figure_explorer.set_facecolor("#f4f0e8")
 mode_axis_explorer.set_facecolor("#f4f0e8")
 mode_axis_explorer.semilogy(
     mode_times_explorer,
     fast_decay_explorer,
     color="#167d9a",
-    linewidth=2,
+    linewidth=1,
     label=r"fast mode, $\lambda_{\max}=1$",
 )
 mode_axis_explorer.semilogy(
     mode_times_explorer,
     slow_decay_explorer,
     color="#c2412d",
-    linewidth=2,
+    linewidth=1,
     label=rf"slow mode, $\lambda_{{\min}}=1/{condition_explorer:.0f}$",
 )
 mode_axis_explorer.axhline(np.exp(-1), color="#6b665f", linestyle=":")
@@ -514,7 +507,7 @@ dimension_range = np.logspace(1, 4, 180)
 omega_exponent = 2.3
 
 scaling_figure, scaling_axes = plt.subplots(
-    1, 2, figsize=(11, 4.4), constrained_layout=True
+    1, 2, figsize=(6.75, 3.0), constrained_layout=True
 )
 scaling_figure.set_facecolor("#f4f0e8")
 for scaling_axis in scaling_axes:

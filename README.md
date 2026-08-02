@@ -37,3 +37,5 @@ marimo edit notebooks/laplacian_eigenmodes.py
 ./scripts/export-notebooks.sh
 npm run build
 ```
+
+The experiments section also includes a separate native MDX demonstration built with `@marimo-team/mdx-marimo`. Its `python marimo` code fences are compiled into connected marimo islands within the Fumadocs page, while the full notebook export remains available for isolation and comparison.

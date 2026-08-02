@@ -116,26 +116,26 @@ matrix_control = mo.ui.matrix(
     step=0.5,
     precision=1,
     symmetric=True,
-    label="Coupling matrix A",
+    label="Coupling matrix 𝐴",
 )
 force_control = mo.ui.array(
     [
-        mo.ui.number(-10, 10, 0.5, value=4.0, label="b₁"),
-        mo.ui.number(-10, 10, 0.5, value=-2.0, label="b₂"),
+        mo.ui.number(-10, 10, 0.5, value=4.0, label="𝑏₁"),
+        mo.ui.number(-10, 10, 0.5, value=-2.0, label="𝑏₂"),
     ],
-    label="Force vector b",
+    label="Force vector 𝑏",
 )
 steps_control = mo.ui.slider(
     10_000, 80_000, 10_000, value=30_000, label="Integration steps"
 )
 beta_control = mo.ui.slider(
-    0.1, 3.0, 0.1, value=1.0, label="Inverse temperature β"
+    0.1, 3.0, 0.1, value=1.0, label="Inverse temperature 𝛽"
 )
 gamma_control = mo.ui.slider(
-    1.0, 20.0, 0.5, value=6.0, label="Damping γ"
+    1.0, 20.0, 0.5, value=6.0, label="Damping 𝛾"
 )
 dt_control = mo.ui.slider(
-    0.001, 0.03, 0.001, value=0.008, label="Time step Δt"
+    0.001, 0.03, 0.001, value=0.008, label="Time step Δ𝑡"
 )
 
 mo.hstack(
@@ -411,7 +411,7 @@ $\kappa=\lambda_{\max}/\lambda_{\min}$ while fixing $\lambda_{\max}=1$.
 
 ```python marimo
 condition_control = mo.ui.slider(
-    1, 100, 1, value=12, label="Condition number κ"
+    1, 100, 1, value=12, label="Condition number 𝜅"
 )
 condition_control
 ```
@@ -496,7 +496,7 @@ condition-number factors, error dependence, and logarithms. It is an
 
 ```python marimo
 dimension_control = mo.ui.slider(
-    10, 10_000, 10, value=1_000, label="Matrix dimension d"
+    10, 10_000, 10, value=1_000, label="Matrix dimension 𝑑"
 )
 dimension_control
 ```

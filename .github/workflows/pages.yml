@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - pages
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -72,6 +73,10 @@ jobs:
       - name: Build combined static site
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SIEMENS_API_KEY: ${{ secrets.SIEMENS_LLM_API_KEY }}
+          NEXT_PUBLIC_SIEMENS_BASE_URL: https://api.siemens.com/llm/v1
+          NEXT_PUBLIC_SIEMENS_MODEL: qwen-3.6-27b
+          NEXT_PUBLIC_AI_CHAT_ENABLED: "true"
         run: npm run build
 
       - name: Verify combined static output
@@ -79,8 +84,11 @@ jobs:
         run: |
           test -d out
           test -f out/index.html
+          test -f out/llms-full.txt
           test -f \
             out/notebooks/laplacian-eigenmodes/index.html
+
+          test -s out/llms-full.txt
 
           find out/notebooks/laplacian-eigenmodes \
             -maxdepth 2 \

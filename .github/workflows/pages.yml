@@ -3,7 +3,7 @@ name: Deploy research notebook
 on:
   push:
     branches:
-      - pages
+      - gh-pages
   workflow_dispatch:
 
 permissions:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out pages branch
+      - name: Check out gh-pages branch
         uses: actions/checkout@v6
 
       - name: Set up Node.js

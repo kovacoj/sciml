@@ -1,6 +1,6 @@
 # Research Notebook Website
 
-This orphan `pages` branch contains only the source for the research notebook website. Scientific code will live on `main` later. The two branches intentionally have unrelated histories.
+This orphan `gh-pages` branch contains only the source for the research notebook website. Scientific code will live on `main` later. The two branches intentionally have unrelated histories.
 
 The site uses Fumadocs and Next.js.
 
@@ -21,7 +21,7 @@ npm run build
 
 Generated output is written to `out/`.
 
-GitHub Actions builds and deploys the site when changes are pushed to `pages`.
+GitHub Actions builds and deploys the site when changes are pushed to `gh-pages`.
 
 ## Interactive notebooks
 

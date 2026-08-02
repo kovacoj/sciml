@@ -78,6 +78,12 @@ function isConversation(value: unknown): value is QueueConversationMessage[] {
   );
 }
 
+function sanitizeConversation(
+  messages: QueueConversationMessage[],
+): QueueConversationMessage[] {
+  return messages.filter((message) => message.content.trim() !== '');
+}
+
 export function PublicAIChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<QueueConversationMessage[]>([]);
@@ -128,7 +134,7 @@ export function PublicAIChat() {
 
       if (hasMatchingHandoff) {
         skipNextConversationSave.current = true;
-        setMessages(handoff.messages);
+        setMessages(sanitizeConversation(handoff.messages));
         setOpen(true);
         localStorage.removeItem(handoffStorageKey);
       } else {
@@ -136,7 +142,9 @@ export function PublicAIChat() {
         const stored = localStorage.getItem(currentConversationKey);
         if (stored) {
           const parsed: unknown = JSON.parse(stored);
-          if (isConversation(parsed)) setMessages(parsed);
+          if (isConversation(parsed)) {
+            setMessages(sanitizeConversation(parsed));
+          }
         }
         setOpen(localStorage.getItem(currentOpenKey) === 'true');
       }
@@ -188,7 +196,7 @@ export function PublicAIChat() {
     if (!content || isLoading) return;
 
     const nextMessages: QueueConversationMessage[] = [
-      ...messages,
+      ...sanitizeConversation(messages),
       { role: 'user', content },
     ];
     const controller = new AbortController();

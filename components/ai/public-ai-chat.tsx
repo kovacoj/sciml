@@ -8,6 +8,10 @@ import {
   useRef,
   useState,
 } from 'react';
+import ReactMarkdown from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import {
   submitQueueRequest,
   type QueueProgress,
@@ -15,6 +19,13 @@ import {
 import type { QueueConversationMessage } from './queue-protocol';
 
 const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
+const basePath =
+  process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, '') ?? '';
+
+function resolveChatLink(href: string | undefined): string | undefined {
+  if (!href?.startsWith('/') || href.startsWith(`${basePath}/`)) return href;
+  return `${basePath}${href}`;
+}
 
 export function PublicAIChat() {
   const [open, setOpen] = useState(false);
@@ -170,10 +181,31 @@ export function PublicAIChat() {
                   className={
                     message.role === 'user'
                       ? 'ms-8 rounded-xl bg-fd-primary px-3 py-2 text-sm whitespace-pre-wrap text-fd-primary-foreground'
-                      : 'me-8 rounded-xl border bg-fd-secondary px-3 py-2 text-sm whitespace-pre-wrap text-fd-secondary-foreground'
+                      : 'prose prose-sm dark:prose-invert me-8 max-w-none rounded-xl border bg-fd-secondary px-3 py-2 text-fd-secondary-foreground'
                   }
                 >
-                  {message.content}
+                  {message.role === 'assistant' ? (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                      components={{
+                        a: ({ children, href }) => (
+                          <a
+                            href={resolveChatLink(href)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-fd-primary underline underline-offset-4"
+                          >
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  ) : (
+                    message.content
+                  )}
                 </div>
               ))}
 

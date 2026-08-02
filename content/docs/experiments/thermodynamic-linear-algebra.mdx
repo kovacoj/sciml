@@ -15,7 +15,7 @@ dependencies = [
 # Computing with thermal noise
 
 This is an interactive adaptation of **Aifer et al., _Thermodynamic Linear
-Algebra_**, [arXiv:2308.05660v2](https://arxiv.org/abs/2308.05660) (2024).
+Algebra_** [[1]](#ref-1).
 The paper is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 The exposition and browser experiments here are original; equations, protocols,
 and complexity claims are attributed to the paper.
@@ -34,35 +34,35 @@ trajectory.
 
 ## The equilibrium identity
 
-For a symmetric positive-definite matrix `A` and vector `b`, define the
+For a symmetric positive-definite matrix $A$ and vector $b$, define the
 quadratic potential
 
-```text
-U(x) = 1/2 x^T A x - b^T x.
-```
+$$
+U(x)=\frac{1}{2}x^{\mathsf T}Ax-b^{\mathsf T}x.
+$$
 
-At inverse temperature `beta = (k_B T)^-1`, the Boltzmann density is
-`p(x) proportional to exp(-beta U(x))`. Completing the square shows that it is Gaussian:
+At inverse temperature $\beta=(k_B T)^{-1}$, the Boltzmann density is
+$p(x)\propto\exp[-\beta U(x)]$. Completing the square shows that it is Gaussian:
 
-```text
-x ~ Normal(A^-1 b, beta^-1 A^-1).
-```
+$$
+x\sim\mathcal N\!\left(A^{-1}b,\,\beta^{-1}A^{-1}\right).
+$$
 
 That single identity supplies two algorithms:
 
 | Equilibrium observable | Linear-algebra result |
 |---|---|
-| First moment `<x>` | Solution `A^-1 b` |
-| Centered second moment `beta Cov(x)` | Matrix inverse `A^-1` |
+| First moment $\langle x\rangle$ | Solution $A^{-1}b$ |
+| Centered second moment $\beta\operatorname{Cov}(x)$ | Matrix inverse $A^{-1}$ |
 
 Ergodicity turns ensemble averages into time averages along one sufficiently
-long trajectory. The first moment needs `d` integrator outputs; the complete
-second moment needs `d^2` multiplier-integrator channels.
+long trajectory [[1]](#ref-1). The first moment needs $d$ integrator outputs;
+the complete second moment needs $d^2$ multiplier-integrator channels.
 
 ## Build a two-dimensional system
 
 Edit the coupling matrix and force, then choose the thermal and integration
-parameters. The page requires `A` to remain positive definite.
+parameters. The page requires $A$ to remain positive definite.
 
 ```python marimo
 import marimo as mo
@@ -146,13 +146,14 @@ mo.md(
 The paper analyzes both overdamped and underdamped motion. This demonstration
 uses the overdamped Langevin equation (paper Eq. 27):
 
-```text
-dx = -gamma^-1 (A x - b) dt + sqrt(2 (gamma beta)^-1) dW_t.
-```
+$$
+d x_t=-\gamma^{-1}(Ax_t-b)\,dt
+      +\sqrt{\frac{2}{\gamma\beta}}\,dW_t.
+$$
 
-The drift pulls the state toward `A^-1 b` while fluctuation-dissipation fixes
+The drift pulls the state toward $A^{-1}b$ while fluctuation-dissipation fixes
 the noise amplitude. Euler-Maruyama is used here only to emulate that continuous
-physical process on a digital computer.
+physical process on a digital computer [[2]](#ref-2).
 
 ```python marimo
 beta_model = float(beta_control.value)
@@ -359,12 +360,12 @@ bounds rather than monotone guarantees.
 
 ## Why conditioning matters
 
-In the eigenbasis of `A`, overdamped dynamics separate into independent modes.
-A mode with eigenvalue `lambda_j` forgets its initial displacement as
-`exp(-lambda_j t / gamma)`. The smallest eigenvalue is therefore the bottleneck.
+In the eigenbasis of $A$, overdamped dynamics separate into independent modes.
+A mode with eigenvalue $\lambda_j$ forgets its initial displacement as
+$\exp(-\lambda_jt/\gamma)$. The smallest eigenvalue is therefore the bottleneck.
 
 Use this idealized mode explorer to isolate the effect of the condition number
-`kappa = lambda_max / lambda_min` while fixing `lambda_max = 1`.
+$\kappa=\lambda_{\max}/\lambda_{\min}$ while fixing $\lambda_{\max}=1$.
 
 ```python marimo
 condition_control = mo.ui.slider(
@@ -414,29 +415,35 @@ mode_figure_explorer
 ```
 
 For the overdamped model, the paper bounds the equilibration time by a factor
-proportional to `kappa tau_r` (up to logarithms), where
-`tau_r = gamma / ||A||`. Its integration-time bounds scale as `kappa^2` for the
-linear-system protocol and as `kappa` for inverse estimation, in addition to
+proportional to $\kappa\tau_r$ (up to logarithms), where
+$\tau_r=\gamma/\lVert A\rVert$. Its integration-time bounds scale as $\kappa^2$ for the
+linear-system protocol and as $\kappa$ for inverse estimation, in addition to
 dimension and error factors.
 
 ## Four thermodynamic primitives
 
 The paper develops a hierarchy based on which equilibrium information is read:
 
-1. **Linear system:** encode `b` as a constant force and estimate the mean.
-2. **Matrix inverse:** set `b = 0` and estimate the covariance.
-3. **Lyapunov equation:** choose correlated thermal noise with covariance `R`;
+1. **Linear system:** encode $b$ as a constant force and estimate the mean.
+2. **Matrix inverse:** set $b=0$ and estimate the covariance.
+3. **Lyapunov equation:** choose correlated thermal noise with covariance $R$;
    the stationary covariance solves
-   `A Sigma + Sigma A^T = 2 beta^-1 R`.
+   $A\Sigma+\Sigma A^{\mathsf T}=2\beta^{-1}R$.
 4. **Determinant:** infer a free-energy difference while changing one quadratic
    potential into another. For zero force,
-   `Delta F = (2 beta)^-1 log(|A_2| / |A_1|)`.
+   $\Delta F=(2\beta)^{-1}\log(|A_2|/|A_1|)$.
 
 The determinant protocol is qualitatively different. It uses work measurements
-and the Jarzynski equality `exp(-beta Delta F) = <exp(-beta W)>`.
+and the Jarzynski equality [[3]](#ref-3)
+
+$$
+e^{-\beta\Delta F}=\left\langle e^{-\beta W}\right\rangle.
+$$
+
 The paper warns that the direct exponential estimator is biased at finite
 sample size and can converge slowly because rare trajectories dominate. It
-points to Bennett and multistate Bennett estimators as better choices.
+points to Bennett and multistate Bennett estimators as better choices
+[[4]](#ref-4).
 
 ## Claimed asymptotic scaling
 
@@ -508,13 +515,13 @@ For the overdamped regime, Table I states the following full dependencies:
 
 | Problem | Digital comparison in paper | Thermodynamic bound |
 |---|---:|---:|
-| Linear system | `O(min(d^omega, d^2 sqrt(kappa)))` | `O(d kappa^2 epsilon^-2)` |
-| Matrix inverse | `O(d^omega)` | `O(d^2 kappa epsilon^-2)` |
-| Lyapunov equation | `O(d^3)` | `O(d^2 kappa epsilon^-2)` |
-| Matrix determinant | `O(d^omega)` | `O(d kappa log(kappa)^3 epsilon^-2)` |
+| Linear system | $O(\min\{d^\omega,d^2\sqrt\kappa\})$ | $O(d\kappa^2\epsilon^{-2})$ |
+| Matrix inverse | $O(d^\omega)$ | $O(d^2\kappa\epsilon^{-2})$ |
+| Lyapunov equation | $O(d^3)$ | $O(d^2\kappa\epsilon^{-2})$ |
+| Matrix determinant | $O(d^\omega)$ | $O(d\kappa\log^3\!\kappa\,\epsilon^{-2})$ |
 
-Here `omega approximately 2.3` is the matrix-multiplication exponent used by the
-authors. Their central asymptotic claim is a linear-in-`d` advantage when other
+Here $\omega\approx2.3$ is the matrix-multiplication exponent used by the
+authors. Their central asymptotic claim is a linear-in-$d$ advantage when other
 parameters are held fixed. Whether that becomes a practical wall-clock or
 energy advantage depends on hardware and all omitted constants.
 
@@ -524,20 +531,20 @@ This is the most important qualification to the scaling story. The analytical
 model assumes:
 
 - Langevin dynamics accurately describe the device.
-- `A` and `b` can be switched instantaneously.
+- $A$ and $b$ can be switched instantaneously.
 - The quadratic potential can represent them with arbitrary accuracy.
 - A convenient known Gaussian equilibrium state is available before a protocol.
 - Analog multipliers and integrators operate in parallel as the system grows.
 
 For numerical timing comparisons, the authors model an electrical device with
-an `RC = 1 microsecond` timescale, 16-bit conversion, and 5,000 ADC/DAC
-channels at 250 MSamples/s. They include an `O(d^2)` digital compilation step,
+an $RC=1\,\mu\mathrm{s}$ timescale, 16-bit conversion, and 5,000 ADC/DAC
+channels at 250 MSamples/s. They include an $O(d^2)$ digital compilation step,
 which was dominant in the investigated cases. They explicitly state that analog
 imprecision was not included in those experiments.
 
 The paper's simulations compare its hardware timing model against GPU conjugate
 gradient and Cholesky calculations. They report increasing competitiveness at
-larger `d` and `kappa`, especially when a quick approximate answer is useful;
+larger $d$ and $\kappa$, especially when a quick approximate answer is useful;
 the digital methods can ultimately reach higher precision. These are modeled
 comparisons, not measurements from a large thermodynamic processor.
 
@@ -547,21 +554,25 @@ Rescaling the force can apparently shorten averaging time, but it also deepens
 the potential and costs energy. The paper reformulates this as a lower bound on
 the energy-time product. In the overdamped model,
 
-```text
-E tau >= [2 kappa^2 d / (epsilon_x^2 (1 - P_epsilon))] beta^-1 tau_r.
-```
+$$
+E\tau\geq
+\frac{2\kappa^2d}{\epsilon_x^2(1-P_\epsilon)}
+\,\beta^{-1}\tau_r.
+$$
 
 Thus time is not a free resource that can be reduced indefinitely by increasing
 signal amplitude. Precision is costly too: the probabilistic integration bounds
-scale as `epsilon^-2`, as expected for sampling.
+scale as $\epsilon^{-2}$, as expected for sampling.
 
 ## What to take away
 
 The paper's conceptual contribution is the mapping
 
-```text
-quadratic physics -> Gaussian equilibrium -> linear algebra from moments
-```
+$$
+\text{quadratic physics}
+\longrightarrow\text{Gaussian equilibrium}
+\longrightarrow\text{linear algebra from moments}.
+$$
 
 Noise is useful because it explores the equilibrium distribution. The hierarchy
 of first moments, second moments, and free-energy information yields progressively
@@ -570,16 +581,46 @@ on an analog hardware model and idealizations that real devices must confront.
 
 The authors identify open questions around optimal energy-time tradeoffs,
 higher-moment algorithms, analog error, and experimental scaling. They report a
-separate eight-oscillator electrical demonstration of `8 x 8` matrix inversion
-as an early hardware result, while leaving large-scale validation for future work.
+separate eight-oscillator electrical demonstration of $8\times8$ matrix inversion
+as an early hardware result [[5]](#ref-5), while leaving large-scale validation
+for future work.
 
-## Citation and scope
+## References
 
-Maxwell Aifer, Kaelan Donatella, Max Hunter Gordon, Samuel Duffield, Thomas Ahle,
-Daniel Simpson, Gavin E. Crooks, and Patrick J. Coles, “Thermodynamic Linear
-Algebra,” arXiv:2308.05660v2, 2024. [PDF](https://arxiv.org/pdf/2308.05660v2) ·
-[DOI](https://doi.org/10.48550/arXiv.2308.05660)
+<ol className="space-y-4">
+  <li id="ref-1">
+    Maxwell Aifer, Kaelan Donatella, Max Hunter Gordon, Samuel Duffield, Thomas
+    Ahle, Daniel Simpson, Gavin E. Crooks, and Patrick J. Coles,
+    “Thermodynamic Linear Algebra,” arXiv:2308.05660v2, 2024.
+    {' '}<a href="https://arxiv.org/pdf/2308.05660v2">PDF</a> ·
+    {' '}<a href="https://doi.org/10.48550/arXiv.2308.05660">DOI</a>
+    {' '}<a href="#computing-with-thermal-noise">↩</a>
+  </li>
+  <li id="ref-2">
+    C. W. Gardiner, <em>Handbook of Stochastic Methods</em>, Springer, 1985.
+    {' '}<a href="https://doi.org/10.1007/978-3-662-02377-8">DOI</a>
+    {' '}<a href="#watch-equilibration">↩</a>
+  </li>
+  <li id="ref-3">
+    Christopher Jarzynski, “Nonequilibrium Equality for Free Energy
+    Differences,” <em>Physical Review Letters</em> 78, 2690–2693, 1997.
+    {' '}<a href="https://doi.org/10.1103/PhysRevLett.78.2690">DOI</a>
+    {' '}<a href="#four-thermodynamic-primitives">↩</a>
+  </li>
+  <li id="ref-4">
+    Charles H. Bennett, “Efficient Estimation of Free Energy Differences from
+    Monte Carlo Data,” <em>Journal of Computational Physics</em> 22, 245–268,
+    1976. {' '}<a href="https://doi.org/10.1016/0021-9991(76)90078-4">DOI</a>
+    {' '}<a href="#four-thermodynamic-primitives">↩</a>
+  </li>
+  <li id="ref-5">
+    Denis Melanson et al., “Thermodynamic Computing System for AI
+    Applications,” arXiv:2312.04836, 2023.
+    {' '}<a href="https://arxiv.org/abs/2312.04836">arXiv</a>
+    {' '}<a href="#what-to-take-away">↩</a>
+  </li>
+</ol>
 
-This adaptation focuses on the paper's main construction and results. Consult
-the original paper and its supplemental derivations for formal error bounds,
-the underdamped analysis, proofs of ergodicity, and complete references.
+This adaptation focuses on Ref. [1]'s main construction and results. Consult
+the paper and its supplemental derivations for formal error bounds, the
+underdamped analysis, proofs of ergodicity, and its complete bibliography.

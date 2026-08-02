@@ -12,11 +12,12 @@ import {
 } from './queue-protocol.ts';
 
 const request: QueueRequest = {
-  version: 1,
+  version: 2,
   requestId: 'c9474d2a-a2d6-4cf5-b525-f1466886e87e',
+  conversationId: '9d153721-b308-4f23-9f04-f659e3c343f1',
   question: 'What is the equilibrium covariance?',
   currentPageUrl: 'https://kovacoj.github.io/sciml/docs/',
-  conversation: [],
+  context: { recentMessages: [] },
 };
 
 test('encodes a request marker and JSON payload', () => {
@@ -24,6 +25,20 @@ test('encodes a request marker and JSON payload', () => {
   assert.match(encoded, /sciml-chat-request:c9474d2a/);
   assert.match(encoded, /```json/);
   assert.match(encoded, /equilibrium covariance/);
+  assert.doesNotMatch(encoded, /"conversation"/);
+});
+
+test('rejects an oversized queue payload', () => {
+  assert.throws(
+    () =>
+      encodeQueueRequest({
+        ...request,
+        context: {
+          recentMessages: [{ role: 'user', content: 'x'.repeat(24_000) }],
+        },
+      }),
+    /too large/,
+  );
 });
 
 test('parses only a matching response', () => {

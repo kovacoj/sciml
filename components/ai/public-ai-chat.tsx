@@ -1,6 +1,7 @@
 'use client';
+/* eslint-disable react-hooks/exhaustive-deps, react-hooks/purity, react-hooks/set-state-in-effect */
 
-import { MessageCircle, Send, Square, Trash2, X } from 'lucide-react';
+import { MessageCircle, RotateCcw, Send, Square, Trash2, X } from 'lucide-react';
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -13,9 +14,18 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import {
-  submitQueueRequest,
+  enqueueQueueRequest,
+  pollQueueRequest,
   type QueueProgress,
 } from './github-queue-client';
+import {
+  buildRecentContext,
+  CHAT_STORAGE_KEY,
+  createChatState,
+  findPendingMessage,
+  parseChatState,
+  type StoredMessage,
+} from './chat-storage';
 import type { QueueConversationMessage } from './queue-protocol';
 import {
   extractDocumentationLinkTarget,
@@ -27,16 +37,7 @@ import {
 const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 const basePath =
   process.env.NEXT_PUBLIC_BASE_PATH?.replace(/\/$/, '') ?? '';
-const conversationStoragePrefix = 'sciml-ai-chat-conversation-v2';
-const openStoragePrefix = 'sciml-ai-chat-open-v2';
-const handoffStorageKey = 'sciml-ai-chat-handoff-v1';
-const handoffLifetimeMs = 5 * 60 * 1000;
-
-interface ConversationHandoff {
-  destinationPath: string;
-  messages: QueueConversationMessage[];
-  createdAt: number;
-}
+const legacyConversationPrefix = 'sciml-ai-chat-conversation-v2';
 
 function resolveChatLink(href: string | undefined): string | undefined {
   if (!href?.startsWith('/') || href.startsWith(`${basePath}/`)) return href;
@@ -46,22 +47,6 @@ function resolveChatLink(href: string | undefined): string | undefined {
 function normalizePath(path: string): string {
   const normalized = path.replace(/\/$/, '');
   return normalized || '/';
-}
-
-function pageStorageKey(prefix: string, path: string): string {
-  return `${prefix}:${normalizePath(path)}`;
-}
-
-function saveConversation(
-  key: string | null,
-  messages: QueueConversationMessage[],
-): void {
-  if (!key) return;
-  try {
-    localStorage.setItem(key, JSON.stringify(messages));
-  } catch {
-    // Chat remains usable when browser storage is unavailable.
-  }
 }
 
 function isConversation(value: unknown): value is QueueConversationMessage[] {
@@ -78,25 +63,35 @@ function isConversation(value: unknown): value is QueueConversationMessage[] {
   );
 }
 
-function sanitizeConversation(
-  messages: QueueConversationMessage[],
-): QueueConversationMessage[] {
-  return messages.filter((message) => message.content.trim() !== '');
-}
-
 export function PublicAIChat() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<QueueConversationMessage[]>([]);
+  const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [input, setInput] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState<QueueProgress | null>(null);
   const [hasRestoredMessages, setHasRestoredMessages] = useState(false);
   const abortController = useRef<AbortController | null>(null);
   const messageViewport = useRef<HTMLDivElement | null>(null);
-  const conversationStorageKey = useRef<string | null>(null);
-  const openStorageKey = useRef<string | null>(null);
-  const skipNextConversationSave = useRef(false);
+  const conversationId = useRef('');
+  const hasResumedPending = useRef(false);
+  const activeRequestId = useRef<string | null>(null);
+
+  const saveState = (nextMessages: StoredMessage[], nextOpen = open) => {
+    if (!conversationId.current) return;
+    try {
+      localStorage.setItem(
+        CHAT_STORAGE_KEY,
+        JSON.stringify({
+          version: 3,
+          conversationId: conversationId.current,
+          open: nextOpen,
+          messages: nextMessages,
+        }),
+      );
+    } catch {
+      // Chat remains usable when browser storage is unavailable.
+    }
+  };
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -114,43 +109,54 @@ export function PublicAIChat() {
   useEffect(() => {
     try {
       const currentPath = normalizePath(window.location.pathname);
-      const currentConversationKey = pageStorageKey(
-        conversationStoragePrefix,
-        currentPath,
-      );
-      const currentOpenKey = pageStorageKey(openStoragePrefix, currentPath);
-      conversationStorageKey.current = currentConversationKey;
-      openStorageKey.current = currentOpenKey;
-
-      const handoffText = localStorage.getItem(handoffStorageKey);
-      const handoff = handoffText
-        ? (JSON.parse(handoffText) as ConversationHandoff)
-        : null;
-      const hasMatchingHandoff =
-        handoff !== null &&
-        normalizePath(handoff.destinationPath) === currentPath &&
-        Date.now() - handoff.createdAt <= handoffLifetimeMs &&
-        isConversation(handoff.messages);
-
-      if (hasMatchingHandoff) {
-        skipNextConversationSave.current = true;
-        setMessages(sanitizeConversation(handoff.messages));
-        setOpen(true);
-        localStorage.removeItem(handoffStorageKey);
+      const storedState = parseChatState(localStorage.getItem(CHAT_STORAGE_KEY));
+      if (storedState) {
+        conversationId.current = storedState.conversationId;
+        setMessages(storedState.messages);
+        setOpen(storedState.open);
       } else {
-        if (handoffText) localStorage.removeItem(handoffStorageKey);
-        const stored = localStorage.getItem(currentConversationKey);
-        if (stored) {
-          const parsed: unknown = JSON.parse(stored);
-          if (isConversation(parsed)) {
-            setMessages(sanitizeConversation(parsed));
+        const state = createChatState();
+        const legacyKeys = Array.from(
+          { length: localStorage.length },
+          (_, index) => localStorage.key(index),
+        ).filter(
+          (key): key is string =>
+            key?.startsWith(`${legacyConversationPrefix}:`) ?? false,
+        );
+        const currentLegacyKey = `${legacyConversationPrefix}:${currentPath}`;
+        legacyKeys.sort((left) => (left === currentLegacyKey ? -1 : 0));
+        let legacyMessages: QueueConversationMessage[] = [];
+        for (const key of legacyKeys) {
+          const legacyText = localStorage.getItem(key);
+          if (!legacyText) continue;
+          try {
+            const legacy: unknown = JSON.parse(legacyText);
+            if (
+              isConversation(legacy) &&
+              legacy.length > legacyMessages.length
+            ) {
+              legacyMessages = legacy;
+            }
+          } catch {
+            // Ignore malformed legacy entries while checking other pages.
           }
         }
-        setOpen(localStorage.getItem(currentOpenKey) === 'true');
+        state.messages = legacyMessages
+          .filter((message) => message.content.trim())
+          .map((message) => ({
+            ...message,
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+            status: 'completed' as const,
+          }));
+        conversationId.current = state.conversationId;
+        setMessages(state.messages);
+        setOpen(state.open);
       }
 
       localStorage.removeItem('sciml-ai-chat-conversation-v1');
       localStorage.removeItem('sciml-ai-chat-open-v1');
+      localStorage.removeItem('sciml-ai-chat-handoff-v1');
     } catch {
       // Ignore malformed or unavailable browser storage.
     } finally {
@@ -160,22 +166,12 @@ export function PublicAIChat() {
 
   useEffect(() => {
     if (!hasRestoredMessages) return;
-    if (skipNextConversationSave.current) {
-      skipNextConversationSave.current = false;
-      return;
-    }
-    saveConversation(conversationStorageKey.current, messages);
+    saveState(messages);
   }, [hasRestoredMessages, messages]);
 
   useEffect(() => {
     if (!hasRestoredMessages) return;
-    try {
-      if (openStorageKey.current) {
-        localStorage.setItem(openStorageKey.current, String(open));
-      }
-    } catch {
-      // Chat remains usable when browser storage is unavailable.
-    }
+    saveState(messages, open);
   }, [hasRestoredMessages, open]);
 
   useEffect(() => {
@@ -186,101 +182,194 @@ export function PublicAIChat() {
       top: viewport.scrollHeight,
       behavior: 'smooth',
     });
-  }, [messages, error, isLoading]);
+  }, [messages, isLoading]);
 
-  if (!chatEnabled) return null;
+  const finishRequest = (
+    pending: StoredMessage,
+    sourceMessages: StoredMessage[],
+    answer: string,
+  ) => {
+    if (activeRequestId.current !== pending.requestId) return;
+    const markerTarget = extractNavigationTarget(answer, basePath);
+    const explicitlyRequestedNavigation = isExplicitNavigationRequest(
+      pending.content,
+    );
+    const navigationTarget =
+      markerTarget ??
+      (explicitlyRequestedNavigation
+        ? extractDocumentationLinkTarget(answer, basePath)
+        : null);
+    const shouldNavigate =
+      navigationTarget !== null && explicitlyRequestedNavigation;
+    let visibleAnswer = stripNavigationAction(answer);
+    if (markerTarget && !shouldNavigate) {
+      const link = `[Open the requested documentation page](${markerTarget})`;
+      visibleAnswer = visibleAnswer ? `${visibleAnswer}\n\n${link}` : link;
+    }
+    const completedMessages = sourceMessages.map((message) =>
+      message.id === pending.id
+        ? { ...message, status: 'completed' as const, error: undefined }
+        : message,
+    );
+    if (visibleAnswer) {
+      completedMessages.push({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: visibleAnswer,
+        createdAt: Date.now(),
+        status: 'completed',
+        requestId: pending.requestId,
+      });
+    }
+    setMessages(completedMessages);
+    saveState(completedMessages);
+    if (navigationTarget && shouldNavigate) {
+      window.location.href = new URL(
+        navigationTarget,
+        window.location.origin,
+      ).href;
+    }
+  };
 
-  const submit = async (event?: FormEvent) => {
-    event?.preventDefault();
-    const content = input.trim();
-    if (!content || isLoading) return;
+  const failRequest = (
+    pending: StoredMessage,
+    sourceMessages: StoredMessage[],
+    caughtError: unknown,
+  ) => {
+    if (activeRequestId.current !== pending.requestId) return;
+    const message =
+      caughtError instanceof DOMException && caughtError.name === 'AbortError'
+        ? 'The request was stopped.'
+        : caughtError instanceof Error
+          ? caughtError.message
+          : 'The AI request failed.';
+    const failedMessages = sourceMessages.map((item) =>
+      item.id === pending.id
+        ? { ...item, status: 'failed' as const, error: message }
+        : item,
+    );
+    setMessages(failedMessages);
+    saveState(failedMessages);
+  };
 
-    const nextMessages: QueueConversationMessage[] = [
-      ...sanitizeConversation(messages),
-      { role: 'user', content },
-    ];
+  async function resumeRequest(
+    pending: StoredMessage,
+    sourceMessages: StoredMessage[],
+  ) {
+    if (!pending.requestId || !pending.submittedAt) return;
     const controller = new AbortController();
+    activeRequestId.current = pending.requestId;
+    abortController.current = controller;
+    setIsLoading(true);
+    setProgress('queued');
+    setOpen(true);
+    try {
+      const answer = await pollQueueRequest(
+        pending.requestId,
+        pending.submittedAt,
+        controller.signal,
+        setProgress,
+      );
+      finishRequest(pending, sourceMessages, answer);
+    } catch (caughtError) {
+      failRequest(pending, sourceMessages, caughtError);
+    } finally {
+      if (activeRequestId.current === pending.requestId) {
+        activeRequestId.current = null;
+        abortController.current = null;
+      }
+      setIsLoading(false);
+      setProgress(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!hasRestoredMessages || hasResumedPending.current) return;
+    hasResumedPending.current = true;
+    const pending = findPendingMessage(messages);
+    if (!pending) return;
+    if (!pending.submittedAt) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === pending.id
+            ? {
+                ...message,
+                status: 'failed',
+                error: 'The request was interrupted before it reached the queue.',
+              }
+            : message,
+        ),
+      );
+      return;
+    }
+    void resumeRequest(pending, messages);
+  }, [hasRestoredMessages]);
+
+  const submitQuestion = async (content: string, retryId?: string) => {
+    if (!content || isLoading) return;
+    const requestId = crypto.randomUUID();
+    const pending: StoredMessage = {
+      id: retryId ?? crypto.randomUUID(),
+      role: 'user',
+      content,
+      createdAt: Date.now(),
+      status: 'pending',
+      requestId,
+    };
+    const priorMessages = messages.filter((message) => message.id !== retryId);
+    const nextMessages = [...priorMessages, pending];
+    const controller = new AbortController();
+    activeRequestId.current = requestId;
 
     setMessages(nextMessages);
-    saveConversation(conversationStorageKey.current, nextMessages);
+    saveState(nextMessages);
     setInput('');
-    setError(null);
     setIsLoading(true);
     setProgress(null);
     abortController.current = controller;
 
     try {
-      const answer = await submitQueueRequest(
+      const submittedAt = await enqueueQueueRequest(
         {
-          version: 1,
-          requestId: crypto.randomUUID(),
+          version: 2,
+          requestId,
+          conversationId: conversationId.current,
           question: content,
           currentPageUrl: window.location.href,
-          conversation: nextMessages,
+          context: { recentMessages: buildRecentContext(priorMessages) },
         },
+        controller.signal,
+      );
+      pending.submittedAt = submittedAt;
+      const submittedMessages = nextMessages.map((message) =>
+        message.id === pending.id ? { ...pending } : message,
+      );
+      setMessages(submittedMessages);
+      saveState(submittedMessages);
+      setProgress('queued');
+      const answer = await pollQueueRequest(
+        requestId,
+        submittedAt,
         controller.signal,
         setProgress,
       );
-
-      const markerTarget = extractNavigationTarget(answer, basePath);
-      const explicitlyRequestedNavigation =
-        isExplicitNavigationRequest(content);
-      const navigationTarget =
-        markerTarget ??
-        (explicitlyRequestedNavigation
-          ? extractDocumentationLinkTarget(answer, basePath)
-          : null);
-      const shouldNavigate =
-        navigationTarget !== null && explicitlyRequestedNavigation;
-      let visibleAnswer = stripNavigationAction(answer);
-      if (markerTarget && !shouldNavigate) {
-        const link = `[Open the requested documentation page](${markerTarget})`;
-        visibleAnswer = visibleAnswer ? `${visibleAnswer}\n\n${link}` : link;
-      }
-      const completedMessages: QueueConversationMessage[] = [
-        ...nextMessages,
-        ...(visibleAnswer
-          ? [{ role: 'assistant' as const, content: visibleAnswer }]
-          : []),
-      ];
-      setMessages(completedMessages);
-      saveConversation(conversationStorageKey.current, completedMessages);
-      if (navigationTarget && shouldNavigate) {
-        try {
-          const destinationPath = new URL(
-            navigationTarget,
-            window.location.origin,
-          ).pathname;
-          const handoff: ConversationHandoff = {
-            destinationPath,
-            messages: completedMessages,
-            createdAt: Date.now(),
-          };
-          localStorage.setItem(handoffStorageKey, JSON.stringify(handoff));
-        } catch {
-          // Navigation still works when browser storage is unavailable.
-        }
-        window.location.href = new URL(
-          navigationTarget,
-          window.location.origin,
-        ).href;
-      }
+      finishRequest(pending, submittedMessages, answer);
     } catch (caughtError) {
-      if (
-        !(caughtError instanceof DOMException) ||
-        caughtError.name !== 'AbortError'
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : 'The AI request failed.',
-        );
-      }
+      failRequest(pending, nextMessages, caughtError);
     } finally {
-      abortController.current = null;
+      if (activeRequestId.current === requestId) {
+        activeRequestId.current = null;
+        abortController.current = null;
+      }
       setIsLoading(false);
       setProgress(null);
     }
+  };
+
+  const submit = async (event?: FormEvent) => {
+    event?.preventDefault();
+    const content = input.trim();
+    await submitQuestion(content);
   };
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -291,19 +380,20 @@ export function PublicAIChat() {
   };
 
   const clearConversation = () => {
+    activeRequestId.current = null;
     abortController.current?.abort();
+    abortController.current = null;
     setMessages([]);
     try {
-      if (conversationStorageKey.current) {
-        localStorage.removeItem(conversationStorageKey.current);
-      }
+      localStorage.removeItem(CHAT_STORAGE_KEY);
     } catch {
       // Chat remains usable when browser storage is unavailable.
     }
     setInput('');
-    setError(null);
     setProgress(null);
   };
+
+  if (!chatEnabled) return null;
 
   return (
     <>
@@ -360,9 +450,9 @@ export function PublicAIChat() {
                 </div>
               ) : null}
 
-              {messages.map((message, index) => (
+              {messages.map((message) => (
                 <div
-                  key={`${message.role}-${index}`}
+                  key={message.id}
                   className={
                     message.role === 'user'
                       ? 'ms-8 rounded-xl bg-fd-primary px-3 py-2 text-sm whitespace-pre-wrap text-fd-primary-foreground'
@@ -395,7 +485,25 @@ export function PublicAIChat() {
                       {message.content}
                     </ReactMarkdown>
                   ) : (
-                    message.content
+                    <>
+                      {message.content}
+                      {message.status === 'failed' ? (
+                        <span className="mt-2 flex items-center justify-between gap-2 border-t border-current/20 pt-2 text-xs">
+                          <span>{message.error ?? 'Request failed.'}</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void submitQuestion(message.content, message.id)
+                            }
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1 rounded-md border border-current/30 px-2 py-1 font-medium disabled:opacity-50"
+                          >
+                            <RotateCcw className="size-3" />
+                            Retry
+                          </button>
+                        </span>
+                      ) : null}
+                    </>
                   )}
                 </div>
               ))}
@@ -406,12 +514,6 @@ export function PublicAIChat() {
                     ? 'Queued in GitHub Actions…'
                     : 'GitHub Actions is generating an answer…'}
                 </p>
-              ) : null}
-
-              {error ? (
-                <div className="rounded-xl border border-fd-error/40 bg-fd-error/10 px-3 py-2 text-sm text-fd-error">
-                  {error}
-                </div>
               ) : null}
             </div>
 
@@ -450,6 +552,11 @@ export function PublicAIChat() {
                   </button>
                 )}
               </div>
+              <p className="border-t px-3 py-2 text-[11px] leading-4 text-fd-muted-foreground">
+                Conversation history is stored in this browser. Recent context
+                is temporarily submitted through a public GitHub issue to
+                generate answers.
+              </p>
             </form>
           </div>
         </aside>

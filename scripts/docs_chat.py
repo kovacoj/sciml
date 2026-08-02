@@ -15,6 +15,9 @@ REQUEST_PATTERN = re.compile(
     r"```json\s*([\s\S]*?)\s*```"
 )
 RESPONSE_MARKER = "<!-- sciml-chat-response:{request_id} -->"
+MAX_CONTEXT_MESSAGES = 8
+MAX_CONTEXT_CHARACTERS = 20_000
+MAX_REQUEST_CHARACTERS = 24_000
 
 
 def required_environment(name: str) -> str:
@@ -45,14 +48,69 @@ def parse_request(comment: str) -> tuple[str, dict]:
 
     request_id, payload_text = match.groups()
     payload = json.loads(payload_text)
-    if payload.get("version") != 1 or payload.get("requestId") != request_id:
+    if payload.get("version") not in {1, 2} or payload.get("requestId") != request_id:
         raise ValueError("Request marker and payload do not match")
     if not isinstance(payload.get("question"), str) or not payload["question"].strip():
         raise ValueError("Question is empty")
     if len(payload["question"]) > 5000:
         raise ValueError("Question exceeds 5000 characters")
+    if payload["version"] == 2:
+        if len(comment) > MAX_REQUEST_CHARACTERS:
+            raise ValueError("Request exceeds 24000 characters")
+        if not isinstance(payload.get("conversationId"), str) or not payload[
+            "conversationId"
+        ].strip():
+            raise ValueError("Conversation ID is empty")
+        context = payload.get("context")
+        if not isinstance(context, dict):
+            raise ValueError("Request context is invalid")
+        validate_context(context.get("recentMessages"))
 
     return request_id, payload
+
+
+def validate_context(messages: object) -> list[dict[str, str]]:
+    if not isinstance(messages, list):
+        raise ValueError("Recent messages must be a list")
+    if len(messages) > MAX_CONTEXT_MESSAGES:
+        raise ValueError("Recent context exceeds 8 messages")
+
+    validated = []
+    total_characters = 0
+    for message in messages:
+        if (
+            not isinstance(message, dict)
+            or message.get("role") not in {"user", "assistant"}
+            or not isinstance(message.get("content"), str)
+        ):
+            raise ValueError("Recent context contains an invalid message")
+        total_characters += len(message["content"])
+        if total_characters > MAX_CONTEXT_CHARACTERS:
+            raise ValueError("Recent context exceeds 20000 characters")
+        validated.append(
+            {"role": message["role"], "content": message["content"]}
+        )
+    return validated
+
+
+def bound_legacy_context(messages: object) -> list[dict[str, str]]:
+    if not isinstance(messages, list):
+        return []
+    bounded = []
+    remaining = MAX_CONTEXT_CHARACTERS
+    for message in reversed(messages):
+        if len(bounded) >= MAX_CONTEXT_MESSAGES or remaining <= 0:
+            break
+        if (
+            not isinstance(message, dict)
+            or message.get("role") not in {"user", "assistant"}
+            or not isinstance(message.get("content"), str)
+        ):
+            continue
+        content = message["content"][-remaining:]
+        bounded.append({"role": message["role"], "content": content})
+        remaining -= len(content)
+    return list(reversed(bounded))
 
 
 def load_documentation(url: str) -> str:
@@ -84,7 +142,10 @@ def call_siemens(payload: dict, documentation: str) -> str:
             documentation,
         ]
     )
-    conversation = payload.get("conversation", [])
+    if payload.get("version") == 2:
+        conversation = validate_context(payload["context"]["recentMessages"])
+    else:
+        conversation = bound_legacy_context(payload.get("conversation", []))
     messages = [{"role": "system", "content": system_prompt}]
     for message in conversation:
         if (

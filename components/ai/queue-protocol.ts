@@ -1,5 +1,9 @@
 export const REQUEST_MARKER_PREFIX = '<!-- sciml-chat-request:';
 export const RESPONSE_MARKER_PREFIX = '<!-- sciml-chat-response:';
+export const MAX_QUEUE_PAYLOAD_CHARACTERS = 24_000;
+export const MAX_QUESTION_CHARACTERS = 5_000;
+export const MAX_CONTEXT_MESSAGES = 8;
+export const MAX_CONTEXT_CHARACTERS = 20_000;
 const NAVIGATION_PATTERN =
   /<!--\s*sciml-navigate:(\/[A-Za-z0-9/_-]*docs[A-Za-z0-9/_-]*\/?)[ ]*-->/;
 
@@ -9,11 +13,14 @@ export interface QueueConversationMessage {
 }
 
 export interface QueueRequest {
-  version: 1;
+  version: 2;
   requestId: string;
+  conversationId: string;
   question: string;
   currentPageUrl: string;
-  conversation: QueueConversationMessage[];
+  context: {
+    recentMessages: QueueConversationMessage[];
+  };
 }
 
 export interface QueueResponse {
@@ -52,13 +59,28 @@ function extractJson(body: string): unknown {
 }
 
 export function encodeQueueRequest(request: QueueRequest): string {
-  return [
+  const contextCharacters = request.context.recentMessages.reduce(
+    (total, message) => total + message.content.length,
+    0,
+  );
+  if (
+    request.question.length > MAX_QUESTION_CHARACTERS ||
+    request.context.recentMessages.length > MAX_CONTEXT_MESSAGES ||
+    contextCharacters > MAX_CONTEXT_CHARACTERS
+  ) {
+    throw new Error('The documentation queue request is too large.');
+  }
+  const encoded = [
     `${REQUEST_MARKER_PREFIX}${request.requestId} -->`,
     '',
     '```json',
     JSON.stringify(request),
     '```',
   ].join('\n');
+  if (encoded.length > MAX_QUEUE_PAYLOAD_CHARACTERS) {
+    throw new Error('The documentation queue request is too large.');
+  }
+  return encoded;
 }
 
 export function parseQueueResponse(

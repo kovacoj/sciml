@@ -85,24 +85,34 @@ async function githubRequest(
   return response;
 }
 
-export async function submitQueueRequest(
+function commentsUrl(config: QueueConfiguration): string {
+  return `https://api.github.com/repos/${config.owner}/${config.repository}/issues/${config.issue}/comments`;
+}
+
+export async function enqueueQueueRequest(
   request: QueueRequest,
   signal: AbortSignal,
-  onProgress: (progress: QueueProgress) => void,
 ): Promise<string> {
   const config = getConfiguration();
-  const commentsUrl = `https://api.github.com/repos/${config.owner}/${config.repository}/issues/${config.issue}/comments`;
   const submittedAt = new Date().toISOString();
 
-  await githubRequest(commentsUrl, config.token, {
+  await githubRequest(commentsUrl(config), config.token, {
     method: 'POST',
     signal,
     body: JSON.stringify({ body: encodeQueueRequest(request) }),
   });
-  onProgress('queued');
+  return submittedAt;
+}
 
+export async function pollQueueRequest(
+  requestId: string,
+  submittedAt: string,
+  signal: AbortSignal,
+  onProgress: (progress: QueueProgress) => void,
+): Promise<string> {
+  const config = getConfiguration();
   return pollForQueueResponse({
-    requestId: request.requestId,
+    requestId,
     timeoutMs: config.timeoutMs,
     pollIntervalMs: config.pollIntervalMs,
     signal,
@@ -110,7 +120,7 @@ export async function submitQueueRequest(
     waitForNext: wait,
     fetchComments: async () => {
       const response = await githubRequest(
-        `${commentsUrl}?per_page=100&since=${encodeURIComponent(submittedAt)}`,
+        `${commentsUrl(config)}?per_page=100&since=${encodeURIComponent(submittedAt)}`,
         config.token,
         { method: 'GET', signal },
       );

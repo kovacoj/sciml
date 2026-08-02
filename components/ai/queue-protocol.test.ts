@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   encodeQueueRequest,
+  extractDocumentationLinkTarget,
   extractNavigationTarget,
   findQueueResponse,
   isExplicitNavigationRequest,
@@ -97,7 +98,23 @@ test('extracts only documentation navigation targets', () => {
 test('distinguishes navigation commands from link requests', () => {
   assert.equal(isExplicitNavigationRequest('Take me to that page'), true);
   assert.equal(isExplicitNavigationRequest('Navigate to the experiment'), true);
+  assert.equal(isExplicitNavigationRequest('Navigate please to lingebra'), true);
+  assert.equal(isExplicitNavigationRequest('You navigate me there'), true);
   assert.equal(isExplicitNavigationRequest('Can you open it?'), true);
   assert.equal(isExplicitNavigationRequest('Give me a link to that page'), false);
   assert.equal(isExplicitNavigationRequest('What is the exact URL?'), false);
+});
+
+test('extracts a same-site documentation path from a normal answer', () => {
+  assert.equal(
+    extractDocumentationLinkTarget(
+      'See https://kovacoj.github.io/sciml/docs/experiments/thermodynamic-linear-algebra for details.',
+      '/sciml',
+    ),
+    '/sciml/docs/experiments/thermodynamic-linear-algebra',
+  );
+  assert.equal(
+    extractDocumentationLinkTarget('There is no relevant page.', '/sciml'),
+    null,
+  );
 });

@@ -18,6 +18,7 @@ import {
 } from './github-queue-client';
 import type { QueueConversationMessage } from './queue-protocol';
 import {
+  extractDocumentationLinkTarget,
   extractNavigationTarget,
   isExplicitNavigationRequest,
   stripNavigationAction,
@@ -213,13 +214,23 @@ export function PublicAIChat() {
         setProgress,
       );
 
-      const navigationTarget = extractNavigationTarget(answer, basePath);
+      const markerTarget = extractNavigationTarget(answer, basePath);
+      const explicitlyRequestedNavigation =
+        isExplicitNavigationRequest(content);
+      const navigationTarget =
+        markerTarget ??
+        (explicitlyRequestedNavigation
+          ? extractDocumentationLinkTarget(answer, basePath)
+          : null);
       const shouldNavigate =
-        navigationTarget !== null && isExplicitNavigationRequest(content);
+        navigationTarget !== null && explicitlyRequestedNavigation;
       let visibleAnswer = stripNavigationAction(answer);
-      if (navigationTarget && !shouldNavigate) {
-        const link = `[Open the requested documentation page](${navigationTarget})`;
+      if (markerTarget && !shouldNavigate) {
+        const link = `[Open the requested documentation page](${markerTarget})`;
         visibleAnswer = visibleAnswer ? `${visibleAnswer}\n\n${link}` : link;
+      }
+      if (shouldNavigate && !visibleAnswer) {
+        visibleAnswer = 'Opening the requested documentation page…';
       }
       const completedMessages: QueueConversationMessage[] = [
         ...nextMessages,

@@ -142,9 +142,30 @@ export function stripNavigationAction(answer: string): string {
 }
 
 export function isExplicitNavigationRequest(question: string): boolean {
-  return /\b(take me|navigate (?:me )?to|bring me|send me there|go to|open (?:it|the|that|this))\b/i.test(
-    question,
+  return (
+    /\b(?:take|bring)\s+me\b/i.test(question) ||
+    /\bnavigate\b.*\b(?:to|there)\b/i.test(question) ||
+    /\bgo\s+(?:to|there)\b/i.test(question) ||
+    /\bopen\s+(?:it|the|that|this)\b/i.test(question) ||
+    /\bsend\s+me\s+there\b/i.test(question)
   );
+}
+
+export function extractDocumentationLinkTarget(
+  answer: string,
+  basePath: string,
+): string | null {
+  const match = answer.match(
+    /\/(?:[A-Za-z0-9_-]+\/)*docs(?:\/[A-Za-z0-9/_-]+)?\/?/,
+  );
+  if (!match) return null;
+
+  const candidate = match[0].replace(/\/$/, '');
+  const docsIndex = candidate.indexOf('/docs');
+  if (docsIndex < 0) return null;
+
+  const normalizedBasePath = basePath.replace(/\/$/, '');
+  return `${normalizedBasePath}${candidate.slice(docsIndex)}`;
 }
 
 export async function pollForQueueResponse({

@@ -76,6 +76,8 @@ def call_siemens(payload: dict, documentation: str) -> str:
             "relative /docs route. Never emit this marker for an external URL or unless the",
             "user explicitly requests navigation. A request for a link or URL is not a navigation",
             "request: answer those requests with a normal Markdown link and no navigation marker.",
+            "Treat natural variants such as 'navigate please to', 'navigate me there', and minor",
+            "misspellings as explicit navigation when the intended documented page is clear.",
             f"Current page: {payload.get('currentPageUrl', '')}",
             "",
             "DOCUMENTATION:",

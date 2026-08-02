@@ -544,11 +544,6 @@ export function PublicAIChat() {
                   </button>
                 )}
               </div>
-              <p className="border-t px-3 py-2 text-[11px] leading-4 text-fd-muted-foreground">
-                Conversation history is stored in this browser. Recent context
-                is temporarily submitted through a public n8n webhook to
-                generate answers.
-              </p>
             </form>
           </div>
         </aside>

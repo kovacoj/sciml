@@ -1,7 +1,7 @@
 'use client';
 
 import { FullSearchTrigger } from 'fumadocs-ui/layouts/shared/slots/search-trigger';
-import { ThemeSwitch } from 'fumadocs-ui/layouts/shared/slots/theme-switch';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function DocsSidebarFooter() {
   return (
@@ -24,7 +24,7 @@ export function DocsSidebarFooter() {
         className="min-w-0 flex-1 border-0 bg-transparent px-2 py-1.5 shadow-none hover:bg-fd-accent [&_kbd]:hidden"
       />
 
-      <ThemeSwitch mode="light-dark" className="shrink-0 border-0 p-0" />
+      <ThemeToggle />
     </div>
   );
 }

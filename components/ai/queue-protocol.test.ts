@@ -5,6 +5,7 @@ import {
   extractNavigationTarget,
   findQueueResponse,
   parseQueueResponse,
+  stripNavigationAction,
   type QueueRequest,
 } from './queue-protocol.ts';
 
@@ -83,5 +84,11 @@ test('extracts only documentation navigation targets', () => {
   assert.equal(
     extractNavigationTarget('<!-- sciml-navigate:/admin -->', '/sciml'),
     null,
+  );
+  assert.equal(
+    stripNavigationAction(
+      'Opening the page.\n<!-- sciml-navigate:/docs/experiments/marimo-demo -->',
+    ),
+    'Opening the page.',
   );
 });

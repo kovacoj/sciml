@@ -17,7 +17,10 @@ import {
   type QueueProgress,
 } from './github-queue-client';
 import type { QueueConversationMessage } from './queue-protocol';
-import { extractNavigationTarget } from './queue-protocol';
+import {
+  extractNavigationTarget,
+  stripNavigationAction,
+} from './queue-protocol';
 
 const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 const basePath =
@@ -94,9 +97,18 @@ export function PublicAIChat() {
         setProgress,
       );
 
-      setMessages([...nextMessages, { role: 'assistant', content: answer }]);
       const navigationTarget = extractNavigationTarget(answer, basePath);
-      if (navigationTarget) window.location.assign(navigationTarget);
+      const visibleAnswer = stripNavigationAction(answer);
+      setMessages([
+        ...nextMessages,
+        { role: 'assistant', content: visibleAnswer },
+      ]);
+      if (navigationTarget) {
+        window.location.href = new URL(
+          navigationTarget,
+          window.location.origin,
+        ).href;
+      }
     } catch (caughtError) {
       if (
         !(caughtError instanceof DOMException) ||
@@ -144,7 +156,7 @@ export function PublicAIChat() {
       {open ? (
         <aside
           aria-label="AI chat"
-          className="fixed inset-x-2 inset-y-4 z-30 overflow-hidden rounded-2xl border bg-fd-card text-fd-card-foreground shadow-xl lg:sticky lg:top-0 lg:in-[#nd-docs-layout]:[grid-area:toc] lg:ms-auto lg:h-dvh lg:w-[400px] lg:rounded-none lg:border-y-0 lg:border-e-0 lg:border-s lg:shadow-none 2xl:w-[460px]"
+          className="fixed inset-x-2 inset-y-4 z-30 overflow-hidden rounded-2xl border bg-fd-card text-fd-card-foreground shadow-xl lg:inset-y-0 lg:end-0 lg:start-auto lg:w-[400px] lg:rounded-none lg:border-y-0 lg:border-e-0 lg:border-s 2xl:w-[460px]"
         >
           <div className="flex size-full flex-col p-2 lg:p-3">
             <header className="flex items-center gap-2 rounded-xl border bg-fd-secondary px-3 py-2 text-fd-secondary-foreground shadow-sm">

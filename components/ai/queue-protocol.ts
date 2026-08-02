@@ -137,6 +137,10 @@ export function extractNavigationTarget(
   return null;
 }
 
+export function stripNavigationAction(answer: string): string {
+  return answer.replace(NAVIGATION_PATTERN, '').trim();
+}
+
 export async function pollForQueueResponse({
   requestId,
   timeoutMs,

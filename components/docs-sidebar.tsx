@@ -10,8 +10,8 @@ import {
   SidebarItem,
   SidebarSeparator,
   useFolderDepth,
-} from 'fumadocs-ui/dist/components/sidebar/base.js';
-import type { SidebarPageTreeComponents } from 'fumadocs-ui/dist/components/sidebar/page-tree.js';
+} from 'fumadocs-ui/components/sidebar/base';
+import type { SidebarPageTreeComponents } from 'fumadocs-ui/components/sidebar/page-tree';
 
 function FolderContent({ children, ...props }: ComponentProps<typeof SidebarFolderContent>) {
   const depth = useFolderDepth();

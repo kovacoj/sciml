@@ -1,23 +1,72 @@
 ---
 title: Eigenvalue Problems
-description: Placeholder for experiments involving numerical and learned eigenvalue methods.
+description: An illustrative experiment record for testing the research notebook format.
 ---
 
+<Callout title="Synthetic demonstration">
+  The setup and values on this page are fabricated to demonstrate presentation only. They are not research results.
+</Callout>
+
 ## Research question
-TODO.
+
+How should a baseline comparison of discrete eigenvalue solvers be recorded so that accuracy,
+runtime, and reproducibility remain visible together?
+
 ## Mathematical formulation
-TODO.
+
+For demonstration, consider the generalized matrix eigenproblem
+
+```text
+A u = lambda M u,
+```
+
+where `A` is symmetric positive definite and `M` is a mass matrix. The smallest eigenpairs are the
+quantities of interest.
+
 ## Methods
-TODO.
+
+- Dense reference solve for a small matrix.
+- Sparse iterative solve with a fixed convergence tolerance.
+- Residual verification using `||A u - lambda M u||_2`.
+
 ## Experimental setup
-TODO.
+
+The example assumes one synthetic matrix at three resolutions. A real entry would identify the
+matrix construction, software versions, solver options, and retained artifacts.
+
 ## Metrics
-TODO.
+
+- Relative eigenvalue error against the reference solve.
+- Eigenpair residual norm.
+- Wall-clock time after warm-up.
+
 ## Results
-TODO.
+
+| Resolution | Relative error | Residual norm | Time |
+| ---: | ---: | ---: | ---: |
+| 64 | 2.4e-5 | 8.1e-9 | 0.03 s |
+| 128 | 6.2e-6 | 9.0e-9 | 0.08 s |
+| 256 | 1.5e-6 | 9.4e-9 | 0.21 s |
+
+These values are synthetic placeholders used to preview table rendering.
+
 ## Interpretation
-TODO.
+
+No scientific interpretation is claimed. A future real record should distinguish discretization
+error, algebraic solver error, and timing variability.
+
 ## Limitations
-TODO.
+
+- Synthetic values do not validate a method.
+- A single matrix family cannot establish robustness.
+- Timing methodology has not been defined for this demonstration.
+
 ## Reproduction
-TODO.
+
+An experiment entry can present its invocation as a highlighted command:
+
+```bash
+npm run example -- --resolution 128 --seed 7
+```
+
+The command is illustrative and is not implemented in this website repository.

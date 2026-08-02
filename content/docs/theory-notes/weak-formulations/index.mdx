@@ -1,8 +1,33 @@
 ---
 title: Weak Formulations
-description: Intended for derivations and assumptions behind weak formulations.
+description: A compact illustrative note on the structure of a weak formulation.
 ---
+
+<Callout title="Demonstration note">
+  This page previews the intended notation and organization of future theory notes.
+</Callout>
+
+## Model structure
+
+For a scalar diffusion problem, multiply the strong equation by a test function `v`, integrate over
+the domain, and transfer one derivative from the trial function to the test function. The resulting
+abstract problem has the form
+
+```text
+Find u in V such that a(u, v) = l(v) for every v in V.
+```
+
+The bilinear form `a` records the differential operator and boundary conditions, while `l` records
+forcing and natural boundary data.
+
+## Checklist
+
+- State the trial and test spaces.
+- Record essential and natural boundary conditions separately.
+- Identify assumptions needed for existence and uniqueness.
+- Keep sign conventions consistent with the implementation.
 
 ## TODO
 
-- Add scoped notes and references.
+- Add a reviewed derivation tied to a concrete experiment.
+- Add references and notation definitions.

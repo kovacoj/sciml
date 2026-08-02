@@ -50,7 +50,7 @@ jobs:
       - name: Test documentation chat protocol
         run: |
           npm test
-          python -m unittest scripts/test_docs_chat.py
+          python -m unittest scripts/test_n8n_chat_gateway.py
 
       - name: Export marimo notebooks
         run: ./scripts/export-notebooks.sh
@@ -78,12 +78,9 @@ jobs:
       - name: Build combined static site
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-          NEXT_PUBLIC_GITHUB_QUEUE_TOKEN: ${{ secrets.SCIML_QUEUE_TOKEN }}
-          NEXT_PUBLIC_GITHUB_QUEUE_OWNER: ${{ vars.SCIML_QUEUE_OWNER }}
-          NEXT_PUBLIC_GITHUB_QUEUE_REPO: ${{ vars.SCIML_QUEUE_REPO }}
-          NEXT_PUBLIC_GITHUB_QUEUE_ISSUE: ${{ vars.SCIML_QUEUE_ISSUE }}
-          NEXT_PUBLIC_GITHUB_QUEUE_TIMEOUT_MS: "180000"
-          NEXT_PUBLIC_GITHUB_QUEUE_POLL_INTERVAL_MS: "3000"
+          NEXT_PUBLIC_N8N_CHAT_WEBHOOK_URL: ${{ vars.SCIML_N8N_CHAT_WEBHOOK_URL }}
+          NEXT_PUBLIC_N8N_CHAT_TIMEOUT_MS: "180000"
+          NEXT_PUBLIC_N8N_CHAT_RETRY_INTERVAL_MS: "3000"
           NEXT_PUBLIC_AI_CHAT_ENABLED: "true"
         run: npm run build
 

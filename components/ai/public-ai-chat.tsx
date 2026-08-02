@@ -14,10 +14,9 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import {
-  enqueueQueueRequest,
-  pollQueueRequest,
-  type QueueProgress,
-} from './github-queue-client';
+  submitN8nChatRequest,
+  type ChatProgress,
+} from './n8n-chat-client';
 import {
   buildRecentContext,
   CHAT_STORAGE_KEY,
@@ -26,13 +25,13 @@ import {
   parseChatState,
   type StoredMessage,
 } from './chat-storage';
-import type { QueueConversationMessage } from './queue-protocol';
+import type { ChatContextMessage } from './chat-protocol';
 import {
   extractDocumentationLinkTarget,
   extractNavigationTarget,
   isExplicitNavigationRequest,
   stripNavigationAction,
-} from './queue-protocol';
+} from './chat-protocol';
 
 const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 const basePath =
@@ -62,16 +61,16 @@ function normalizePath(path: string): string {
   return normalized || '/';
 }
 
-function isConversation(value: unknown): value is QueueConversationMessage[] {
+function isConversation(value: unknown): value is ChatContextMessage[] {
   return (
     Array.isArray(value) &&
     value.every(
       (message) =>
         typeof message === 'object' &&
         message !== null &&
-        ((message as QueueConversationMessage).role === 'user' ||
-          (message as QueueConversationMessage).role === 'assistant') &&
-        typeof (message as QueueConversationMessage).content === 'string',
+        ((message as ChatContextMessage).role === 'user' ||
+          (message as ChatContextMessage).role === 'assistant') &&
+        typeof (message as ChatContextMessage).content === 'string',
     )
   );
 }
@@ -81,7 +80,7 @@ export function PublicAIChat() {
   const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState<QueueProgress | null>(null);
+  const [progress, setProgress] = useState<ChatProgress | null>(null);
   const [hasRestoredMessages, setHasRestoredMessages] = useState(false);
   const abortController = useRef<AbortController | null>(null);
   const messageViewport = useRef<HTMLDivElement | null>(null);
@@ -138,7 +137,7 @@ export function PublicAIChat() {
         );
         const currentLegacyKey = `${legacyConversationPrefix}:${currentPath}`;
         legacyKeys.sort((left) => (left === currentLegacyKey ? -1 : 0));
-        let legacyMessages: QueueConversationMessage[] = [];
+        let legacyMessages: ChatContextMessage[] = [];
         for (const key of legacyKeys) {
           const legacyText = localStorage.getItem(key);
           if (!legacyText) continue;
@@ -269,7 +268,7 @@ export function PublicAIChat() {
     pending: StoredMessage,
     sourceMessages: StoredMessage[],
   ) {
-    if (!pending.requestId || !pending.submittedAt) return;
+    if (!pending.requestId) return;
     const controller = new AbortController();
     activeRequestId.current = pending.requestId;
     abortController.current = controller;
@@ -277,9 +276,15 @@ export function PublicAIChat() {
     setProgress('queued');
     setOpen(true);
     try {
-      const answer = await pollQueueRequest(
-        pending.requestId,
-        pending.submittedAt,
+      const answer = await submitN8nChatRequest(
+        {
+          version: 2,
+          requestId: pending.requestId,
+          conversationId: conversationId.current,
+          question: pending.content,
+          currentPageUrl: window.location.href,
+          context: { recentMessages: buildRecentContext(sourceMessages) },
+        },
         controller.signal,
         setProgress,
       );
@@ -301,20 +306,6 @@ export function PublicAIChat() {
     hasResumedPending.current = true;
     const pending = findPendingMessage(messages);
     if (!pending) return;
-    if (!pending.submittedAt) {
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === pending.id
-            ? {
-                ...message,
-                status: 'failed',
-                error: 'The request was interrupted before it reached the queue.',
-              }
-            : message,
-        ),
-      );
-      return;
-    }
     void resumeRequest(pending, messages);
   }, [hasRestoredMessages]);
 
@@ -342,7 +333,7 @@ export function PublicAIChat() {
     abortController.current = controller;
 
     try {
-      const submittedAt = await enqueueQueueRequest(
+      const answer = await submitN8nChatRequest(
         {
           version: 2,
           requestId,
@@ -352,21 +343,9 @@ export function PublicAIChat() {
           context: { recentMessages: buildRecentContext(priorMessages) },
         },
         controller.signal,
-      );
-      pending.submittedAt = submittedAt;
-      const submittedMessages = nextMessages.map((message) =>
-        message.id === pending.id ? { ...pending } : message,
-      );
-      setMessages(submittedMessages);
-      saveState(submittedMessages);
-      setProgress('queued');
-      const answer = await pollQueueRequest(
-        requestId,
-        submittedAt,
-        controller.signal,
         setProgress,
       );
-      finishRequest(pending, submittedMessages, answer);
+      finishRequest(pending, nextMessages, answer);
     } catch (caughtError) {
       failRequest(pending, nextMessages, caughtError);
     } finally {
@@ -524,8 +503,8 @@ export function PublicAIChat() {
               {isLoading ? (
                 <p className="px-2 text-xs text-fd-muted-foreground">
                   {progress === 'queued'
-                    ? 'Queued in GitHub Actions…'
-                    : 'GitHub Actions is generating an answer…'}
+                    ? 'Queued in the documentation workflow…'
+                    : 'The documentation workflow is generating an answer…'}
                 </p>
               ) : null}
             </div>
@@ -567,7 +546,7 @@ export function PublicAIChat() {
               </div>
               <p className="border-t px-3 py-2 text-[11px] leading-4 text-fd-muted-foreground">
                 Conversation history is stored in this browser. Recent context
-                is temporarily submitted through a public GitHub issue to
+                is temporarily submitted through a public n8n webhook to
                 generate answers.
               </p>
             </form>

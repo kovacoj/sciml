@@ -1,4 +1,4 @@
-import type { QueueConversationMessage } from './queue-protocol';
+import type { ChatContextMessage } from './chat-protocol';
 
 export const CHAT_STORAGE_KEY = 'sciml-ai-chat-v3';
 export const MAX_CONTEXT_MESSAGES = 8;
@@ -73,11 +73,11 @@ export function parseChatState(value: string | null): StoredChatState | null {
 
 export function buildRecentContext(
   messages: StoredMessage[],
-): QueueConversationMessage[] {
+): ChatContextMessage[] {
   const completed = messages.filter(
     (message) => message.status === 'completed' && message.content.trim(),
   );
-  const context: QueueConversationMessage[] = [];
+  const context: ChatContextMessage[] = [];
   let remaining = MAX_CONTEXT_CHARACTERS;
 
   for (

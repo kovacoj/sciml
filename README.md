@@ -23,6 +23,16 @@ Generated output is written to `out/`.
 
 GitHub Actions builds and deploys the site when changes are pushed to `gh-pages`.
 
+## Documentation chat
+
+The browser stores complete chat history locally and sends at most eight recent
+messages through an n8n webhook. The Raspberry Pi deployment keeps n8n on
+`127.0.0.1:8000`; only the production webhook path is intended for HTTPS
+ingress. An internal Python gateway validates the 24,000-character request,
+loads the published documentation, calls Siemens with a server-side key, and
+caches request IDs for reload recovery. Secrets belong in mode-600 environment
+files outside this repository.
+
 ## Interactive notebooks
 
 Notebook source lives under `notebooks/`. The `scripts/export-notebooks.sh` script exports read-only HTML/WASM applications into the Git-ignored `public/notebooks/` directory. Fumadocs embeds these applications with the `MarimoNotebook` MDX component, and Next.js copies them into the combined `out/` artifact deployed to GitHub Pages.

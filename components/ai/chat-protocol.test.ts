@@ -1,17 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  encodeQueueRequest,
+  serializeChatRequest,
   extractDocumentationLinkTarget,
   extractNavigationTarget,
-  findQueueResponse,
   isExplicitNavigationRequest,
-  parseQueueResponse,
   stripNavigationAction,
-  type QueueRequest,
-} from './queue-protocol.ts';
+  type ChatRequest,
+} from './chat-protocol.ts';
 
-const request: QueueRequest = {
+const request: ChatRequest = {
   version: 2,
   requestId: 'c9474d2a-a2d6-4cf5-b525-f1466886e87e',
   conversationId: '9d153721-b308-4f23-9f04-f659e3c343f1',
@@ -20,18 +18,16 @@ const request: QueueRequest = {
   context: { recentMessages: [] },
 };
 
-test('encodes a request marker and JSON payload', () => {
-  const encoded = encodeQueueRequest(request);
-  assert.match(encoded, /sciml-chat-request:c9474d2a/);
-  assert.match(encoded, /```json/);
+test('serializes a bounded request payload', () => {
+  const encoded = serializeChatRequest(request);
   assert.match(encoded, /equilibrium covariance/);
   assert.doesNotMatch(encoded, /"conversation"/);
 });
 
-test('rejects an oversized queue payload', () => {
+test('rejects an oversized chat payload', () => {
   assert.throws(
     () =>
-      encodeQueueRequest({
+      serializeChatRequest({
         ...request,
         context: {
           recentMessages: [{ role: 'user', content: 'x'.repeat(24_000) }],
@@ -39,48 +35,6 @@ test('rejects an oversized queue payload', () => {
       }),
     /too large/,
   );
-});
-
-test('parses only a matching response', () => {
-  const body = [
-    `<!-- sciml-chat-response:${request.requestId} -->`,
-    '```json',
-    JSON.stringify({
-      version: 1,
-      requestId: request.requestId,
-      status: 'completed',
-      answer: 'beta^-1 A^-1',
-    }),
-    '```',
-  ].join('\n');
-
-  assert.equal(parseQueueResponse(body, request.requestId)?.answer, 'beta^-1 A^-1');
-  assert.equal(parseQueueResponse(body, crypto.randomUUID()), null);
-});
-
-test('ignores malformed responses', () => {
-  assert.equal(
-    parseQueueResponse(
-      `<!-- sciml-chat-response:${request.requestId} -->\n\n\`\`\`json\n{}\n\`\`\``,
-      request.requestId,
-    ),
-    null,
-  );
-});
-
-test('deduplicates responses by using the newest valid comment', () => {
-  const responseBody = (answer: string) =>
-    `<!-- sciml-chat-response:${request.requestId} -->\n\n\`\`\`json\n${JSON.stringify({ version: 1, requestId: request.requestId, status: 'completed', answer })}\n\`\`\``;
-
-  const response = findQueueResponse(
-    [
-      { id: 1, body: responseBody('old') },
-      { id: 2, body: responseBody('new') },
-    ],
-    request.requestId,
-  );
-
-  assert.equal(response?.answer, 'new');
 });
 
 test('extracts only documentation navigation targets', () => {

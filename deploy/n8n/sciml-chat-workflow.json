@@ -1,0 +1,96 @@
+{
+  "id": "scimlDocumentationChat",
+  "name": "SciML Documentation Chat",
+  "active": true,
+  "nodes": [
+    {
+      "id": "0a4f07f2-1007-4f4b-9131-44f603981603",
+      "name": "Public Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "967edc98-a1a8-47e2-9c51-791b03ed9ce9",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sciml-ai",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://kovacoj.github.io"
+        }
+      }
+    },
+    {
+      "id": "6138daa7-6885-44b0-8bcc-745ecf2d66db",
+      "name": "Internal Chat Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "http://gateway:8001/chat",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "75fb46c6-cfd6-4cc6-aac8-a6fa65890d56",
+      "name": "Return Chat Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [480, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://kovacoj.github.io"
+              },
+              {
+                "name": "Vary",
+                "value": "Origin"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Public Chat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Internal Chat Gateway",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Internal Chat Gateway": {
+      "main": [
+        [
+          {
+            "node": "Return Chat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "7c4786f3-9f86-4fc5-bd5b-436035ba89c6",
+  "tags": []
+}

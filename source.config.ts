@@ -6,6 +6,16 @@ import remarkMath from 'remark-math';
 export default defineConfig({
   mdxOptions: {
     remarkPlugins: (plugins) => [remarkMath, remarkMarimo, ...plugins],
-    rehypePlugins: (plugins) => [rehypeKatex, ...plugins],
+    rehypePlugins: (plugins) => [
+      [
+        rehypeKatex,
+        {
+          macros: {
+            '\\d': '\\mathop{}\\!\\mathrm{d}#1',
+          },
+        },
+      ],
+      ...plugins,
+    ],
   },
 });

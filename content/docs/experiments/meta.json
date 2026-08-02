@@ -1,4 +1,4 @@
 {
   "title": "Experiments",
-  "pages": ["index", "eigenvalue-problems", "surrogate-optimization", "flow-surrogates", "mixed-precision-cfd"]
+  "pages": ["index", "marimo-demo", "eigenvalue-problems", "surrogate-optimization", "flow-surrogates", "mixed-precision-cfd"]
 }

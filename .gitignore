@@ -3,6 +3,7 @@ node_modules/
 
 # generated content
 .source/
+public/notebooks/
 
 # test & build
 /coverage
@@ -10,6 +11,11 @@ node_modules/
 /out/
 /build
 *.tsbuildinfo
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+notebooks/__marimo__/
 
 # misc
 .DS_Store

@@ -28,10 +28,31 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-notebooks.txt
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Determine base path
+      - name: Install website dependencies
+        run: npm ci
+
+      - name: Install notebook dependencies
+        run: python -m pip install -r requirements-notebooks.txt
+
+      - name: Export marimo notebooks
+        run: ./scripts/export-notebooks.sh
+
+      - name: Verify marimo source export
+        run: |
+          test -f \
+            public/notebooks/laplacian-eigenmodes/index.html
+
+      - name: Determine GitHub Pages base path
         shell: bash
         run: |
           REPOSITORY_NAME="${GITHUB_REPOSITORY#*/}"
@@ -44,20 +65,25 @@ jobs:
           fi
 
           echo "NEXT_PUBLIC_BASE_PATH=${BASE_PATH}" >> "${GITHUB_ENV}"
+          echo "Using base path: ${BASE_PATH:-/}"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build static site
+      - name: Build combined static site
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: npm run build
 
-      - name: Verify static output
+      - name: Verify combined static output
         shell: bash
         run: |
           test -d out
           test -f out/index.html
+          test -f \
+            out/notebooks/laplacian-eigenmodes/index.html
+
+          find out/notebooks/laplacian-eigenmodes \
+            -maxdepth 2 \
+            -type f \
+            | sort
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4

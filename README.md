@@ -22,3 +22,18 @@ npm run build
 Generated output is written to `out/`.
 
 GitHub Actions builds and deploys the site when changes are pushed to `pages`.
+
+## Interactive notebooks
+
+Notebook source lives under `notebooks/`. The `scripts/export-notebooks.sh` script exports read-only HTML/WASM applications into the Git-ignored `public/notebooks/` directory. Fumadocs embeds these applications with the `MarimoNotebook` MDX component, and Next.js copies them into the combined `out/` artifact deployed to GitHub Pages.
+
+Browser notebooks should remain lightweight and use only Pyodide-compatible dependencies. Edit and build locally with:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-notebooks.txt
+marimo edit notebooks/laplacian_eigenmodes.py
+./scripts/export-notebooks.sh
+npm run build
+```

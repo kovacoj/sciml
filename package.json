@@ -10,7 +10,7 @@
     "dev": "next dev",
     "start": "serve out",
     "types:check": "next typegen && tsc --noEmit",
-    "lint": "eslint"
+    "lint": "eslint app components lib *.mjs"
   },
   "dependencies": {
     "cnfast": "^0.1.0",

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   encodeQueueRequest,
+  extractNavigationTarget,
   findQueueResponse,
   parseQueueResponse,
   type QueueRequest,
@@ -62,4 +63,25 @@ test('deduplicates responses by using the newest valid comment', () => {
   );
 
   assert.equal(response?.answer, 'new');
+});
+
+test('extracts only documentation navigation targets', () => {
+  assert.equal(
+    extractNavigationTarget(
+      'Opening it.\n<!-- sciml-navigate:/docs/experiments/marimo-demo -->',
+      '/sciml',
+    ),
+    '/sciml/docs/experiments/marimo-demo',
+  );
+  assert.equal(
+    extractNavigationTarget(
+      '<!-- sciml-navigate:https://example.com/docs -->',
+      '/sciml',
+    ),
+    null,
+  );
+  assert.equal(
+    extractNavigationTarget('<!-- sciml-navigate:/admin -->', '/sciml'),
+    null,
+  );
 });

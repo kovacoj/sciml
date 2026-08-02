@@ -1,5 +1,7 @@
 export const REQUEST_MARKER_PREFIX = '<!-- sciml-chat-request:';
 export const RESPONSE_MARKER_PREFIX = '<!-- sciml-chat-response:';
+const NAVIGATION_PATTERN =
+  /<!--\s*sciml-navigate:(\/[A-Za-z0-9/_-]*docs[A-Za-z0-9/_-]*\/?)[ ]*-->/;
 
 export interface QueueConversationMessage {
   role: 'user' | 'assistant';
@@ -106,6 +108,30 @@ export function findQueueResponse(
 
     const response = parseQueueResponse(body, requestId);
     if (response) return response;
+  }
+
+  return null;
+}
+
+export function extractNavigationTarget(
+  answer: string,
+  basePath: string,
+): string | null {
+  const match = answer.match(NAVIGATION_PATTERN);
+  if (!match) return null;
+
+  const candidate = match[1].replace(/\/$/, '');
+  const normalizedBasePath = basePath.replace(/\/$/, '');
+  if (
+    normalizedBasePath &&
+    (candidate === `${normalizedBasePath}/docs` ||
+      candidate.startsWith(`${normalizedBasePath}/docs/`))
+  ) {
+    return candidate;
+  }
+
+  if (candidate === '/docs' || candidate.startsWith('/docs/')) {
+    return `${normalizedBasePath}${candidate}`;
   }
 
   return null;

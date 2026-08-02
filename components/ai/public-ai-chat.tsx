@@ -17,6 +17,7 @@ import {
   type QueueProgress,
 } from './github-queue-client';
 import type { QueueConversationMessage } from './queue-protocol';
+import { extractNavigationTarget } from './queue-protocol';
 
 const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 const basePath =
@@ -35,7 +36,7 @@ export function PublicAIChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState<QueueProgress | null>(null);
   const abortController = useRef<AbortController | null>(null);
-  const messageEnd = useRef<HTMLDivElement | null>(null);
+  const messageViewport = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -51,7 +52,13 @@ export function PublicAIChat() {
   }, []);
 
   useEffect(() => {
-    messageEnd.current?.scrollIntoView({ behavior: 'smooth' });
+    const viewport = messageViewport.current;
+    if (!viewport) return;
+
+    viewport.scrollTo({
+      top: viewport.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages, error, isLoading]);
 
   if (!chatEnabled) return null;
@@ -88,6 +95,8 @@ export function PublicAIChat() {
       );
 
       setMessages([...nextMessages, { role: 'assistant', content: answer }]);
+      const navigationTarget = extractNavigationTarget(answer, basePath);
+      if (navigationTarget) window.location.assign(navigationTarget);
     } catch (caughtError) {
       if (
         !(caughtError instanceof DOMException) ||
@@ -165,8 +174,9 @@ export function PublicAIChat() {
             </header>
 
             <div
+              ref={messageViewport}
               aria-live="polite"
-              className="flex flex-1 flex-col gap-3 overflow-y-auto px-1 py-4"
+              className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-1 py-4"
             >
               {messages.length === 0 ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-fd-muted-foreground/80">
@@ -222,7 +232,6 @@ export function PublicAIChat() {
                   {error}
                 </div>
               ) : null}
-              <div ref={messageEnd} />
             </div>
 
             <form

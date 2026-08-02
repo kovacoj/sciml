@@ -9,20 +9,20 @@ import {
   useState,
 } from 'react';
 import {
-  buildChatMessages,
-  type ConversationMessage,
-} from './build-chat-messages';
-import { loadDocumentation } from './load-documentation';
-import { requestSiemensCompletion } from './siemens-client';
+  submitQueueRequest,
+  type QueueProgress,
+} from './github-queue-client';
+import type { QueueConversationMessage } from './queue-protocol';
 
 const chatEnabled = process.env.NEXT_PUBLIC_AI_CHAT_ENABLED !== 'false';
 
 export function PublicAIChat() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [messages, setMessages] = useState<QueueConversationMessage[]>([]);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState<QueueProgress | null>(null);
   const abortController = useRef<AbortController | null>(null);
   const messageEnd = useRef<HTMLDivElement | null>(null);
 
@@ -50,7 +50,7 @@ export function PublicAIChat() {
     const content = input.trim();
     if (!content || isLoading) return;
 
-    const nextMessages: ConversationMessage[] = [
+    const nextMessages: QueueConversationMessage[] = [
       ...messages,
       { role: 'user', content },
     ];
@@ -60,18 +60,20 @@ export function PublicAIChat() {
     setInput('');
     setError(null);
     setIsLoading(true);
+    setProgress(null);
     abortController.current = controller;
 
     try {
-      const documentation = await loadDocumentation();
-      const chatMessages = buildChatMessages(
-        documentation,
-        nextMessages,
-        window.location.href,
-      );
-      const answer = await requestSiemensCompletion(
-        chatMessages,
+      const answer = await submitQueueRequest(
+        {
+          version: 1,
+          requestId: crypto.randomUUID(),
+          question: content,
+          currentPageUrl: window.location.href,
+          conversation: nextMessages,
+        },
         controller.signal,
+        setProgress,
       );
 
       setMessages([...nextMessages, { role: 'assistant', content: answer }]);
@@ -89,6 +91,7 @@ export function PublicAIChat() {
     } finally {
       abortController.current = null;
       setIsLoading(false);
+      setProgress(null);
     }
   };
 
@@ -104,6 +107,7 @@ export function PublicAIChat() {
     setMessages([]);
     setInput('');
     setError(null);
+    setProgress(null);
   };
 
   return (
@@ -175,7 +179,9 @@ export function PublicAIChat() {
 
               {isLoading ? (
                 <p className="px-2 text-xs text-fd-muted-foreground">
-                  Reading the notebook and generating an answer…
+                  {progress === 'queued'
+                    ? 'Queued in GitHub Actions…'
+                    : 'GitHub Actions is generating an answer…'}
                 </p>
               ) : null}
 

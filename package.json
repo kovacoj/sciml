@@ -9,6 +9,7 @@
     "build": "next build",
     "dev": "next dev",
     "start": "serve out",
+    "test": "node --experimental-strip-types --test components/ai/*.test.ts",
     "types:check": "next typegen && tsc --noEmit",
     "lint": "eslint app components lib *.mjs"
   },

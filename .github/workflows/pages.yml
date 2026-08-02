@@ -47,6 +47,11 @@ jobs:
           python -m pip install uv==0.8.2
           python -m pip install -r requirements-notebooks.txt
 
+      - name: Test documentation chat protocol
+        run: |
+          npm test
+          python -m unittest scripts/test_docs_chat.py
+
       - name: Export marimo notebooks
         run: ./scripts/export-notebooks.sh
 
@@ -73,9 +78,12 @@ jobs:
       - name: Build combined static site
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-          NEXT_PUBLIC_SIEMENS_API_KEY: ${{ secrets.SIEMENS_LLM_API_KEY }}
-          NEXT_PUBLIC_SIEMENS_BASE_URL: https://api.siemens.com/llm/v1
-          NEXT_PUBLIC_SIEMENS_MODEL: qwen-3.6-27b
+          NEXT_PUBLIC_GITHUB_QUEUE_TOKEN: ${{ secrets.SCIML_QUEUE_TOKEN }}
+          NEXT_PUBLIC_GITHUB_QUEUE_OWNER: ${{ vars.SCIML_QUEUE_OWNER }}
+          NEXT_PUBLIC_GITHUB_QUEUE_REPO: ${{ vars.SCIML_QUEUE_REPO }}
+          NEXT_PUBLIC_GITHUB_QUEUE_ISSUE: ${{ vars.SCIML_QUEUE_ISSUE }}
+          NEXT_PUBLIC_GITHUB_QUEUE_TIMEOUT_MS: "180000"
+          NEXT_PUBLIC_GITHUB_QUEUE_POLL_INTERVAL_MS: "3000"
           NEXT_PUBLIC_AI_CHAT_ENABLED: "true"
         run: npm run build
 

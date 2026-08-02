@@ -237,12 +237,11 @@ export function PublicAIChat() {
         const link = `[Open the requested documentation page](${markerTarget})`;
         visibleAnswer = visibleAnswer ? `${visibleAnswer}\n\n${link}` : link;
       }
-      if (shouldNavigate && !visibleAnswer) {
-        visibleAnswer = 'Opening the requested documentation page…';
-      }
       const completedMessages: QueueConversationMessage[] = [
         ...nextMessages,
-        { role: 'assistant', content: visibleAnswer },
+        ...(visibleAnswer
+          ? [{ role: 'assistant' as const, content: visibleAnswer }]
+          : []),
       ];
       setMessages(completedMessages);
       saveConversation(conversationStorageKey.current, completedMessages);

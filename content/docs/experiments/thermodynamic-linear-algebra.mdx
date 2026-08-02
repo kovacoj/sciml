@@ -1,6 +1,6 @@
 ---
 title: Thermodynamic Linear Algebra
-description: Native reactive marimo cells estimating a matrix inverse from Langevin covariance.
+description: An interactive, attributed guide to computing with equilibrium fluctuations.
 ---
 
 ```marimo-config
@@ -12,208 +12,579 @@ dependencies = [
 ]
 ```
 
-_By [Simone Conradi](https://profconradi.com/). Adapted from the public
-[marimo gallery example](https://github.com/marimo-team/gallery-examples/blob/main/notebooks/math/thermodynamic_linear_algebra.py)._
+# Computing with thermal noise
 
-This page demonstrates a key idea from *Thermodynamic Linear Algebra* (Aifer
-et al., 2023): the inverse of a symmetric positive-definite matrix can be
-estimated from the time-averaged covariance of overdamped Langevin dynamics in
-the corresponding quadratic potential.
+This is an interactive adaptation of **Aifer et al., _Thermodynamic Linear
+Algebra_**, [arXiv:2308.05660v2](https://arxiv.org/abs/2308.05660) (2024).
+The paper is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The exposition and browser experiments here are original; equations, protocols,
+and complexity claims are attributed to the paper.
 
-For `U(x) = 1/2 x^T A x`, the thermal equilibrium distribution is a zero-mean
-Gaussian with covariance `beta^-1 A^-1`. Ergodicity therefore gives
-`A^-1 = beta <x x^T>_time` in the long-time limit.
+The central proposal is unusual: do not suppress physical fluctuations. Encode
+a linear-algebra problem in a system of coupled harmonic degrees of freedom,
+let the system thermalize, and read the answer from moments of its equilibrium
+trajectory.
 
-<Callout title="Interactive stochastic demonstration">
-  The controls and simulation below run directly inside this Fumadocs page.
-  Individual covariance estimates vary because the trajectory includes
-  thermal noise. This is an educational simulation, not a hardware benchmark
-  or a research result from this repository.
+<Callout title="What this page demonstrates">
+  The cells below simulate the paper's overdamped Langevin model in your browser.
+  They explain the mechanism, but they do **not** benchmark thermodynamic
+  hardware or independently verify the paper's speedup claims. Refreshing or
+  changing a control produces a new stochastic trajectory.
 </Callout>
 
-## Controls
+## The equilibrium identity
 
-Edit the symmetric matrix and adjust the integration and physical parameters.
-The matrix must remain positive definite.
+For a symmetric positive-definite matrix $A$ and vector $b$, define the
+quadratic potential
+
+$$
+U(x)=\frac{1}{2}x^\mathsf{T}Ax-b^\mathsf{T}x.
+$$
+
+At inverse temperature $\beta=(k_B T)^{-1}$, the Boltzmann density is
+$p(x)\propto e^{-\beta U(x)}$. Completing the square shows that it is Gaussian:
+
+$$
+x\sim\mathcal{N}\!\left(A^{-1}b,\;\beta^{-1}A^{-1}\right).
+$$
+
+That single identity supplies two algorithms:
+
+| Equilibrium observable | Linear-algebra result |
+|---|---|
+| First moment $\langle x\rangle$ | Solution $A^{-1}b$ |
+| Centered second moment $\beta\,\mathrm{Cov}(x)$ | Matrix inverse $A^{-1}$ |
+
+Ergodicity turns ensemble averages into time averages along one sufficiently
+long trajectory. The first moment needs $d$ integrator outputs; the complete
+second moment needs $d^2$ multiplier-integrator channels.
+
+## Build a two-dimensional system
+
+Edit the coupling matrix and force, then choose the thermal and integration
+parameters. The page requires $A$ to remain positive definite.
 
 ```python marimo
 import marimo as mo
 import matplotlib.pyplot as plt
 import numpy as np
 
-matrix_ui = mo.ui.matrix(
-    np.array([[4, 2], [2, 9]], dtype=np.int32),
-    step=1,
-    precision=0,
+matrix_control = mo.ui.matrix(
+    np.array([[4.0, 2.0], [2.0, 9.0]]),
+    step=0.5,
+    precision=1,
     symmetric=True,
-    label=r"$A$",
+    label=r"Coupling matrix $A$",
 )
-n_iter_slider = mo.ui.slider(
-    10_000,
-    100_000,
-    10_000,
-    value=10_000,
-    label="Number of steps",
+force_control = mo.ui.array(
+    [
+        mo.ui.number(-10, 10, 0.5, value=4.0, label=r"$b_1$"),
+        mo.ui.number(-10, 10, 0.5, value=-2.0, label=r"$b_2$"),
+    ],
+    label=r"Force $b$",
 )
-beta_slider = mo.ui.slider(
-    0.01,
-    2,
-    0.01,
-    value=0.1,
-    label=r"$\beta$",
+steps_control = mo.ui.slider(
+    10_000, 80_000, 10_000, value=30_000, label="Integration steps"
 )
-gamma_slider = mo.ui.slider(
-    1,
-    50,
-    0.5,
-    value=10.0,
-    label=r"$\gamma$",
+beta_control = mo.ui.slider(
+    0.1, 3.0, 0.1, value=1.0, label=r"Inverse temperature $\beta$"
 )
-dt_slider = mo.ui.slider(
-    0.001,
-    0.5,
-    0.001,
-    value=0.01,
-    label=r"$\delta t$",
+gamma_control = mo.ui.slider(
+    1.0, 20.0, 0.5, value=6.0, label=r"Damping $\gamma$"
+)
+dt_control = mo.ui.slider(
+    0.001, 0.03, 0.001, value=0.008, label=r"Time step $\Delta t$"
 )
 
 mo.hstack(
     [
-        matrix_ui,
+        matrix_control,
+        mo.vstack([force_control, beta_control], align="stretch"),
         mo.vstack(
-            [mo.md("**Simulation**"), n_iter_slider, dt_slider],
-            align="stretch",
-        ),
-        mo.vstack(
-            [mo.md("**Physics**"), beta_slider, gamma_slider],
-            align="stretch",
+            [steps_control, gamma_control, dt_control], align="stretch"
         ),
     ],
     justify="center",
     align="center",
-    gap=4,
+    gap=3,
 )
 ```
 
-## Matrix validation
-
 ```python marimo
-A = np.array(matrix_ui.value)
-is_positive_definite = np.all(np.linalg.eigvals(A) > 0)
+A_model = np.asarray(matrix_control.value, dtype=float)
+b_model = np.asarray(force_control.value, dtype=float)
+eigenvalues_model, eigenvectors_model = np.linalg.eigh(A_model)
+is_spd_model = bool(np.all(eigenvalues_model > 0.0))
 
 mo.stop(
-    not is_positive_definite,
+    not is_spd_model,
     mo.md(
-        "**Matrix is not positive definite!** Please adjust the matrix elements."
-    ).style({"color": "red", "font-size": "1.1em"}),
+        "**The matrix is not positive definite.** Increase its diagonal or "
+        "reduce the off-diagonal coupling to continue."
+    ).style({"color": "#b42318", "font-weight": "600"}),
 )
-```
 
-## Langevin simulation
-
-The trajectory is integrated with Euler-Maruyama. A burn-in transient is
-discarded before estimating the covariance.
-
-```python marimo
-D = 2
-gamma = gamma_slider.value
-beta = beta_slider.value
-dt = dt_slider.value
-n_iter = n_iter_slider.value
-x0 = np.array([15.0, 17.0])
-
-x = np.zeros((n_iter, D), dtype=np.float64)
-x[0] = x0
-for step_index in range(1, n_iter):
-    x[step_index] = (
-        x[step_index - 1]
-        - 1 / gamma * A @ x[step_index - 1] * dt
-        + np.random.normal(
-            0,
-            np.sqrt(2 / (gamma * beta) * dt),
-            size=(2,),
-        )
-    )
-```
-
-## Covariance estimate
-
-```python marimo
-skip = 5000
-n_max = n_iter - 1
-covariance_estimate = (
-    np.einsum("ti,tj->ij", x[skip:n_max], x[skip:n_max])
-    / (n_max - skip)
-    * beta
-)
-exact_inverse = np.linalg.inv(A)
+condition_model = float(eigenvalues_model[-1] / eigenvalues_model[0])
+solution_exact = np.linalg.solve(A_model, b_model)
+inverse_exact = np.linalg.inv(A_model)
+covariance_exact = inverse_exact / beta_control.value
 
 mo.md(
     f"""
-    | Matrix | Row 1 | Row 2 |
-    |---|---:|---:|
-    | Exact inverse | `{exact_inverse[0, 0]:+.4f}, {exact_inverse[0, 1]:+.4f}` | `{exact_inverse[1, 0]:+.4f}, {exact_inverse[1, 1]:+.4f}` |
-    | Covariance estimate | `{covariance_estimate[0, 0]:+.4f}, {covariance_estimate[0, 1]:+.4f}` | `{covariance_estimate[1, 0]:+.4f}, {covariance_estimate[1, 1]:+.4f}` |
+    | Diagnostic | Value |
+    |---|---:|
+    | Eigenvalues of $A$ | `{eigenvalues_model[0]:.3f}`, `{eigenvalues_model[1]:.3f}` |
+    | Condition number $\kappa$ | `{condition_model:.3f}` |
+    | Exact solution $A^{{-1}}b$ | `({solution_exact[0]:+.4f}, {solution_exact[1]:+.4f})` |
+    | Slow relaxation time $\gamma/\lambda_{{\min}}$ | `{gamma_control.value / eigenvalues_model[0]:.3f}` |
     """
 )
 ```
 
-## Potential and trajectory
+## Watch equilibration
+
+The paper analyzes both overdamped and underdamped motion. This demonstration
+uses the overdamped Langevin equation (paper Eq. 27):
+
+$$
+dx=-\gamma^{-1}(Ax-b)\,dt
+   +\sqrt{2(\gamma\beta)^{-1}}\,dW_t.
+$$
+
+The drift pulls the state toward $A^{-1}b$ while fluctuation-dissipation fixes
+the noise amplitude. Euler-Maruyama is used here only to emulate that continuous
+physical process on a digital computer.
 
 ```python marimo
-n_grid = 100
-xmin, xmax, ymin, ymax = -17, 17, -10, 24
-xmesh, ymesh = np.meshgrid(
-    np.linspace(xmin, xmax, n_grid),
-    np.linspace(ymin, ymax, n_grid),
-)
-grid = np.vstack((xmesh.ravel(), ymesh.ravel())).T
-potential = np.einsum("ik,kl,il->i", grid, A, grid).reshape(
-    (n_grid, n_grid)
-)
+beta_model = float(beta_control.value)
+gamma_model = float(gamma_control.value)
+dt_model = float(dt_control.value)
+steps_model = int(steps_control.value)
+burn_model = min(5_000, steps_model // 4)
+rng_model = np.random.default_rng(230805660)
 
-figure, axis = plt.subplots(figsize=(7, 7))
-figure.set_facecolor("#f4f0e8")
-axis.set_facecolor("#f4f0e8")
+trajectory_model = np.empty((steps_model, 2), dtype=float)
+trajectory_model[0] = solution_exact + np.array([7.0, 6.0])
+noise_scale_model = np.sqrt(2.0 * dt_model / (gamma_model * beta_model))
+for trajectory_index in range(1, steps_model):
+    previous_state_model = trajectory_model[trajectory_index - 1]
+    trajectory_model[trajectory_index] = (
+        previous_state_model
+        - (A_model @ previous_state_model - b_model)
+        * dt_model
+        / gamma_model
+        + noise_scale_model * rng_model.standard_normal(2)
+    )
 
-axis.contour(
-    xmesh,
-    ymesh,
-    potential,
-    colors="#383b3e",
-    levels=40,
-    linewidths=0.2,
-    zorder=-10,
+samples_model = trajectory_model[burn_model:]
+mean_estimate_model = samples_model.mean(axis=0)
+centered_samples_model = samples_model - mean_estimate_model
+inverse_estimate_model = (
+    beta_model
+    * centered_samples_model.T
+    @ centered_samples_model
+    / len(centered_samples_model)
 )
-axis.plot(
-    x[:n_max, 0],
-    x[:n_max, 1],
-    color="blue",
-    linewidth=0.1,
-    alpha=0.7,
+linear_residual_model = float(
+    np.linalg.norm(A_model @ mean_estimate_model - b_model)
+    / max(np.linalg.norm(b_model), 1e-12)
 )
-axis.scatter(
-    x[n_max, 0],
-    x[n_max, 1],
-    color="red",
-    s=14,
-    linewidths=0,
-    zorder=10,
+inverse_error_model = float(
+    np.linalg.norm(inverse_estimate_model - inverse_exact, ord="fro")
+    / np.linalg.norm(inverse_exact, ord="fro")
 )
-axis.set_aspect("equal", "box")
-axis.set_xlim([xmin, xmax])
-axis.set_ylim([ymin, ymax])
-axis.set_xlabel(r"$x_1$")
-axis.set_ylabel(r"$x_2$")
-axis.set_title("Langevin trajectory in the quadratic potential")
-axis.grid(alpha=0.12)
-figure.tight_layout()
-figure
 ```
 
-## Interpretation
+```python marimo
+potential_span_model = max(
+    5.0,
+    4.0 * np.sqrt(float(np.max(np.linalg.eigvalsh(covariance_exact)))),
+)
+grid_axis_model = np.linspace(-potential_span_model, potential_span_model, 120)
+grid_x_model, grid_y_model = np.meshgrid(grid_axis_model, grid_axis_model)
+grid_points_model = np.column_stack(
+    (grid_x_model.ravel(), grid_y_model.ravel())
+) + solution_exact
+potential_model = (
+    0.5
+    * np.einsum("ni,ij,nj->n", grid_points_model, A_model, grid_points_model)
+    - grid_points_model @ b_model
+).reshape(grid_x_model.shape)
 
-Longer trajectories generally improve the covariance estimate, while the
-temperature, damping, time step, and spectrum of `A` affect equilibration and
-sampling. The browser calculation is intentionally limited to a two-dimensional
-example and lightweight numerical dependencies.
+equilibrium_figure, equilibrium_axes = plt.subplots(
+    1, 2, figsize=(11, 4.6), constrained_layout=True
+)
+equilibrium_figure.set_facecolor("#f4f0e8")
+for equilibrium_axis in equilibrium_axes:
+    equilibrium_axis.set_facecolor("#f4f0e8")
+
+equilibrium_axes[0].contour(
+    grid_x_model + solution_exact[0],
+    grid_y_model + solution_exact[1],
+    potential_model,
+    levels=24,
+    colors="#8a8175",
+    linewidths=0.55,
+)
+display_stride_model = max(1, steps_model // 5000)
+equilibrium_axes[0].plot(
+    trajectory_model[::display_stride_model, 0],
+    trajectory_model[::display_stride_model, 1],
+    color="#167d9a",
+    linewidth=0.45,
+    alpha=0.72,
+)
+equilibrium_axes[0].scatter(
+    *solution_exact, color="#c2412d", marker="*", s=120, label=r"$A^{-1}b$"
+)
+equilibrium_axes[0].set_title("One noisy trajectory")
+equilibrium_axes[0].set_xlabel(r"$x_1$")
+equilibrium_axes[0].set_ylabel(r"$x_2$")
+equilibrium_axes[0].set_aspect("equal", "box")
+equilibrium_axes[0].legend(frameon=False)
+
+elapsed_model = np.arange(steps_model) * dt_model
+equilibrium_axes[1].plot(
+    elapsed_model,
+    trajectory_model[:, 0],
+    color="#167d9a",
+    linewidth=0.5,
+    alpha=0.65,
+    label=r"$x_1(t)$",
+)
+equilibrium_axes[1].plot(
+    elapsed_model,
+    trajectory_model[:, 1],
+    color="#cf7a24",
+    linewidth=0.5,
+    alpha=0.65,
+    label=r"$x_2(t)$",
+)
+equilibrium_axes[1].axvspan(
+    0,
+    burn_model * dt_model,
+    color="#8a8175",
+    alpha=0.18,
+    label="discarded burn-in",
+)
+equilibrium_axes[1].axhline(solution_exact[0], color="#167d9a", linestyle="--")
+equilibrium_axes[1].axhline(solution_exact[1], color="#cf7a24", linestyle="--")
+equilibrium_axes[1].set_title("Equilibrate, then average")
+equilibrium_axes[1].set_xlabel("time")
+equilibrium_axes[1].set_ylabel("state")
+equilibrium_axes[1].legend(frameon=False, ncol=2)
+equilibrium_figure
+```
+
+## Read two answers from one trajectory
+
+```python marimo
+mo.md(
+    f"""
+    | Quantity | Exact | Time-average estimate |
+    |---|---:|---:|
+    | Linear-system solution | `({solution_exact[0]:+.4f}, {solution_exact[1]:+.4f})` | `({mean_estimate_model[0]:+.4f}, {mean_estimate_model[1]:+.4f})` |
+    | Inverse row 1 | `({inverse_exact[0, 0]:+.4f}, {inverse_exact[0, 1]:+.4f})` | `({inverse_estimate_model[0, 0]:+.4f}, {inverse_estimate_model[0, 1]:+.4f})` |
+    | Inverse row 2 | `({inverse_exact[1, 0]:+.4f}, {inverse_exact[1, 1]:+.4f})` | `({inverse_estimate_model[1, 0]:+.4f}, {inverse_estimate_model[1, 1]:+.4f})` |
+    | Relative residual $\|A\bar x-b\|/\|b\|$ | `0` | `{linear_residual_model:.3e}` |
+    | Relative inverse error (Frobenius) | `0` | `{inverse_error_model:.3e}` |
+    """
+)
+```
+
+The estimates are imperfect for two distinct reasons. Burn-in may end before
+the slowest mode equilibrates, and successive samples are correlated. More
+integration time gives more effective samples, but not one independent sample
+per numerical step.
+
+## Convergence is observable-dependent
+
+The running mean estimates a first moment; the running covariance estimates all
+second moments. The latter usually converges more slowly and requires many more
+physical readout channels.
+
+```python marimo
+convergence_counts_model = np.unique(
+    np.geomspace(100, len(samples_model), 80).astype(int)
+)
+mean_errors_model = []
+inverse_errors_model = []
+for convergence_count_model in convergence_counts_model:
+    prefix_model = samples_model[:convergence_count_model]
+    prefix_mean_model = prefix_model.mean(axis=0)
+    prefix_centered_model = prefix_model - prefix_mean_model
+    prefix_inverse_model = (
+        beta_model
+        * prefix_centered_model.T
+        @ prefix_centered_model
+        / convergence_count_model
+    )
+    mean_errors_model.append(
+        np.linalg.norm(A_model @ prefix_mean_model - b_model)
+        / max(np.linalg.norm(b_model), 1e-12)
+    )
+    inverse_errors_model.append(
+        np.linalg.norm(prefix_inverse_model - inverse_exact, ord="fro")
+        / np.linalg.norm(inverse_exact, ord="fro")
+    )
+
+convergence_figure, convergence_axis = plt.subplots(figsize=(8.5, 4.6))
+convergence_figure.set_facecolor("#f4f0e8")
+convergence_axis.set_facecolor("#f4f0e8")
+convergence_axis.loglog(
+    convergence_counts_model * dt_model,
+    mean_errors_model,
+    color="#167d9a",
+    linewidth=2,
+    label="first moment: linear system",
+)
+convergence_axis.loglog(
+    convergence_counts_model * dt_model,
+    inverse_errors_model,
+    color="#cf7a24",
+    linewidth=2,
+    label="second moment: inverse",
+)
+convergence_axis.set_xlabel("post-burn-in integration time")
+convergence_axis.set_ylabel("relative error")
+convergence_axis.set_title("Running estimates from this trajectory")
+convergence_axis.grid(alpha=0.18, which="both")
+convergence_axis.legend(frameon=False)
+convergence_figure.tight_layout()
+convergence_figure
+```
+
+Do not expect either line to decrease monotonically: these are correlated,
+stochastic estimates from one realization. The paper derives probabilistic
+bounds rather than monotone guarantees.
+
+## Why conditioning matters
+
+In the eigenbasis of $A$, overdamped dynamics separate into independent modes.
+A mode with eigenvalue $\lambda_j$ forgets its initial displacement as
+$e^{-\lambda_j t/\gamma}$. The smallest eigenvalue is therefore the bottleneck.
+
+Use this idealized mode explorer to isolate the effect of the condition number
+$\kappa=\lambda_{\max}/\lambda_{\min}$ while fixing $\lambda_{\max}=1$.
+
+```python marimo
+condition_control = mo.ui.slider(
+    1, 100, 1, value=12, label=r"Condition number $\kappa$"
+)
+condition_control
+```
+
+```python marimo
+condition_explorer = float(condition_control.value)
+mode_times_explorer = np.linspace(0.0, 5.0 * condition_explorer, 400)
+fast_decay_explorer = np.exp(-mode_times_explorer)
+slow_decay_explorer = np.exp(-mode_times_explorer / condition_explorer)
+
+mode_figure_explorer, mode_axis_explorer = plt.subplots(figsize=(8.5, 4.2))
+mode_figure_explorer.set_facecolor("#f4f0e8")
+mode_axis_explorer.set_facecolor("#f4f0e8")
+mode_axis_explorer.semilogy(
+    mode_times_explorer,
+    fast_decay_explorer,
+    color="#167d9a",
+    linewidth=2,
+    label=r"fast mode, $\lambda_{\max}=1$",
+)
+mode_axis_explorer.semilogy(
+    mode_times_explorer,
+    slow_decay_explorer,
+    color="#c2412d",
+    linewidth=2,
+    label=rf"slow mode, $\lambda_{{\min}}=1/{condition_explorer:.0f}$",
+)
+mode_axis_explorer.axhline(np.exp(-1), color="#6b665f", linestyle=":")
+mode_axis_explorer.axvline(
+    condition_explorer,
+    color="#6b665f",
+    linestyle="--",
+    label=rf"slow relaxation time $=\kappa={condition_explorer:.0f}$",
+)
+mode_axis_explorer.set_ylim(1e-3, 1.1)
+mode_axis_explorer.set_xlabel("time in units of the fast relaxation time")
+mode_axis_explorer.set_ylabel("remaining displacement")
+mode_axis_explorer.set_title("Ill-conditioning creates a slow physical mode")
+mode_axis_explorer.grid(alpha=0.18, which="both")
+mode_axis_explorer.legend(frameon=False)
+mode_figure_explorer.tight_layout()
+mode_figure_explorer
+```
+
+For the overdamped model, the paper bounds the equilibration time by a factor
+proportional to $\kappa\tau_r$ (up to logarithms), where
+$\tau_r=\gamma/\|A\|$. Its integration-time bounds scale as $\kappa^2$ for the
+linear-system protocol and as $\kappa$ for inverse estimation, in addition to
+dimension and error factors.
+
+## Four thermodynamic primitives
+
+The paper develops a hierarchy based on which equilibrium information is read:
+
+1. **Linear system:** encode $b$ as a constant force and estimate the mean.
+2. **Matrix inverse:** set $b=0$ and estimate the covariance.
+3. **Lyapunov equation:** choose correlated thermal noise with covariance $R$;
+   the stationary covariance solves
+   $A\Sigma+\Sigma A^\mathsf{T}=2\beta^{-1}R$.
+4. **Determinant:** infer a free-energy difference while changing one quadratic
+   potential into another. For zero force,
+   $\Delta F=(2\beta)^{-1}\log(|A_2|/|A_1|)$.
+
+The determinant protocol is qualitatively different. It uses work measurements
+and the Jarzynski equality $e^{-\beta\Delta F}=\langle e^{-\beta W}\rangle$.
+The paper warns that the direct exponential estimator is biased at finite
+sample size and can converge slowly because rare trajectories dominate. It
+points to Bennett and multistate Bennett estimators as better choices.
+
+## Claimed asymptotic scaling
+
+The following explorer reproduces the leading dimension dependence reported in
+the paper's Table I for dense SPD problems. It deliberately suppresses constants,
+condition-number factors, error dependence, and logarithms. It is an
+**illustration of stated asymptotics**, not measured runtime.
+
+```python marimo
+dimension_control = mo.ui.slider(
+    10, 10_000, 10, value=1_000, label=r"Matrix dimension $d$"
+)
+dimension_control
+```
+
+```python marimo
+dimension_selected = int(dimension_control.value)
+dimension_range = np.logspace(1, 4, 180)
+omega_exponent = 2.3
+
+scaling_figure, scaling_axes = plt.subplots(
+    1, 2, figsize=(11, 4.4), constrained_layout=True
+)
+scaling_figure.set_facecolor("#f4f0e8")
+for scaling_axis in scaling_axes:
+    scaling_axis.set_facecolor("#f4f0e8")
+    scaling_axis.grid(alpha=0.18, which="both")
+    scaling_axis.set_xlabel(r"dimension $d$")
+    scaling_axis.set_ylabel("normalized leading cost")
+
+scaling_axes[0].loglog(
+    dimension_range,
+    dimension_range**2,
+    color="#167d9a",
+    label=r"thermodynamic $d^2$",
+)
+scaling_axes[0].loglog(
+    dimension_range,
+    dimension_range**omega_exponent,
+    color="#c2412d",
+    label=rf"digital $d^{{{omega_exponent}}}$",
+)
+scaling_axes[0].set_title("Matrix inverse / Lyapunov")
+scaling_axes[0].legend(frameon=False)
+
+scaling_axes[1].loglog(
+    dimension_range,
+    dimension_range,
+    color="#167d9a",
+    label=r"thermodynamic $d$",
+)
+scaling_axes[1].loglog(
+    dimension_range,
+    dimension_range**2,
+    color="#c2412d",
+    label=r"digital CG envelope $d^2$",
+)
+scaling_axes[1].set_title("Linear system (dimension factor only)")
+scaling_axes[1].legend(frameon=False)
+
+for scaling_axis_marker in scaling_axes:
+    scaling_axis_marker.axvline(
+        dimension_selected, color="#6b665f", linestyle="--", linewidth=1
+    )
+scaling_figure
+```
+
+For the overdamped regime, Table I states the following full dependencies:
+
+| Problem | Digital comparison in paper | Thermodynamic bound |
+|---|---:|---:|
+| Linear system | $O(\min\{d^\omega,d^2\sqrt\kappa\})$ | $O(d\kappa^2\epsilon^{-2})$ |
+| Matrix inverse | $O(d^\omega)$ | $O(d^2\kappa\epsilon^{-2})$ |
+| Lyapunov equation | $O(d^3)$ | $O(d^2\kappa\epsilon^{-2})$ |
+| Matrix determinant | $O(d^\omega)$ | $O(d\kappa\log^3\!\kappa\,\epsilon^{-2})$ |
+
+Here $\omega\approx2.3$ is the matrix-multiplication exponent used by the
+authors. Their central asymptotic claim is a linear-in-$d$ advantage when other
+parameters are held fixed. Whether that becomes a practical wall-clock or
+energy advantage depends on hardware and all omitted constants.
+
+## What the comparison assumes
+
+This is the most important qualification to the scaling story. The analytical
+model assumes:
+
+- Langevin dynamics accurately describe the device.
+- $A$ and $b$ can be switched instantaneously.
+- The quadratic potential can represent them with arbitrary accuracy.
+- A convenient known Gaussian equilibrium state is available before a protocol.
+- Analog multipliers and integrators operate in parallel as the system grows.
+
+For numerical timing comparisons, the authors model an electrical device with
+an $RC=1\,\mu\mathrm{s}$ timescale, 16-bit conversion, and 5,000 ADC/DAC
+channels at 250 MSamples/s. They include an $O(d^2)$ digital compilation step,
+which was dominant in the investigated cases. They explicitly state that analog
+imprecision was not included in those experiments.
+
+The paper's simulations compare its hardware timing model against GPU conjugate
+gradient and Cholesky calculations. They report increasing competitiveness at
+larger $d$ and $\kappa$, especially when a quick approximate answer is useful;
+the digital methods can ultimately reach higher precision. These are modeled
+comparisons, not measurements from a large thermodynamic processor.
+
+## Energy, time, and precision
+
+Rescaling the force can apparently shorten averaging time, but it also deepens
+the potential and costs energy. The paper reformulates this as a lower bound on
+the energy-time product. In the overdamped model,
+
+$$
+E\tau\;\geq\;
+\frac{2\kappa^2 d}{\epsilon_x^2(1-P_\epsilon)}\,
+\beta^{-1}\tau_r.
+$$
+
+Thus time is not a free resource that can be reduced indefinitely by increasing
+signal amplitude. Precision is costly too: the probabilistic integration bounds
+scale as $\epsilon^{-2}$, as expected for sampling.
+
+## What to take away
+
+The paper's conceptual contribution is the mapping
+
+$$
+\text{quadratic physics}\longrightarrow
+\text{Gaussian equilibrium}\longrightarrow
+\text{linear algebra from moments}.
+$$
+
+Noise is useful because it explores the equilibrium distribution. The hierarchy
+of first moments, second moments, and free-energy information yields progressively
+richer algebraic objects. The strongest performance results remain conditional
+on an analog hardware model and idealizations that real devices must confront.
+
+The authors identify open questions around optimal energy-time tradeoffs,
+higher-moment algorithms, analog error, and experimental scaling. They report a
+separate eight-oscillator electrical demonstration of $8\times8$ matrix inversion
+as an early hardware result, while leaving large-scale validation for future work.
+
+## Citation and scope
+
+Maxwell Aifer, Kaelan Donatella, Max Hunter Gordon, Samuel Duffield, Thomas Ahle,
+Daniel Simpson, Gavin E. Crooks, and Patrick J. Coles, “Thermodynamic Linear
+Algebra,” arXiv:2308.05660v2, 2024. [PDF](https://arxiv.org/pdf/2308.05660v2) ·
+[DOI](https://doi.org/10.48550/arXiv.2308.05660)
+
+This adaptation focuses on the paper's main construction and results. Consult
+the original paper and its supplemental derivations for formal error bounds,
+the underdamped analysis, proofs of ergodicity, and complete references.

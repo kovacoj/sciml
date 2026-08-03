@@ -25,7 +25,7 @@ $$
 
 ## Compare eigenstates
 
-Select a neural formulation and an eigenstate. The Direct FE eigenpair is always shown as the numerical reference; it is therefore not a standalone selector option. The left panel overlays the selected approximation with the Direct FE state on a common reference-energy baseline. The right panel magnifies their pointwise difference. Short neutral marks show the Direct FE energy ladder, while the colored dashed mark shows the selected method's computed eigenvalue.
+Select a formulation and an eigenstate. The Direct FE eigenpair is always shown as the numerical reference; it is therefore not a standalone selector option. The plot overlays the selected approximation with the Direct FE state on a common reference-energy baseline. Short neutral marks show the Direct FE energy ladder, while the colored dashed mark shows the selected method's computed eigenvalue.
 
 ```python marimo
 import io
@@ -82,9 +82,9 @@ with urllib.request.urlopen(DATA_URL) as stream:
     spectrum_data = json.loads(stream.read().decode("utf-8"))
 
 METHOD_STYLES_HO = {
-    "weak": {"label": "Weak Firedrake + PyTorch", "color": "#167d9a"},
-    "strong": {"label": "Strong PINN", "color": "#c2412d"},
-    "variational": {"label": "Variational Rayleigh-Ritz", "color": "#cf7a24"},
+    "weak": {"label": "Weak", "color": "#167d9a"},
+    "strong": {"label": "Strong", "color": "#c2412d"},
+    "variational": {"label": "Variational", "color": "#cf7a24"},
 }
 
 REFERENCE_METHOD_KEY_HO = "direct-fe"
@@ -150,7 +150,6 @@ mo.stop(
 
 # mo.ui.dropdown: options = {display_label: internal_key};
 # value must be display_label; .value then returns internal_key.
-# This matches the thermodynamic-linear-algebra page pattern.
 method_control_ho = mo.ui.dropdown(
     options={
         METHOD_STYLES_HO[method_key_ho]["label"]: method_key_ho
@@ -160,17 +159,8 @@ method_control_ho = mo.ui.dropdown(
     label="Comparison method",
 )
 
-state_control_ho = mo.ui.slider(
-    start=0,
-    stop=available_state_count_ho - 1,
-    step=1,
-    value=0,
-    label="Eigenstate n",
-    show_value=True,
-)
-
 mo.hstack(
-    [method_control_ho, state_control_ho],
+    [method_control_ho],
     justify="center",
     align="center",
     gap=4,
@@ -182,11 +172,6 @@ selected_method_key_ho = method_control_ho.value
 selected_method_ho = spectrum_data["methods"][selected_method_key_ho]
 selected_style_ho = METHOD_STYLES_HO[selected_method_key_ho]
 
-state_index_ho = int(state_control_ho.value)
-
-reference_state_ho = reference_method_ho["states"][state_index_ho]
-selected_state_ho = selected_method_ho["states"][state_index_ho]
-
 x_plot_ho = np.asarray(spectrum_data["coordinates"], dtype=float)
 
 
@@ -196,26 +181,29 @@ def normalize_state_ho(values):
     return arr / norm
 
 
-reference_psi_ho = normalize_state_ho(reference_state_ho["values"])
-selected_psi_ho = normalize_state_ho(selected_state_ho["values"])
+reference_states_ho = reference_method_ho["states"]
+selected_states_ho = selected_method_ho["states"]
 
-# Sign-align: ensure overlap with reference is positive
-reference_overlap_ho = float(
-    np.trapezoid(reference_psi_ho * selected_psi_ho, x_plot_ho)
-)
-if reference_overlap_ho < 0.0:
-    selected_psi_ho = -selected_psi_ho
+reference_psi_list_ho = []
+selected_psi_list_ho = []
+reference_energies_ho = []
+selected_energies_ho = []
 
-difference_psi_ho = selected_psi_ho - reference_psi_ho
-
-reference_energy_ho = float(reference_state_ho["eigenvalue"])
-selected_energy_ho = float(selected_state_ho["eigenvalue"])
-energy_difference_ho = abs(selected_energy_ho - reference_energy_ho)
-
-l2_difference_ho = float(
-    np.sqrt(max(np.trapezoid(difference_psi_ho ** 2, x_plot_ho), 0.0))
-)
-linf_difference_ho = float(np.max(np.abs(difference_psi_ho)))
+for idx in range(len(reference_states_ho)):
+    ref_state = reference_states_ho[idx]
+    sel_state = selected_states_ho[idx]
+    
+    ref_psi = normalize_state_ho(ref_state["values"])
+    sel_psi = normalize_state_ho(sel_state["values"])
+    
+    ref_overlap = float(np.trapezoid(ref_psi * sel_psi, x_plot_ho))
+    if ref_overlap < 0.0:
+        sel_psi = -sel_psi
+    
+    reference_psi_list_ho.append(ref_psi)
+    selected_psi_list_ho.append(sel_psi)
+    reference_energies_ho.append(float(ref_state["eigenvalue"]))
+    selected_energies_ho.append(float(sel_state["eigenvalue"]))
 
 reference_ladder_ho = np.asarray(
     [s["eigenvalue"] for s in reference_method_ho["states"]], dtype=float,
@@ -228,123 +216,143 @@ potential_ho = 0.5 * x_plot_ho ** 2
 reference_color_ho = "#2f2b27"
 neutral_color_ho = "#8a8175"
 method_color_ho = selected_style_ho["color"]
-wavefunction_scale_ho = 0.72
+wavefunction_scale_ho = 0.35
 
-# Both shapes use the same reference-energy baseline
-reference_shifted_ho = (
-    reference_energy_ho + wavefunction_scale_ho * reference_psi_ho
-)
-selected_shifted_ho = (
-    reference_energy_ho + wavefunction_scale_ho * selected_psi_ho
-)
-
-comparison_figure_ho, (spectrum_ax_ho, difference_ax_ho) = plt.subplots(
-    1, 2, figsize=(6.75, 3.0), constrained_layout=True,
+comparison_figure_ho, spectrum_ax_ho = plt.subplots(
+    1, figsize=(6.75, 3.0), constrained_layout=True,
 )
 comparison_figure_ho.set_facecolor("#f4f0e8")
-for ax_ho in (spectrum_ax_ho, difference_ax_ho):
-    ax_ho.set_facecolor("#f4f0e8")
+spectrum_ax_ho.set_facecolor("#f4f0e8")
 
-# ── LEFT: spectrum and overlaid states ──
+# ── Spectrum and all eigenstates ──
 
 spectrum_ax_ho.plot(
     x_plot_ho, potential_ho,
-    color=reference_color_ho, linewidth=1.0, label=r"$V(x)=x^2/2$",
+    color=reference_color_ho, linewidth=1.2, label=r"$V(x)=x^2/2$",
 )
 
-for ladder_index_ho, ladder_energy_ho in enumerate(reference_ladder_ho):
-    is_selected_ho = ladder_index_ho == state_index_ho
+# Energy ladder (Direct FE reference levels)
+for ladder_energy_ho in reference_energies_ho:
     spectrum_ax_ho.hlines(
         ladder_energy_ho, -0.42, 0.42,
         color=neutral_color_ho,
-        linewidth=1.0 if is_selected_ho else 0.65,
-        alpha=0.78 if is_selected_ho else 0.28,
+        linewidth=0.6,
+        alpha=0.35,
     )
 
-# Separate short mark for selected method's energy
-spectrum_ax_ho.hlines(
-    selected_energy_ho, 0.08, 0.58,
-    color=method_color_ho, linewidth=1.0,
-    linestyle="--", alpha=0.9,
-)
+# Plot all reference eigenfunctions
+for ref_psi_ho in reference_psi_list_ho:
+    ref_shifted_ho = wavefunction_scale_ho * ref_psi_ho
+    spectrum_ax_ho.plot(
+        x_plot_ho, ref_shifted_ho,
+        color=reference_color_ho, linewidth=0.9,
+        alpha=0.85,
+    )
 
-# Both eigenfunctions on common reference-energy baseline
-spectrum_ax_ho.plot(
-    x_plot_ho, reference_shifted_ho,
-    color=reference_color_ho, linewidth=1.15,
-    label="Direct FE reference",
-)
-spectrum_ax_ho.plot(
-    x_plot_ho, selected_shifted_ho,
-    color=method_color_ho, linewidth=1.05,
-    linestyle=(0, (4, 2)), label=selected_style_ho["label"],
-)
-spectrum_ax_ho.fill_between(
-    x_plot_ho, reference_shifted_ho, selected_shifted_ho,
-    color=method_color_ho, alpha=0.10, linewidth=0.0,
-)
+# Plot all selected method eigenfunctions
+for sel_psi_ho in selected_psi_list_ho:
+    sel_shifted_ho = wavefunction_scale_ho * sel_psi_ho
+    spectrum_ax_ho.plot(
+        x_plot_ho, sel_shifted_ho,
+        color=method_color_ho, linewidth=0.85,
+        linestyle=(0, (3, 1)),
+        alpha=0.85,
+    )
 
 spectrum_ax_ho.set_xlim(*spectrum_data["domain"])
-spectrum_ax_ho.set_ylim(0.0, reference_ladder_ho[-1] + 1.5)
+max_energy = max(reference_energies_ho[-1], selected_energies_ho[-1])
+spectrum_ax_ho.set_ylim(-max_energy * 0.6, max_energy * 1.6)
 spectrum_ax_ho.set_xlabel(r"position $x$")
-spectrum_ax_ho.set_ylabel("energy / shifted eigenfunction")
-spectrum_ax_ho.set_title(rf"State $n={state_index_ho}$")
-spectrum_ax_ho.grid(alpha=0.16)
+spectrum_ax_ho.set_ylabel("shifted eigenfunction")
+spectrum_ax_ho.set_title("All eigenstates overlaid")
+spectrum_ax_ho.grid(alpha=0.12)
 spectrum_ax_ho.legend(frameon=False, loc="upper right", fontsize=8)
-
-# ── RIGHT: pairwise discrepancy ──
-
-difference_ax_ho.axhline(
-    0.0, color=neutral_color_ho, linewidth=0.7, alpha=0.65,
-)
-difference_ax_ho.plot(
-    x_plot_ho, difference_psi_ho,
-    color=method_color_ho, linewidth=1.0,
-)
-difference_ax_ho.fill_between(
-    x_plot_ho, 0.0, difference_psi_ho,
-    color=method_color_ho, alpha=0.14, linewidth=0.0,
-)
-
-diff_limit_ho = max(1.15 * linf_difference_ho, 1e-6)
-difference_ax_ho.set_xlim(*spectrum_data["domain"])
-difference_ax_ho.set_ylim(-diff_limit_ho, diff_limit_ho)
-difference_ax_ho.set_xlabel(r"position $x$")
-difference_ax_ho.set_ylabel(r"$\psi_{\mathrm{method}}-\psi_{\mathrm{FE}}$")
-difference_ax_ho.set_title("Pointwise difference")
-difference_ax_ho.grid(alpha=0.16)
-difference_ax_ho.ticklabel_format(axis="y", style="sci", scilimits=(-2, 2))
 
 as_responsive_svg(comparison_figure_ho)
 ```
 
 ```python marimo
-exact_energy_ho = state_index_ho + 0.5
+import numpy as np
+
+avg_l2_diff_ho = float(np.mean([
+    np.sqrt(max(float(np.trapezoid(
+        (sel_psi - ref_psi) ** 2, x_plot_ho
+    ), 0.0)), 0.0)
+    for ref_psi, sel_psi in zip(reference_psi_list_ho, selected_psi_list_ho)
+]))
+
+avg_linf_diff_ho = float(np.mean([
+    float(np.max(np.abs(sel_psi - ref_psi)))
+    for ref_psi, sel_psi in zip(reference_psi_list_ho, selected_psi_list_ho)
+]))
+
+avg_energy_diff_ho = float(np.mean([
+    abs(sel_e - ref_e)
+    for ref_e, sel_e in zip(reference_energies_ho, selected_energies_ho)
+]))
+
+ref_times_ho = [s["trainSeconds"] for s in reference_states_ho]
+sel_times_ho = [s["trainSeconds"] for s in selected_states_ho]
+avg_ref_time_ho = float(np.mean(ref_times_ho))
+avg_sel_time_ho = float(np.mean(sel_times_ho))
 
 mo.md(
     f"""
-    | Quantity | Direct FE reference | {selected_style_ho['label']} | Difference |
-    |---|---:|---:|---:|
-    | State | ``{reference_state_ho['n']}`` | ``{selected_state_ho['n']}`` | `—` |
-    | Eigenvalue | ``{reference_energy_ho:.9f}`` | ``{selected_energy_ho:.9f}`` | ``{energy_difference_ho:.3e}`` |
-    | $L^2$ eigenfunction difference | `0` | ``{l2_difference_ho:.3e}`` | ``{l2_difference_ho:.3e}`` |
-    | $L^\\infty$ eigenfunction difference | `0` | ``{linf_difference_ho:.3e}`` | ``{linf_difference_ho:.3e}`` |
-    | Computation time | ``{reference_state_ho['trainSeconds']:.2f}`` s | ``{selected_state_ho['trainSeconds']:.2f}`` s | `—` |
+    | Metric | Direct FE reference | {selected_style_ho['label']} |
+    |---|---:|---:|
+    | Eigenstates shown | ``{len(reference_states_ho)}`` | ``{len(selected_states_ho)}`` |
+    | Mean $L^2$ eigenfunction error | `—` | ``{avg_l2_diff_ho:.3e}`` |
+    | Mean $L^\\infty$ eigenfunction error | `—` | ``{avg_linf_diff_ho:.3e}`` |
+    | Mean eigenvalue difference | `—` | ``{avg_energy_diff_ho:.3e}`` |
+    | Mean computation time/state | ``{avg_ref_time_ho:.2f}`` s | ``{avg_sel_time_ho:.2f}`` s |
     """
 )
 
 mo.md(
     f"""
     The Direct FE result is the **numerical reference used in the plot**.
-    The harmonic oscillator also has the analytic energy
-    $E_{{{state_index_ho}}}={exact_energy_ho:.1f}$.
-
-    - Direct FE analytic eigenvalue error:
-      `{abs(reference_energy_ho - exact_energy_ho):.3e}`
-    - {selected_style_ho['label']} analytic eigenvalue error:
-      `{abs(selected_energy_ho - exact_energy_ho):.3e}`
+    All {len(reference_states_ho)} eigenstates are displayed simultaneously.
     """
 )
+```
+
+```python marimo
+comparison_times_figure, (eigenvalue_ax_ho, times_ax_ho) = plt.subplots(
+    1, 2, figsize=(6.75, 3.0), constrained_layout=True,
+)
+comparison_times_figure.set_facecolor("#f4f0e8")
+for ax in (eigenvalue_ax_ho, times_ax_ho):
+    ax.set_facecolor("#f4f0e8")
+
+n_values = [s["n"] for s in reference_states_ho]
+ref_errors = [abs(s["eigenvalue"] - (s["n"] + 0.5)) for s in reference_states_ho]
+sel_errors = [abs(s["eigenvalue"] - (s["n"] + 0.5)) for s in selected_states_ho]
+ref_times = [s["trainSeconds"] for s in reference_states_ho]
+sel_times = [s["trainSeconds"] for s in selected_states_ho]
+
+eigenvalue_ax_ho.semilogy(n_values, ref_errors, "o-", color=reference_color_ho,
+                           label="Direct FE", markersize=4, linewidth=1.0)
+eigenvalue_ax_ho.semilogy(n_values, sel_errors, "s--", color=method_color_ho,
+                          label=selected_style_ho["label"], markersize=4, linewidth=1.0)
+eigenvalue_ax_ho.set_xlabel("state index n")
+eigenvalue_ax_ho.set_ylabel("|E_n - E_n^{exact}|")
+eigenvalue_ax_ho.set_title("Eigenvalue error")
+eigenvalue_ax_ho.grid(alpha=0.3, which="both")
+eigenvalue_ax_ho.legend(frameon=False, fontsize=8)
+
+times_ax_ho.bar([x - 0.15 for x in n_values], ref_times, width=0.3,
+                color=reference_color_ho, alpha=0.8, label="Direct FE")
+times_ax_ho.bar([x + 0.15 for x in n_values], sel_times, width=0.3,
+                color=method_color_ho, alpha=0.8, label=selected_style_ho["label"])
+times_ax_ho.set_xlabel("state index n")
+times_ax_ho.set_ylabel("training time (s)")
+times_ax_ho.set_title("Training time per state")
+times_ax_ho.set_xticks(n_values)
+times_ax_ho.grid(alpha=0.2, axis="y")
+times_ax_ho.legend(frameon=False, fontsize=8)
+
+as_responsive_svg(comparison_times_figure)
+```
 ```
 
 ## Method descriptions
@@ -369,11 +377,11 @@ Variational Rayleigh-Ritz minimizes the neural Rayleigh quotient subject to proj
 
 ### Eigenvalue accuracy
 
-The left panel overlays the Direct FE and selected method on a common reference-energy baseline, so the vertical displacement on the plot reflects purely an eigenfunction shape difference rather than a misleading artifact of different eigenvalue levels. The colored dashed mark shows the selected method's computed eigenvalue.
+All eigenstates are displayed on a shared vertical scale. The Direct FE reference states (solid) and the selected method states (dashed) can be compared visually across the entire spectrum.
 
 ### Eigenfunction accuracy
 
-When the selected curve overlaps the Direct FE reference, the method has recovered the eigenfunction shape. The right panel magnifies pointwise differences that are invisible on the spectrum overlay.
+When the dashed curves overlap the solid reference curves, the method has recovered the eigenfunction shape. The reduced opacity allows all states to remain visible simultaneously.
 
 ### Timing
 

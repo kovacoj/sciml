@@ -20,12 +20,12 @@ $$
 $$
 
 <Callout title="Precomputed experiment">
-  Firedrake and PyTorch do not run in this page. The browser loads a versioned JSON dataset produced by the experiment script. Solver values, errors, timings, and sampled eigenfunctions are therefore reproducible static results rather than a client-side reimplementation.
+  Firedrake and PyTorch do not run in this page. The browser loads a versioned JSON dataset produced by the experiment script. Solver values, errors, timings, and sampled eigenfunctions are therefore reproducible static results rather than a client-side reimplementation. Direct FE is used as the numerical reference for the browser comparison. The known analytic harmonic-oscillator eigenpairs remain an independent validation target.
 </Callout>
 
-## Compare methods
+## Compare eigenstates
 
-Select a neural solver and eigenstate. The Direct finite element solution is always plotted as a thin reference line so the difference between the learned curve and the exact finite-element space is visible at a glance.
+Select a neural formulation and an eigenstate. The Direct FE eigenpair is always shown as the numerical reference; it is therefore not a standalone selector option. The left panel overlays the selected approximation with the Direct FE state on a common reference-energy baseline. The right panel magnifies their pointwise difference. Short neutral marks show the Direct FE energy ladder, while the colored dashed mark shows the selected method's computed eigenvalue.
 
 ```python marimo
 import io
@@ -40,7 +40,7 @@ plt.rcParams.update(
     {
         "figure.dpi": 100,
         "savefig.dpi": 300,
-        "figure.figsize": (6.75, 3.6),
+        "figure.figsize": (6.75, 3.0),
         "figure.autolayout": True,
         "lines.linewidth": 1.0,
         "lines.markersize": 3.0,
@@ -66,116 +66,289 @@ def as_responsive_svg(fig):
     buf = io.StringIO()
     fig.savefig(buf, format="svg", bbox_inches="tight", transparent=True)
     plt.close(fig)
-    svg = buf.getvalue().replace(
+    return mo.Html(buf.getvalue().replace(
         "<svg ",
         '<svg style="width:100%;height:auto;display:block" ',
         1,
-    )
-    return mo.Html(svg)
+    ))
 
 
-DATA_URL = "https://kovacoj.github.io/sciml/data/harmonic-oscillator-comparison.json"
+DATA_URL = (
+    "https://kovacoj.github.io/sciml/"
+    "data/harmonic-oscillator-comparison.json"
+)
+
 with urllib.request.urlopen(DATA_URL) as stream:
     spectrum_data = json.loads(stream.read().decode("utf-8"))
 
-REFERENCE_KEY = "dfe"
-NEURAL_KEYS = ["weak", "strong", "variational"]
-method_labels = {k: spectrum_data["methods"][k]["label"] for k in NEURAL_KEYS}
+METHOD_STYLES_HO = {
+    "weak": {"label": "Weak Firedrake + PyTorch", "color": "#167d9a"},
+    "strong": {"label": "Strong PINN", "color": "#c2412d"},
+    "variational": {"label": "Variational Rayleigh-Ritz", "color": "#cf7a24"},
+}
 
-method_control = mo.ui.dropdown(
-    method_labels,
-    value=method_labels[NEURAL_KEYS[0]],
-    label="Neural solver",
+REFERENCE_METHOD_KEY_HO = "direct-fe"
+
+comparison_method_keys_ho = [
+    mk for mk in ("weak", "strong", "variational")
+    if mk in spectrum_data["methods"]
+]
+
+mo.stop(
+    not comparison_method_keys_ho,
+    mo.md(
+        "**The dataset contains no comparison methods.** "
+        "Expected weak, strong, or variational results."
+    ),
 )
-max_states = min(len(spectrum_data["methods"][k]["states"]) for k in NEURAL_KEYS)
-state_control = mo.ui.slider(
-    0,
-    max_states - 1,
+
+mo.stop(
+    REFERENCE_METHOD_KEY_HO not in spectrum_data["methods"],
+    mo.md(
+        "**The dataset has no Direct FE reference.** "
+        "Regenerate the website dataset with `--method website`."
+    ),
+)
+
+reference_method_ho = spectrum_data["methods"][REFERENCE_METHOD_KEY_HO]
+
+available_state_count_ho = min(len(reference_method_ho["states"]))
+for mk in comparison_method_keys_ho:
+    available_state_count_ho = min(
+        available_state_count_ho,
+        len(spectrum_data["methods"][mk]["states"]),
+    )
+
+# mo.ui.dropdown: options = {display_label: internal_key};
+# value must be display_label; .value then returns internal_key.
+# This matches the thermodynamic-linear-algebra page pattern.
+method_control_ho = mo.ui.dropdown(
+    options={
+        METHOD_STYLES_HO[mk]["label"]: mk
+        for mk in comparison_method_keys_ho
+    },
+    value=METHOD_STYLES_HO[comparison_method_keys_ho[0]]["label"],
+    label="Comparison method",
+)
+
+state_control_ho = mo.ui.slider(
+    start=0,
+    stop=available_state_count_ho - 1,
     step=1,
     value=0,
     label="Eigenstate n",
     show_value=True,
 )
-mo.hstack([method_control, state_control], justify="center", gap=4)
+
+mo.hstack(
+    [method_control_ho, state_control_ho],
+    justify="center",
+    align="center",
+    gap=4,
+)
 ```
 
 ```python marimo
-selected_label = method_control.value
-selected_key = [k for k in NEURAL_KEYS if method_labels[k] == selected_label][0]
-n = int(state_control.value)
+selected_method_key_ho = method_control_ho.value
+selected_method_ho = spectrum_data["methods"][selected_method_key_ho]
+selected_style_ho = METHOD_STYLES_HO[selected_method_key_ho]
 
-selected_state = spectrum_data["methods"][selected_key]["states"][n]
-ref_key = REFERENCE_KEY
-ref_state = spectrum_data["methods"][ref_key]["states"][n]
+state_index_ho = int(state_control_ho.value)
 
-x = np.asarray(spectrum_data["coordinates"], dtype=float)
-selected_psi = np.asarray(selected_state["values"], dtype=float)
-selected_e = float(selected_state["eigenvalue"])
-ref_psi = np.asarray(ref_state["values"], dtype=float)
-ref_e = float(ref_state["eigenvalue"])
-exact_ladder = np.asarray(spectrum_data["exactEigenvalues"], dtype=float)
-potential = 0.5 * x ** 2
-method_color = spectrum_data["methods"][selected_key]["color"]
-ref_color = spectrum_data["methods"][ref_key]["color"]
+reference_state_ho = reference_method_ho["states"][state_index_ho]
+selected_state_ho = selected_method_ho["states"][state_index_ho]
 
-shift = 0.72
+x_plot_ho = np.asarray(spectrum_data["coordinates"], dtype=float)
 
-fig, ax = plt.subplots(figsize=(6.75, 3.6))
 
-ax.plot(x, potential, color="#2f2b27", linewidth=2.0, label=r"$V(x)=x^2/2$")
+def normalize_state_ho(values):
+    arr = np.asarray(values, dtype=float)
+    norm = np.sqrt(max(float(np.trapezoid(arr ** 2, x_plot_ho)), 1e-15))
+    return arr / norm
 
-for li, e_ex in enumerate(exact_ladder):
-    lw = 1.3 if li == n else 0.8
-    alpha = 0.85 if li == n else 0.35
-    ax.hlines(e_ex, -0.42, 0.42, color="#8a8175", linewidth=lw, alpha=alpha)
 
-ax.plot(
-    x,
-    ref_e + shift * ref_psi,
-    color=ref_color,
-    linewidth=1.4,
-    label="Direct FE (reference)",
+reference_psi_ho = normalize_state_ho(reference_state_ho["values"])
+selected_psi_ho = normalize_state_ho(selected_state_ho["values"])
+
+# Sign-align: ensure overlap with reference is positive
+reference_overlap_ho = float(
+    np.trapezoid(reference_psi_ho * selected_psi_ho, x_plot_ho)
+)
+if reference_overlap_ho < 0.0:
+    selected_psi_ho = -selected_psi_ho
+
+difference_psi_ho = selected_psi_ho - reference_psi_ho
+
+reference_energy_ho = float(reference_state_ho["eigenvalue"])
+selected_energy_ho = float(selected_state_ho["eigenvalue"])
+energy_difference_ho = abs(selected_energy_ho - reference_energy_ho)
+
+l2_difference_ho = float(
+    np.sqrt(max(np.trapezoid(difference_psi_ho ** 2, x_plot_ho), 0.0))
+)
+linf_difference_ho = float(np.max(np.abs(difference_psi_ho)))
+
+reference_ladder_ho = np.asarray(
+    [s["eigenvalue"] for s in reference_method_ho["states"]], dtype=float,
 )
 
-ax.axhline(selected_e, color=method_color, linestyle="--", linewidth=1.0, alpha=0.45)
-ax.plot(
-    x,
-    selected_e + shift * selected_psi,
-    color=method_color,
-    linewidth=2.2,
-    label=f"{selected_label} n={n}",
-)
-
-ax.set_xlim(*spectrum_data["domain"])
-ax.set_ylim(0.0, float(exact_ladder[-1] + 2.2))
-ax.set_xlabel("position $x$")
-ax.set_ylabel("energy / shifted eigenfunction")
-ax.set_title(f"Comparing {selected_label} against Direct FE")
-ax.grid(True, alpha=0.16)
-ax.legend(frameon=False, loc="upper right", fontsize=9)
-
-as_responsive_svg(fig)
+potential_ho = 0.5 * x_plot_ho ** 2
 ```
 
 ```python marimo
+reference_color_ho = "#2f2b27"
+neutral_color_ho = "#8a8175"
+method_color_ho = selected_style_ho["color"]
+wavefunction_scale_ho = 0.72
+
+# Both shapes use the same reference-energy baseline
+reference_shifted_ho = (
+    reference_energy_ho + wavefunction_scale_ho * reference_psi_ho
+)
+selected_shifted_ho = (
+    reference_energy_ho + wavefunction_scale_ho * selected_psi_ho
+)
+
+comparison_figure_ho, (spectrum_ax_ho, difference_ax_ho) = plt.subplots(
+    1, 2, figsize=(6.75, 3.0), constrained_layout=True,
+)
+comparison_figure_ho.set_facecolor("#f4f0e8")
+for ax_ho in (spectrum_ax_ho, difference_ax_ho):
+    ax_ho.set_facecolor("#f4f0e8")
+
+# ── LEFT: spectrum and overlaid states ──
+
+spectrum_ax_ho.plot(
+    x_plot_ho, potential_ho,
+    color=reference_color_ho, linewidth=1.0, label=r"$V(x)=x^2/2$",
+)
+
+for ladder_index_ho, ladder_energy_ho in enumerate(reference_ladder_ho):
+    is_selected_ho = ladder_index_ho == state_index_ho
+    spectrum_ax_ho.hlines(
+        ladder_energy_ho, -0.42, 0.42,
+        color=neutral_color_ho,
+        linewidth=1.0 if is_selected_ho else 0.65,
+        alpha=0.78 if is_selected_ho else 0.28,
+    )
+
+# Separate short mark for selected method's energy
+spectrum_ax_ho.hlines(
+    selected_energy_ho, 0.08, 0.58,
+    color=method_color_ho, linewidth=1.0,
+    linestyle="--", alpha=0.9,
+)
+
+# Both eigenfunctions on common reference-energy baseline
+spectrum_ax_ho.plot(
+    x_plot_ho, reference_shifted_ho,
+    color=reference_color_ho, linewidth=1.15,
+    label="Direct FE reference",
+)
+spectrum_ax_ho.plot(
+    x_plot_ho, selected_shifted_ho,
+    color=method_color_ho, linewidth=1.05,
+    linestyle=(0, (4, 2)), label=selected_style_ho["label"],
+)
+spectrum_ax_ho.fill_between(
+    x_plot_ho, reference_shifted_ho, selected_shifted_ho,
+    color=method_color_ho, alpha=0.10, linewidth=0.0,
+)
+
+spectrum_ax_ho.set_xlim(*spectrum_data["domain"])
+spectrum_ax_ho.set_ylim(0.0, reference_ladder_ho[-1] + 1.5)
+spectrum_ax_ho.set_xlabel(r"position $x$")
+spectrum_ax_ho.set_ylabel("energy / shifted eigenfunction")
+spectrum_ax_ho.set_title(rf"State $n={state_index_ho}$")
+spectrum_ax_ho.grid(alpha=0.16)
+spectrum_ax_ho.legend(frameon=False, loc="upper right", fontsize=8)
+
+# ── RIGHT: pairwise discrepancy ──
+
+difference_ax_ho.axhline(
+    0.0, color=neutral_color_ho, linewidth=0.7, alpha=0.65,
+)
+difference_ax_ho.plot(
+    x_plot_ho, difference_psi_ho,
+    color=method_color_ho, linewidth=1.0,
+)
+difference_ax_ho.fill_between(
+    x_plot_ho, 0.0, difference_psi_ho,
+    color=method_color_ho, alpha=0.14, linewidth=0.0,
+)
+
+diff_limit_ho = max(1.15 * linf_difference_ho, 1e-6)
+difference_ax_ho.set_xlim(*spectrum_data["domain"])
+difference_ax_ho.set_ylim(-diff_limit_ho, diff_limit_ho)
+difference_ax_ho.set_xlabel(r"position $x$")
+difference_ax_ho.set_ylabel(r"$\psi_{\mathrm{method}}-\psi_{\mathrm{FE}}$")
+difference_ax_ho.set_title("Pointwise difference")
+difference_ax_ho.grid(alpha=0.16)
+difference_ax_ho.ticklabel_format(axis="y", style="sci", scilimits=(-2, 2))
+
+as_responsive_svg(comparison_figure_ho)
+```
+
+```python marimo
+exact_energy_ho = state_index_ho + 0.5
+
 mo.md(
     f"""
-    | Quantity | {selected_label} | Direct FE (reference) |
-    |---|---:|---:|
-    | Computed eigenvalue | `{selected_e:.9f}` | `{ref_e:.9f}` |
-    | Absolute eigenvalue error | `{selected_state['eigenvalueError']:.3e}` | `{ref_state['eigenvalueError']:.3e}` |
-    | $L^2$ eigenfunction error | `{selected_state['l2Error']:.3e}` | `{ref_state['l2Error']:.3e}` |
-    | Training time | `{selected_state['trainSeconds']:.2f} s` | N/A |
+    | Quantity | Direct FE reference | {selected_style_ho['label']} | Difference |
+    |---|---:|---:|---:|
+    | State | ``{reference_state_ho['n']}`` | ``{selected_state_ho['n']}`` | `—` |
+    | Eigenvalue | ``{reference_energy_ho:.9f}`` | ``{selected_energy_ho:.9f}`` | ``{energy_difference_ho:.3e}`` |
+    | $L^2$ eigenfunction difference | `0` | ``{l2_difference_ho:.3e}`` | ``{l2_difference_ho:.3e}`` |
+    | $L^\\infty$ eigenfunction difference | `0` | ``{linf_difference_ho:.3e}`` | ``{linf_difference_ho:.3e}`` |
+    | Computation time | ``{reference_state_ho['trainSeconds']:.2f}`` s | ``{selected_state_ho['trainSeconds']:.2f}`` s | `—` |
+    """
+)
+
+mo.md(
+    f"""
+    The Direct FE result is the **numerical reference used in the plot**.
+    The harmonic oscillator also has the analytic energy
+    $E_{{{state_index_ho}}}={exact_energy_ho:.1f}$.
+
+    - Direct FE analytic eigenvalue error:
+      `{abs(reference_energy_ho - exact_energy_ho):.3e}`
+    - {selected_style_ho['label']} analytic eigenvalue error:
+      `{abs(selected_energy_ho - exact_energy_ho):.3e}`
     """
 )
 ```
 
-## Methods
+## Method descriptions
 
-- **Direct FE** assembles the CG2 Hamiltonian and mass matrices with Firedrake, then solves the generalized eigenproblem with SciPy.
-- **Weak neural** evaluates a coordinate MLP at finite-element degrees of freedom and minimizes an explicit test-space residual with an energy selector.
-- **Strong PINN** minimizes the pointwise differential-equation residual using second coordinate derivatives.
-- **Variational** minimizes the neural Rayleigh quotient subject to projection against previously learned states.
+### Direct FE reference
+
+Direct FE assembles the CG2 Hamiltonian and mass matrices with Firedrake, then solves the generalized eigenproblem with SciPy. It provides a high-fidelity numerical reference against which the neural methods are compared; its accuracy is ultimately limited by the finite-element discretization and solver tolerance.
+
+### Weak neural
+
+Weak neural evaluates a coordinate MLP at finite-element degrees of freedom and minimizes an explicit test-space residual with an energy selector. The finite-element operators provide a strong optimization scaffold while preserving differentiability through the neural coefficient map.
+
+### Strong PINN
+
+Strong PINN minimizes the pointwise differential-equation residual using second coordinate derivatives. No finite-element assembly is required, but the optimization landscape is less constrained.
+
+### Variational Rayleigh-Ritz
+
+Variational Rayleigh-Ritz minimizes the neural Rayleigh quotient subject to projection against previously learned states. Sequential deflation in this setting can propagate inaccurate earlier states into later eigenstates.
+
+## Interpretation
+
+### Eigenvalue accuracy
+
+The left panel overlays the Direct FE and selected method on a common reference-energy baseline, so the vertical displacement on the plot reflects purely an eigenfunction shape difference rather than a misleading artifact of different eigenvalue levels. The colored dashed mark shows the selected method's computed eigenvalue.
+
+### Eigenfunction accuracy
+
+When the selected curve overlaps the Direct FE reference, the method has recovered the eigenfunction shape. The right panel magnifies pointwise differences that are invisible on the spectrum overlay.
+
+### Timing
+
+Computation times describe one workstation and reflect algorithmic overhead, architecture choices, and optimizer budgets. They should be compared relatively.
 
 ## Data and provenance
 
@@ -187,7 +360,7 @@ The JSON records the generating command, source script, coordinate grid, eigenva
 
 - The curves are samples of precomputed finite-element or neural functions, not live solves.
 - Timing values describe one machine and should be interpreted comparatively.
-- Sequential neural deflation can propagate an inaccurate earlier state into later states.
+- Sequential neural deflation can propagate inaccurate earlier states into later states.
 - A compact grid is used for browser delivery; full checkpoints and assembled matrices remain outside the website repository.
 
 ## Reproduction

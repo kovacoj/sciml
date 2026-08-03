@@ -89,9 +89,24 @@ METHOD_STYLES_HO = {
 
 REFERENCE_METHOD_KEY_HO = "direct-fe"
 
+methods_ho = spectrum_data.get("methods", {})
+
+mo.stop(
+    not isinstance(methods_ho, dict),
+    mo.md(
+        "**Invalid harmonic-oscillator dataset.** "
+        "The top-level `methods` entry must be an object."
+    ),
+)
+
 comparison_method_keys_ho = [
-    mk for mk in ("weak", "strong", "variational")
-    if mk in spectrum_data["methods"]
+    method_key_ho
+    for method_key_ho in (
+        "weak",
+        "strong",
+        "variational",
+    )
+    if method_key_ho in methods_ho
 ]
 
 mo.stop(
@@ -103,29 +118,43 @@ mo.stop(
 )
 
 mo.stop(
-    REFERENCE_METHOD_KEY_HO not in spectrum_data["methods"],
+    REFERENCE_METHOD_KEY_HO not in methods_ho,
     mo.md(
         "**The dataset has no Direct FE reference.** "
         "Regenerate the website dataset with `--method website`."
     ),
 )
 
-reference_method_ho = spectrum_data["methods"][REFERENCE_METHOD_KEY_HO]
+reference_method_ho = methods_ho[REFERENCE_METHOD_KEY_HO]
 
-available_state_count_ho = min(len(reference_method_ho["states"]))
-for mk in comparison_method_keys_ho:
-    available_state_count_ho = min(
-        available_state_count_ho,
-        len(spectrum_data["methods"][mk]["states"]),
-    )
+state_counts_ho = [
+    len(reference_method_ho.get("states", [])),
+    *[
+        len(
+            methods_ho[method_key_ho].get("states", [])
+        )
+        for method_key_ho in comparison_method_keys_ho
+    ],
+]
+
+available_state_count_ho = min(state_counts_ho)
+
+mo.stop(
+    available_state_count_ho < 1,
+    mo.md(
+        "**The harmonic-oscillator dataset contains no common eigenstates.** "
+        "The Direct FE reference and every selectable comparison method must "
+        "contain at least one state."
+    ),
+)
 
 # mo.ui.dropdown: options = {display_label: internal_key};
 # value must be display_label; .value then returns internal_key.
 # This matches the thermodynamic-linear-algebra page pattern.
 method_control_ho = mo.ui.dropdown(
     options={
-        METHOD_STYLES_HO[mk]["label"]: mk
-        for mk in comparison_method_keys_ho
+        METHOD_STYLES_HO[method_key_ho]["label"]: method_key_ho
+        for method_key_ho in comparison_method_keys_ho
     },
     value=METHOD_STYLES_HO[comparison_method_keys_ho[0]]["label"],
     label="Comparison method",

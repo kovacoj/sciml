@@ -23,9 +23,9 @@ $$
   Firedrake and PyTorch do not run in this page. The browser loads a versioned JSON dataset produced by the experiment script. Solver values, errors, timings, and sampled eigenfunctions are therefore reproducible static results rather than a client-side reimplementation.
 </Callout>
 
-## Explore the spectrum
+## Compare methods
 
-Use the counter or slider to move each sampled eigenfunction onto its computed eigenvalue level. Switch solvers to compare the shape and energy returned by each method. Short horizontal marks show the exact energy ladder; the dashed line is the selected solver's computed energy.
+Select a neural solver and eigenstate. The Direct finite element solution is always plotted as a thin reference line so the difference between the learned curve and the exact finite-element space is visible at a glance.
 
 ```python marimo
 import io
@@ -36,19 +36,61 @@ import marimo as mo
 import matplotlib.pyplot as plt
 import numpy as np
 
-DATA_URL = "https://kovacoj.github.io/sciml/data/harmonic-oscillator-comparison.json"
-with urllib.request.urlopen(DATA_URL) as data_stream:
-    spectrum_data = json.load(data_stream)
-
-method_keys = list(spectrum_data["methods"])
-method_control = mo.ui.dropdown(
-    options={spectrum_data["methods"][key]["label"]: key for key in method_keys},
-    value=spectrum_data["methods"][method_keys[0]]["label"],
-    label="Solver",
+plt.rcParams.update(
+    {
+        "figure.dpi": 100,
+        "savefig.dpi": 300,
+        "figure.figsize": (6.75, 3.6),
+        "figure.autolayout": True,
+        "lines.linewidth": 1.0,
+        "lines.markersize": 3.0,
+        "svg.fonttype": "none",
+        "font.family": "serif",
+        "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
+        "font.size": 10.0,
+        "axes.titlesize": "medium",
+        "figure.titlesize": "medium",
+        "axes.titleweight": "normal",
+        "mathtext.fontset": "stix",
+        "mathtext.default": "it",
+        "text.color": "#2f2b27",
+        "axes.labelcolor": "#2f2b27",
+        "axes.titlecolor": "#2f2b27",
+        "xtick.color": "#5f5952",
+        "ytick.color": "#5f5952",
+    }
 )
+
+
+def as_responsive_svg(fig):
+    buf = io.StringIO()
+    fig.savefig(buf, format="svg", bbox_inches="tight", transparent=True)
+    plt.close(fig)
+    svg = buf.getvalue().replace(
+        "<svg ",
+        '<svg style="width:100%;height:auto;display:block" ',
+        1,
+    )
+    return mo.Html(svg)
+
+
+DATA_URL = "https://kovacoj.github.io/sciml/data/harmonic-oscillator-comparison.json"
+with urllib.request.urlopen(DATA_URL) as stream:
+    spectrum_data = json.loads(stream.read().decode("utf-8"))
+
+REFERENCE_KEY = "dfe"
+NEURAL_KEYS = ["weak", "strong", "variational"]
+method_labels = {k: spectrum_data["methods"][k]["label"] for k in NEURAL_KEYS}
+
+method_control = mo.ui.dropdown(
+    method_labels,
+    value=method_labels[NEURAL_KEYS[0]],
+    label="Neural solver",
+)
+max_states = min(len(spectrum_data["methods"][k]["states"]) for k in NEURAL_KEYS)
 state_control = mo.ui.slider(
-    start=0,
-    stop=min(len(spectrum_data["methods"][key]["states"]) for key in method_keys) - 1,
+    0,
+    max_states - 1,
     step=1,
     value=0,
     label="Eigenstate n",
@@ -58,76 +100,72 @@ mo.hstack([method_control, state_control], justify="center", gap=4)
 ```
 
 ```python marimo
-selected_method_key = method_control.value
-selected_method = spectrum_data["methods"][selected_method_key]
-selected_state = selected_method["states"][int(state_control.value)]
+selected_label = method_control.value
+selected_key = [k for k in NEURAL_KEYS if method_labels[k] == selected_label][0]
+n = int(state_control.value)
 
-x_plot = np.asarray(spectrum_data["coordinates"], dtype=float)
-psi_plot = np.asarray(selected_state["values"], dtype=float)
-energy_plot = float(selected_state["eigenvalue"])
+selected_state = spectrum_data["methods"][selected_key]["states"][n]
+ref_key = REFERENCE_KEY
+ref_state = spectrum_data["methods"][ref_key]["states"][n]
+
+x = np.asarray(spectrum_data["coordinates"], dtype=float)
+selected_psi = np.asarray(selected_state["values"], dtype=float)
+selected_e = float(selected_state["eigenvalue"])
+ref_psi = np.asarray(ref_state["values"], dtype=float)
+ref_e = float(ref_state["eigenvalue"])
 exact_ladder = np.asarray(spectrum_data["exactEigenvalues"], dtype=float)
-potential_plot = 0.5 * x_plot**2
+potential = 0.5 * x ** 2
+method_color = spectrum_data["methods"][selected_key]["color"]
+ref_color = spectrum_data["methods"][ref_key]["color"]
 
-figure, axis = plt.subplots(figsize=(9.2, 5.4), constrained_layout=True)
-figure.set_facecolor("#f4f0e8")
-axis.set_facecolor("#f4f0e8")
-axis.plot(x_plot, potential_plot, color="#2f2b27", linewidth=2.0, label=r"$V(x)=x^2/2$")
+shift = 0.72
 
-for level_index, exact_energy in enumerate(exact_ladder):
-    axis.hlines(
-        exact_energy,
-        -0.42,
-        0.42,
-        color="#8a8175",
-        linewidth=1.3 if level_index == state_control.value else 0.8,
-        alpha=0.85 if level_index == state_control.value else 0.35,
-    )
+fig, ax = plt.subplots(figsize=(6.75, 3.6))
 
-method_color = selected_method["color"]
-axis.axhline(energy_plot, color=method_color, linestyle="--", linewidth=1.0, alpha=0.55)
-axis.plot(
-    x_plot,
-    energy_plot + 0.72 * psi_plot,
+ax.plot(x, potential, color="#2f2b27", linewidth=2.0, label=r"$V(x)=x^2/2$")
+
+for li, e_ex in enumerate(exact_ladder):
+    lw = 1.3 if li == n else 0.8
+    alpha = 0.85 if li == n else 0.35
+    ax.hlines(e_ex, -0.42, 0.42, color="#8a8175", linewidth=lw, alpha=alpha)
+
+ax.plot(
+    x,
+    ref_e + shift * ref_psi,
+    color=ref_color,
+    linewidth=1.4,
+    label="Direct FE (reference)",
+)
+
+ax.axhline(selected_e, color=method_color, linestyle="--", linewidth=1.0, alpha=0.45)
+ax.plot(
+    x,
+    selected_e + shift * selected_psi,
     color=method_color,
     linewidth=2.2,
-    label=f'{selected_method["label"]}: n={state_control.value}',
+    label=f"{selected_label} n={n}",
 )
-axis.text(
-    0.98,
-    energy_plot,
-    f"E = {energy_plot:.7f}",
-    color=method_color,
-    fontsize=9,
-    va="bottom",
-)
-axis.set_xlim(*spectrum_data["domain"])
-axis.set_ylim(0.0, float(exact_ladder[-1] + 1.5))
-axis.set_xlabel("position x")
-axis.set_ylabel("energy / shifted eigenfunction")
-axis.set_title("Harmonic oscillator spectrum")
-axis.grid(True, alpha=0.16)
-axis.legend(frameon=False, loc="upper right")
 
-svg_buffer = io.StringIO()
-figure.savefig(svg_buffer, format="svg", bbox_inches="tight", transparent=True)
-plt.close(figure)
-responsive_svg = svg_buffer.getvalue().replace(
-    "<svg ", '<svg style="width:100%;height:auto;display:block" ', 1
-)
-mo.Html(responsive_svg)
+ax.set_xlim(*spectrum_data["domain"])
+ax.set_ylim(0.0, float(exact_ladder[-1] + 2.2))
+ax.set_xlabel("position $x$")
+ax.set_ylabel("energy / shifted eigenfunction")
+ax.set_title(f"Comparing {selected_label} against Direct FE")
+ax.grid(True, alpha=0.16)
+ax.legend(frameon=False, loc="upper right", fontsize=9)
+
+as_responsive_svg(fig)
 ```
 
 ```python marimo
 mo.md(
     f"""
-    | Quantity | Value |
-    |---|---:|
-    | Solver | `{selected_method["label"]}` |
-    | State | `{selected_state["n"]}` |
-    | Computed eigenvalue | `{selected_state["eigenvalue"]:.9f}` |
-    | Absolute eigenvalue error | `{selected_state["eigenvalueError"]:.3e}` |
-    | $L^2$ eigenfunction error | `{selected_state["l2Error"]:.3e}` |
-    | Training time | `{selected_state["trainSeconds"]:.2f} s` |
+    | Quantity | {selected_label} | Direct FE (reference) |
+    |---|---:|---:|
+    | Computed eigenvalue | `{selected_e:.9f}` | `{ref_e:.9f}` |
+    | Absolute eigenvalue error | `{selected_state['eigenvalueError']:.3e}` | `{ref_state['eigenvalueError']:.3e}` |
+    | $L^2$ eigenfunction error | `{selected_state['l2Error']:.3e}` | `{ref_state['l2Error']:.3e}` |
+    | Training time | `{selected_state['trainSeconds']:.2f} s` | N/A |
     """
 )
 ```

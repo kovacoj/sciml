@@ -168,7 +168,6 @@ state_counts_ho = [
 ]
 
 available_state_count_ho = min(state_counts_ho)
-available_state_count_ho = min(available_state_count_ho, 5)
 
 mo.stop(
     available_state_count_ho < 1,
@@ -199,9 +198,11 @@ mo.vstack(
 
 ```python marimo
 selected_method_key_ho = method_control_ho.value
+
 selected_method_ho = methods_ho[
     selected_method_key_ho
 ]
+
 selected_style_ho = METHOD_STYLES_HO[
     selected_method_key_ho
 ]
@@ -219,10 +220,18 @@ def prepare_eigenstate_pairs_ho(
 ):
     def normalize(values):
         array = np.asarray(values, dtype=float)
+
         norm_squared = float(
-            np.trapezoid(array**2, coordinates)
+            np.trapezoid(
+                array**2,
+                coordinates,
+            )
         )
-        norm = np.sqrt(max(norm_squared, 1.0e-15))
+
+        norm = np.sqrt(
+            max(norm_squared, 1.0e-15)
+        )
+
         return array / norm
 
     reference_rows = []
@@ -238,6 +247,7 @@ def prepare_eigenstate_pairs_ho(
         reference_psi = normalize(
             reference_state["values"]
         )
+
         selected_psi = normalize(
             selected_state["values"]
         )
@@ -254,9 +264,11 @@ def prepare_eigenstate_pairs_ho(
 
         reference_rows.append(reference_psi)
         selected_rows.append(selected_psi)
+
         reference_energies.append(
             float(reference_state["eigenvalue"])
         )
+
         selected_energies.append(
             float(selected_state["eigenvalue"])
         )
@@ -269,13 +281,17 @@ def prepare_eigenstate_pairs_ho(
     )
 
 
-reference_states_ho = reference_method_ho[
-    "states"
-][:available_state_count_ho]
+reference_states_ho = tuple(
+    reference_method_ho["states"][
+        :available_state_count_ho
+    ]
+)
 
-selected_states_ho = selected_method_ho[
-    "states"
-][:available_state_count_ho]
+selected_states_ho = tuple(
+    selected_method_ho["states"][
+        :available_state_count_ho
+    ]
+)
 
 (
     reference_psi_matrix_ho,
@@ -288,49 +304,80 @@ selected_states_ho = selected_method_ho[
     x_plot_ho,
 )
 
-# Precompute all method data for static plots
-all_method_keys_ho = ["direct-fe", *comparison_method_keys_ho]
+potential_ho = 0.5 * x_plot_ho**2
+```
+
+```python marimo
+all_method_keys_ho = (
+    "direct-fe",
+    *comparison_method_keys_ho,
+)
+
 all_method_styles_ho = {
-    "direct-fe": {"label": "Direct FE", "color": "#2f2b27"},
+    "direct-fe": {
+        "label": "Direct FE",
+        "color": "#2f2b27",
+    },
     **METHOD_STYLES_HO,
 }
 
-all_reference_energies_ho = np.asarray(
-    [
-        float(s["eigenvalue"])
-        for s in reference_method_ho["states"][:available_state_count_ho]
-    ],
-    dtype=float,
+
+def build_all_method_diagnostics_ho(
+    methods,
+    method_keys,
+    state_count,
+):
+    state_indices = np.arange(
+        state_count,
+        dtype=int,
+    )
+
+    errors_by_method = {}
+    times_by_method = {}
+
+    for method_key in method_keys:
+        states = methods[method_key]["states"][
+            :state_count
+        ]
+
+        errors_by_method[method_key] = np.asarray(
+            [
+                max(
+                    abs(
+                        float(state["eigenvalue"])
+                        - (int(state["n"]) + 0.5)
+                    ),
+                    1.0e-16,
+                )
+                for state in states
+            ],
+            dtype=float,
+        )
+
+        times_by_method[method_key] = np.asarray(
+            [
+                float(state["trainSeconds"])
+                for state in states
+            ],
+            dtype=float,
+        )
+
+    return (
+        state_indices,
+        errors_by_method,
+        times_by_method,
+    )
+
+
+(
+    all_state_indices_ho,
+    all_errors_by_method_ho,
+    all_times_by_method_ho,
+) = build_all_method_diagnostics_ho(
+    methods_ho,
+    all_method_keys_ho,
+    available_state_count_ho,
 )
-
-all_errors_by_method_ho = {}
-all_times_by_method_ho = {}
-
-for method_key_ho in all_method_keys_ho:
-    method_data_ho = methods_ho[method_key_ho]["states"][
-        :available_state_count_ho
-    ]
-    method_style_ho = all_method_styles_ho[method_key_ho]
-    
-    errors_ho = np.asarray(
-        [
-            max(
-                abs(float(s["eigenvalue"]) - (s["n"] + 0.5)),
-                1.0e-16,
-            )
-            for s in method_data_ho
-        ],
-        dtype=float,
-    )
-    times_ho = np.asarray(
-        [float(s["trainSeconds"]) for s in method_data_ho],
-        dtype=float,
-    )
-    
-    all_errors_by_method_ho[method_key_ho] = errors_ho
-    all_times_by_method_ho[method_key_ho] = times_ho
-
-potential_ho = 0.5 * x_plot_ho**2
 ```
 
 ```python marimo
@@ -535,73 +582,90 @@ mo.md(
 ```
 
 ```python marimo
-# Static plots: all methods, stacked vertically
-state_indices_ho = np.arange(available_state_count_ho)
-
-all_errors_figure_ho, all_errors_axis_ho = plt.subplots(
-    1,
+_errors_figure_ho, _errors_axis_ho = plt.subplots(
     figsize=(6.75, 3.0),
     constrained_layout=True,
 )
 
-all_errors_figure_ho.set_facecolor("#f4f0e8")
-all_errors_axis_ho.set_facecolor("#f4f0e8")
+_errors_figure_ho.set_facecolor("#f4f0e8")
+_errors_axis_ho.set_facecolor("#f4f0e8")
 
-for mk_ho in all_method_keys_ho:
-    ms_ho = all_method_styles_ho[mk_ho]
-    err_ho = all_errors_by_method_ho[mk_ho]
-    all_errors_axis_ho.semilogy(
-        state_indices_ho,
-        err_ho,
+for _method_key_plot_ho in all_method_keys_ho:
+    _method_style_plot_ho = all_method_styles_ho[
+        _method_key_plot_ho
+    ]
+
+    _error_values_plot_ho = all_errors_by_method_ho[
+        _method_key_plot_ho
+    ]
+
+    _errors_axis_ho.semilogy(
+        all_state_indices_ho,
+        _error_values_plot_ho,
         "o-",
-        color=ms_ho["color"],
-        label=ms_ho["label"],
+        color=_method_style_plot_ho["color"],
+        label=_method_style_plot_ho["label"],
         markersize=4,
         linewidth=1.0,
     )
 
-all_errors_axis_ho.set_xlabel(r"state index $n$")
-all_errors_axis_ho.set_ylabel(
+_errors_axis_ho.set_xlabel(r"state index $n$")
+_errors_axis_ho.set_ylabel(
     r"$|E_n-E_n^{\mathrm{exact}}|$"
 )
-all_errors_axis_ho.set_title("Eigenvalue error (all methods)")
-all_errors_axis_ho.grid(alpha=0.22, which="both")
-all_errors_axis_ho.legend(frameon=False, fontsize=9)
+_errors_axis_ho.set_title("Eigenvalue error")
+_errors_axis_ho.grid(alpha=0.22, which="both")
+_errors_axis_ho.legend(frameon=False, fontsize=9)
 
-all_times_figure_ho, all_times_axis_ho = plt.subplots(
-    1,
+
+_times_figure_ho, _times_axis_ho = plt.subplots(
     figsize=(6.75, 3.0),
     constrained_layout=True,
 )
 
-all_times_figure_ho.set_facecolor("#f4f0e8")
-all_times_axis_ho.set_facecolor("#f4f0e8")
+_times_figure_ho.set_facecolor("#f4f0e8")
+_times_axis_ho.set_facecolor("#f4f0e8")
 
-bar_width_ho = 0.12
-for idx_ho, mk_ho in enumerate(all_method_keys_ho):
-    ms_ho = all_method_styles_ho[mk_ho]
-    times_ho = all_times_by_method_ho[mk_ho]
-    offset_ho = (idx_ho - len(all_method_keys_ho) / 2 + 0.5) * bar_width_ho
-    all_times_axis_ho.bar(
-        state_indices_ho + offset_ho,
-        times_ho,
-        width=bar_width_ho,
-        color=ms_ho["color"],
+_bar_width_ho = 0.12
+
+for (
+    _method_position_ho,
+    _method_key_plot_ho,
+) in enumerate(all_method_keys_ho):
+    _method_style_plot_ho = all_method_styles_ho[
+        _method_key_plot_ho
+    ]
+
+    _time_values_plot_ho = all_times_by_method_ho[
+        _method_key_plot_ho
+    ]
+
+    _bar_offset_ho = (
+        _method_position_ho
+        - len(all_method_keys_ho) / 2
+        + 0.5
+    ) * _bar_width_ho
+
+    _times_axis_ho.bar(
+        all_state_indices_ho + _bar_offset_ho,
+        _time_values_plot_ho,
+        width=_bar_width_ho,
+        color=_method_style_plot_ho["color"],
         alpha=0.85,
-        label=ms_ho["label"],
+        label=_method_style_plot_ho["label"],
     )
 
-all_times_axis_ho.set_xlabel(r"state index $n$")
-all_times_axis_ho.set_ylabel("computation time (s)")
-all_times_axis_ho.set_title("Computation time per state (all methods)")
-all_times_axis_ho.set_xticks(state_indices_ho)
-all_times_axis_ho.grid(alpha=0.18, axis="y")
-all_times_axis_ho.legend(frameon=False, fontsize=9)
+_times_axis_ho.set_xlabel(r"state index $n$")
+_times_axis_ho.set_ylabel("computation time (s)")
+_times_axis_ho.set_title("Computation time per state")
+_times_axis_ho.set_xticks(all_state_indices_ho)
+_times_axis_ho.grid(alpha=0.18, axis="y")
+_times_axis_ho.legend(frameon=False, fontsize=9)
 
 mo.vstack(
     [
-        as_responsive_svg_ho(all_errors_figure_ho),
-        as_responsive_svg_ho(all_times_figure_ho),
+        as_responsive_svg_ho(_errors_figure_ho),
+        as_responsive_svg_ho(_times_figure_ho),
     ],
     align="center",
 )

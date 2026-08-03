@@ -33,13 +33,9 @@ import json
 import marimo as mo
 import matplotlib.pyplot as plt
 import numpy as np
-from js import window
 from pyodide.http import open_url
 
-site_base = window.location.pathname.split("/docs/", 1)[0]
-data_url = f"{window.location.origin}{site_base}/data/harmonic-oscillator-comparison.json"
-
-with open_url(data_url) as data_stream:
+with open_url("/sciml/data/harmonic-oscillator-comparison.json") as data_stream:
     spectrum_data = json.load(data_stream)
 
 method_keys = list(spectrum_data["methods"])

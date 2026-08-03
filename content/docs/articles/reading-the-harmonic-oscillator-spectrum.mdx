@@ -1,0 +1,33 @@
+---
+title: Reading the Harmonic Oscillator Spectrum
+description: What four numerical solvers reveal when their eigenfunctions are placed back on the energy ladder.
+---
+
+The harmonic oscillator is analytically familiar, but it is still a useful stress test for numerical learning methods. Its exact energies are evenly spaced, its eigenfunctions become progressively more oscillatory, and every newly learned state must remain orthogonal to all earlier states.
+
+## What we compared
+
+The experiment contrasts four routes to the same spectrum: a direct finite-element eigensolve, an explicit weak residual assembled with Firedrake, a strong-form PINN, and neural Rayleigh-Ritz minimization.
+
+The direct solve establishes what the finite-element space can represent. The three neural methods then expose representation and optimization error that cannot be blamed on quadrature or mesh resolution.
+
+## Why place curves on energy levels?
+
+Plotting every normalized eigenfunction around zero hides the spectral structure. Shifting each curve to its computed energy makes two errors visible at once:
+
+- vertical displacement from the exact energy ladder;
+- distortion of the eigenfunction shape around that level.
+
+The interactive experiment lets those two errors be inspected state by state and solver by solver.
+
+## What happened
+
+The direct finite-element solution is effectively exact at the displayed scale. The enhanced weak solver is also accurate through the displayed states, although its optimization uses several seeded candidates. Strong and variational training are competitive at low state index but become less reliable as sequential deflation and oscillatory complexity accumulate.
+
+This is not evidence that one weak formulation is universally superior. It shows that, for this assembled one-dimensional problem, explicit finite-element operators provide a strong optimization scaffold while preserving differentiability through the neural coefficient map.
+
+## Limitations
+
+The browser shows precomputed samples, not live training. Runtime measurements describe one workstation. Later-state failures depend on optimizer budgets, random initialization, network architecture, parity information, and the accuracy of all earlier deflation states.
+
+[Open the complete experiment record](/docs/experiments/harmonic-oscillator/)

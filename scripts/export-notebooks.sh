@@ -48,3 +48,4 @@ export_notebook() {
 }
 
 export_notebook "laplacian_eigenmodes.py" "laplacian-eigenmodes"
+export_notebook "harmonic_oscillator_comparison.py" "harmonic-oscillator-comparison"

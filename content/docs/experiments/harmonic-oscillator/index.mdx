@@ -25,7 +25,12 @@ $$
 
 ## Compare eigenstates
 
-Select a formulation and an eigenstate. The Direct FE eigenpair is always shown as the numerical reference; it is therefore not a standalone selector option. The plot overlays the selected approximation with the Direct FE state on a common reference-energy baseline. Short neutral marks show the Direct FE energy ladder, while the colored dashed mark shows the selected method's computed eigenvalue.
+Select a neural formulation. All eigenstates available for both the selected
+method and the Direct FE reference are displayed simultaneously. Each pair is
+placed on the corresponding Direct FE energy level, so the solid and dashed
+curves can be compared directly. Neutral marks show the Direct FE energy
+ladder, while colored dashed marks show the selected method's computed
+eigenvalues.
 
 ```python marimo
 import io
@@ -46,7 +51,11 @@ plt.rcParams.update(
         "lines.markersize": 3.0,
         "svg.fonttype": "none",
         "font.family": "serif",
-        "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
+        "font.serif": [
+            "STIXGeneral",
+            "Times New Roman",
+            "DejaVu Serif",
+        ],
         "font.size": 10.0,
         "axes.titlesize": "medium",
         "figure.titlesize": "medium",
@@ -62,34 +71,51 @@ plt.rcParams.update(
 )
 
 
-def as_responsive_svg(fig):
-    buf = io.StringIO()
-    fig.savefig(buf, format="svg", bbox_inches="tight", transparent=True)
-    plt.close(fig)
-    return mo.Html(buf.getvalue().replace(
+def as_responsive_svg_ho(figure_ho):
+    buffer_ho = io.StringIO()
+    figure_ho.savefig(
+        buffer_ho,
+        format="svg",
+        bbox_inches="tight",
+        transparent=True,
+    )
+    plt.close(figure_ho)
+
+    svg_markup_ho = buffer_ho.getvalue().replace(
         "<svg ",
         '<svg style="width:100%;height:auto;display:block" ',
         1,
-    ))
+    )
+    return mo.Html(svg_markup_ho)
 
 
-DATA_URL = (
+DATA_URL_HO = (
     "https://kovacoj.github.io/sciml/"
     "data/harmonic-oscillator-comparison.json"
 )
 
-with urllib.request.urlopen(DATA_URL) as stream:
-    spectrum_data = json.loads(stream.read().decode("utf-8"))
+with urllib.request.urlopen(DATA_URL_HO) as _data_stream_ho:
+    spectrum_data_ho = json.load(_data_stream_ho)
+
 
 METHOD_STYLES_HO = {
-    "weak": {"label": "Weak", "color": "#167d9a"},
-    "strong": {"label": "Strong", "color": "#c2412d"},
-    "variational": {"label": "Variational", "color": "#cf7a24"},
+    "weak": {
+        "label": "Weak",
+        "color": "#167d9a",
+    },
+    "strong": {
+        "label": "Strong",
+        "color": "#c2412d",
+    },
+    "variational": {
+        "label": "Variational",
+        "color": "#cf7a24",
+    },
 }
 
 REFERENCE_METHOD_KEY_HO = "direct-fe"
 
-methods_ho = spectrum_data.get("methods", {})
+methods_ho = spectrum_data_ho.get("methods", {})
 
 mo.stop(
     not isinstance(methods_ho, dict),
@@ -121,17 +147,21 @@ mo.stop(
     REFERENCE_METHOD_KEY_HO not in methods_ho,
     mo.md(
         "**The dataset has no Direct FE reference.** "
-        "Regenerate the website dataset with `--method website`."
+        "Regenerate it with `--method website`."
     ),
 )
 
-reference_method_ho = methods_ho[REFERENCE_METHOD_KEY_HO]
+reference_method_ho = methods_ho[
+    REFERENCE_METHOD_KEY_HO
+]
 
 state_counts_ho = [
     len(reference_method_ho.get("states", [])),
     *[
         len(
-            methods_ho[method_key_ho].get("states", [])
+            methods_ho[
+                method_key_ho
+            ].get("states", [])
         )
         for method_key_ho in comparison_method_keys_ho
     ],
@@ -142,20 +172,21 @@ available_state_count_ho = min(state_counts_ho)
 mo.stop(
     available_state_count_ho < 1,
     mo.md(
-        "**The harmonic-oscillator dataset contains no common eigenstates.** "
-        "The Direct FE reference and every selectable comparison method must "
+        "**No common eigenstates are available.** "
+        "The Direct FE reference and each selectable method must "
         "contain at least one state."
     ),
 )
 
-# mo.ui.dropdown: options = {display_label: internal_key};
-# value must be display_label; .value then returns internal_key.
 method_control_ho = mo.ui.dropdown(
     options={
-        METHOD_STYLES_HO[method_key_ho]["label"]: method_key_ho
+        METHOD_STYLES_HO[method_key_ho]["label"]:
+            method_key_ho
         for method_key_ho in comparison_method_keys_ho
     },
-    value=METHOD_STYLES_HO[comparison_method_keys_ho[0]]["label"],
+    value=METHOD_STYLES_HO[
+        comparison_method_keys_ho[0]
+    ]["label"],
     label="Comparison method",
 )
 
@@ -163,196 +194,452 @@ mo.hstack(
     [method_control_ho],
     justify="center",
     align="center",
-    gap=4,
 )
 ```
 
 ```python marimo
 selected_method_key_ho = method_control_ho.value
-selected_method_ho = spectrum_data["methods"][selected_method_key_ho]
-selected_style_ho = METHOD_STYLES_HO[selected_method_key_ho]
+selected_method_ho = methods_ho[
+    selected_method_key_ho
+]
+selected_style_ho = METHOD_STYLES_HO[
+    selected_method_key_ho
+]
 
-x_plot_ho = np.asarray(spectrum_data["coordinates"], dtype=float)
-
-
-def normalize_state_ho(values):
-    arr = np.asarray(values, dtype=float)
-    norm = np.sqrt(max(float(np.trapezoid(arr ** 2, x_plot_ho)), 1e-15))
-    return arr / norm
-
-
-reference_states_ho = reference_method_ho["states"]
-selected_states_ho = selected_method_ho["states"]
-
-reference_psi_list_ho = []
-selected_psi_list_ho = []
-reference_energies_ho = []
-selected_energies_ho = []
-
-for idx in range(len(reference_states_ho)):
-    ref_state = reference_states_ho[idx]
-    sel_state = selected_states_ho[idx]
-    
-    ref_psi = normalize_state_ho(ref_state["values"])
-    sel_psi = normalize_state_ho(sel_state["values"])
-    
-    ref_overlap = float(np.trapezoid(ref_psi * sel_psi, x_plot_ho))
-    if ref_overlap < 0.0:
-        sel_psi = -sel_psi
-    
-    reference_psi_list_ho.append(ref_psi)
-    selected_psi_list_ho.append(sel_psi)
-    reference_energies_ho.append(float(ref_state["eigenvalue"]))
-    selected_energies_ho.append(float(sel_state["eigenvalue"]))
-
-reference_ladder_ho = np.asarray(
-    [s["eigenvalue"] for s in reference_method_ho["states"]], dtype=float,
+x_plot_ho = np.asarray(
+    spectrum_data_ho["coordinates"],
+    dtype=float,
 )
 
-potential_ho = 0.5 * x_plot_ho ** 2
+
+def prepare_eigenstate_pairs_ho(
+    reference_states,
+    selected_states,
+    coordinates,
+):
+    def normalize(values):
+        array = np.asarray(values, dtype=float)
+        norm_squared = float(
+            np.trapezoid(array**2, coordinates)
+        )
+        norm = np.sqrt(max(norm_squared, 1.0e-15))
+        return array / norm
+
+    reference_rows = []
+    selected_rows = []
+    reference_energies = []
+    selected_energies = []
+
+    for reference_state, selected_state in zip(
+        reference_states,
+        selected_states,
+        strict=True,
+    ):
+        reference_psi = normalize(
+            reference_state["values"]
+        )
+        selected_psi = normalize(
+            selected_state["values"]
+        )
+
+        overlap = float(
+            np.trapezoid(
+                reference_psi * selected_psi,
+                coordinates,
+            )
+        )
+
+        if overlap < 0.0:
+            selected_psi = -selected_psi
+
+        reference_rows.append(reference_psi)
+        selected_rows.append(selected_psi)
+        reference_energies.append(
+            float(reference_state["eigenvalue"])
+        )
+        selected_energies.append(
+            float(selected_state["eigenvalue"])
+        )
+
+    return (
+        np.asarray(reference_rows),
+        np.asarray(selected_rows),
+        np.asarray(reference_energies),
+        np.asarray(selected_energies),
+    )
+
+
+reference_states_ho = reference_method_ho[
+    "states"
+][:available_state_count_ho]
+
+selected_states_ho = selected_method_ho[
+    "states"
+][:available_state_count_ho]
+
+(
+    reference_psi_matrix_ho,
+    selected_psi_matrix_ho,
+    reference_energies_ho,
+    selected_energies_ho,
+) = prepare_eigenstate_pairs_ho(
+    reference_states_ho,
+    selected_states_ho,
+    x_plot_ho,
+)
+
+potential_ho = 0.5 * x_plot_ho**2
 ```
 
 ```python marimo
-reference_color_ho = "#2f2b27"
-neutral_color_ho = "#8a8175"
-method_color_ho = selected_style_ho["color"]
-wavefunction_scale_ho = 0.35
+_reference_color_ho = "#2f2b27"
+_neutral_color_ho = "#8a8175"
+_method_color_ho = selected_style_ho["color"]
+_wavefunction_scale_ho = 0.35
 
-comparison_figure_ho, spectrum_ax_ho = plt.subplots(
-    1, figsize=(6.75, 3.0), constrained_layout=True,
-)
-comparison_figure_ho.set_facecolor("#f4f0e8")
-spectrum_ax_ho.set_facecolor("#f4f0e8")
-
-# ── Spectrum and all eigenstates ──
-
-spectrum_ax_ho.plot(
-    x_plot_ho, potential_ho,
-    color=reference_color_ho, linewidth=1.2, label=r"$V(x)=x^2/2$",
+_figure_ho, _spectrum_axis_ho = plt.subplots(
+    figsize=(6.75, 3.0),
+    constrained_layout=True,
 )
 
-# Energy ladder (Direct FE reference levels)
-for ladder_energy_ho in reference_energies_ho:
-    spectrum_ax_ho.hlines(
-        ladder_energy_ho, -0.42, 0.42,
-        color=neutral_color_ho,
-        linewidth=0.6,
-        alpha=0.35,
+_figure_ho.set_facecolor("#f4f0e8")
+_spectrum_axis_ho.set_facecolor("#f4f0e8")
+
+_spectrum_axis_ho.plot(
+    x_plot_ho,
+    potential_ho,
+    color=_reference_color_ho,
+    linewidth=1.0,
+    label=r"$V(x)=x^2/2$",
+)
+
+for _state_index_ho in range(
+    available_state_count_ho
+):
+    _reference_energy_ho = reference_energies_ho[
+        _state_index_ho
+    ]
+    _selected_energy_ho = selected_energies_ho[
+        _state_index_ho
+    ]
+
+    _reference_psi_ho = reference_psi_matrix_ho[
+        _state_index_ho
+    ]
+    _selected_psi_ho = selected_psi_matrix_ho[
+        _state_index_ho
+    ]
+
+    # Direct FE energy level.
+    _spectrum_axis_ho.hlines(
+        _reference_energy_ho,
+        -0.42,
+        0.42,
+        color=_neutral_color_ho,
+        linewidth=0.75,
+        alpha=0.5,
     )
 
-# Plot all reference eigenfunctions
-for ref_psi_ho in reference_psi_list_ho:
-    ref_shifted_ho = wavefunction_scale_ho * ref_psi_ho
-    spectrum_ax_ho.plot(
-        x_plot_ho, ref_shifted_ho,
-        color=reference_color_ho, linewidth=0.9,
+    # Selected method's computed energy.
+    _spectrum_axis_ho.hlines(
+        _selected_energy_ho,
+        0.08,
+        0.58,
+        color=_method_color_ho,
+        linewidth=0.9,
+        linestyle="--",
+        alpha=0.9,
+    )
+
+    # Both shapes are centred on the Direct FE reference energy.
+    _reference_shifted_ho = (
+        _reference_energy_ho
+        + _wavefunction_scale_ho
+        * _reference_psi_ho
+    )
+
+    _selected_shifted_ho = (
+        _reference_energy_ho
+        + _wavefunction_scale_ho
+        * _selected_psi_ho
+    )
+
+    _spectrum_axis_ho.plot(
+        x_plot_ho,
+        _reference_shifted_ho,
+        color=_reference_color_ho,
+        linewidth=1.0,
         alpha=0.85,
+        label=(
+            "Direct FE reference"
+            if _state_index_ho == 0
+            else None
+        ),
     )
 
-# Plot all selected method eigenfunctions
-for sel_psi_ho in selected_psi_list_ho:
-    sel_shifted_ho = wavefunction_scale_ho * sel_psi_ho
-    spectrum_ax_ho.plot(
-        x_plot_ho, sel_shifted_ho,
-        color=method_color_ho, linewidth=0.85,
-        linestyle=(0, (3, 1)),
-        alpha=0.85,
+    _spectrum_axis_ho.plot(
+        x_plot_ho,
+        _selected_shifted_ho,
+        color=_method_color_ho,
+        linewidth=0.95,
+        linestyle=(0, (4, 2)),
+        alpha=0.9,
+        label=(
+            selected_style_ho["label"]
+            if _state_index_ho == 0
+            else None
+        ),
     )
 
-spectrum_ax_ho.set_xlim(*spectrum_data["domain"])
-max_energy = max(reference_energies_ho[-1], selected_energies_ho[-1])
-spectrum_ax_ho.set_ylim(-max_energy * 0.6, max_energy * 1.6)
-spectrum_ax_ho.set_xlabel(r"position $x$")
-spectrum_ax_ho.set_ylabel("shifted eigenfunction")
-spectrum_ax_ho.set_title("All eigenstates overlaid")
-spectrum_ax_ho.grid(alpha=0.12)
-spectrum_ax_ho.legend(frameon=False, loc="upper right", fontsize=8)
+_spectrum_axis_ho.set_xlim(
+    *spectrum_data_ho["domain"]
+)
 
-as_responsive_svg(comparison_figure_ho)
+_spectrum_axis_ho.set_ylim(
+    0.0,
+    float(
+        max(
+            np.max(reference_energies_ho),
+            np.max(selected_energies_ho),
+        )
+        + 1.25
+    ),
+)
+
+_spectrum_axis_ho.set_xlabel(r"position $x$")
+_spectrum_axis_ho.set_ylabel(
+    "energy / shifted eigenfunction"
+)
+_spectrum_axis_ho.set_title(
+    f"First {available_state_count_ho} eigenstates"
+)
+_spectrum_axis_ho.grid(alpha=0.14)
+
+_spectrum_axis_ho.legend(
+    frameon=False,
+    loc="upper right",
+    fontsize=8,
+)
+
+as_responsive_svg_ho(_figure_ho)
 ```
 
 ```python marimo
-import numpy as np
+_l2_differences_ho = [
+    float(
+        np.sqrt(
+            max(
+                float(
+                    np.trapezoid(
+                        (
+                            selected_psi_ho
+                            - reference_psi_ho
+                        )
+                        ** 2,
+                        x_plot_ho,
+                    )
+                ),
+                0.0,
+            )
+        )
+    )
+    for reference_psi_ho, selected_psi_ho in zip(
+        reference_psi_matrix_ho,
+        selected_psi_matrix_ho,
+        strict=True,
+    )
+]
 
-avg_l2_diff_ho = float(np.mean([
-    np.sqrt(max(float(np.trapezoid(
-        (sel_psi - ref_psi) ** 2, x_plot_ho
-    ), 0.0)), 0.0)
-    for ref_psi, sel_psi in zip(reference_psi_list_ho, selected_psi_list_ho)
-]))
+_linf_differences_ho = [
+    float(
+        np.max(
+            np.abs(
+                selected_psi_ho
+                - reference_psi_ho
+            )
+        )
+    )
+    for reference_psi_ho, selected_psi_ho in zip(
+        reference_psi_matrix_ho,
+        selected_psi_matrix_ho,
+        strict=True,
+    )
+]
 
-avg_linf_diff_ho = float(np.mean([
-    float(np.max(np.abs(sel_psi - ref_psi)))
-    for ref_psi, sel_psi in zip(reference_psi_list_ho, selected_psi_list_ho)
-]))
+_energy_differences_ho = np.abs(
+    selected_energies_ho
+    - reference_energies_ho
+)
 
-avg_energy_diff_ho = float(np.mean([
-    abs(sel_e - ref_e)
-    for ref_e, sel_e in zip(reference_energies_ho, selected_energies_ho)
-]))
+_reference_times_ho = np.asarray(
+    [
+        state_ho["trainSeconds"]
+        for state_ho in reference_states_ho
+    ],
+    dtype=float,
+)
 
-ref_times_ho = [s["trainSeconds"] for s in reference_states_ho]
-sel_times_ho = [s["trainSeconds"] for s in selected_states_ho]
-avg_ref_time_ho = float(np.mean(ref_times_ho))
-avg_sel_time_ho = float(np.mean(sel_times_ho))
+_selected_times_ho = np.asarray(
+    [
+        state_ho["trainSeconds"]
+        for state_ho in selected_states_ho
+    ],
+    dtype=float,
+)
 
 mo.md(
     f"""
-    | Metric | Direct FE reference | {selected_style_ho['label']} |
+    | Metric | Direct FE reference | {selected_style_ho["label"]} |
     |---|---:|---:|
-    | Eigenstates shown | ``{len(reference_states_ho)}`` | ``{len(selected_states_ho)}`` |
-    | Mean $L^2$ eigenfunction error | `—` | ``{avg_l2_diff_ho:.3e}`` |
-    | Mean $L^\\infty$ eigenfunction error | `—` | ``{avg_linf_diff_ho:.3e}`` |
-    | Mean eigenvalue difference | `—` | ``{avg_energy_diff_ho:.3e}`` |
-    | Mean computation time/state | ``{avg_ref_time_ho:.2f}`` s | ``{avg_sel_time_ho:.2f}`` s |
-    """
-)
+    | Eigenstates shown | `{available_state_count_ho}` | `{available_state_count_ho}` |
+    | Mean $L^2$ eigenfunction difference | `—` | `{np.mean(_l2_differences_ho):.3e}` |
+    | Mean $L^\\infty$ eigenfunction difference | `—` | `{np.mean(_linf_differences_ho):.3e}` |
+    | Mean eigenvalue difference | `—` | `{np.mean(_energy_differences_ho):.3e}` |
+    | Mean computation time/state | `{np.mean(_reference_times_ho):.2f} s` | `{np.mean(_selected_times_ho):.2f} s` |
 
-mo.md(
-    f"""
-    The Direct FE result is the **numerical reference used in the plot**.
-    All {len(reference_states_ho)} eigenstates are displayed simultaneously.
+    Direct FE is the **numerical reference used in the plot**. The known
+    analytic harmonic-oscillator eigenpairs remain the independent validation
+    target.
     """
 )
 ```
 
 ```python marimo
-comparison_times_figure, (eigenvalue_ax_ho, times_ax_ho) = plt.subplots(
-    1, 2, figsize=(6.75, 3.0), constrained_layout=True,
+_diagnostics_figure_ho, (
+    _eigenvalue_axis_ho,
+    _timing_axis_ho,
+) = plt.subplots(
+    1,
+    2,
+    figsize=(6.75, 3.0),
+    constrained_layout=True,
 )
-comparison_times_figure.set_facecolor("#f4f0e8")
-for ax in (eigenvalue_ax_ho, times_ax_ho):
-    ax.set_facecolor("#f4f0e8")
 
-n_values = [s["n"] for s in reference_states_ho]
-ref_errors = [abs(s["eigenvalue"] - (s["n"] + 0.5)) for s in reference_states_ho]
-sel_errors = [abs(s["eigenvalue"] - (s["n"] + 0.5)) for s in selected_states_ho]
-ref_times = [s["trainSeconds"] for s in reference_states_ho]
-sel_times = [s["trainSeconds"] for s in selected_states_ho]
+_diagnostics_figure_ho.set_facecolor("#f4f0e8")
 
-eigenvalue_ax_ho.semilogy(n_values, ref_errors, "o-", color=reference_color_ho,
-                           label="Direct FE", markersize=4, linewidth=1.0)
-eigenvalue_ax_ho.semilogy(n_values, sel_errors, "s--", color=method_color_ho,
-                          label=selected_style_ho["label"], markersize=4, linewidth=1.0)
-eigenvalue_ax_ho.set_xlabel("state index n")
-eigenvalue_ax_ho.set_ylabel("|E_n - E_n^{exact}|")
-eigenvalue_ax_ho.set_title("Eigenvalue error")
-eigenvalue_ax_ho.grid(alpha=0.3, which="both")
-eigenvalue_ax_ho.legend(frameon=False, fontsize=8)
+for _axis_ho in (
+    _eigenvalue_axis_ho,
+    _timing_axis_ho,
+):
+    _axis_ho.set_facecolor("#f4f0e8")
 
-times_ax_ho.bar([x - 0.15 for x in n_values], ref_times, width=0.3,
-                color=reference_color_ho, alpha=0.8, label="Direct FE")
-times_ax_ho.bar([x + 0.15 for x in n_values], sel_times, width=0.3,
-                color=method_color_ho, alpha=0.8, label=selected_style_ho["label"])
-times_ax_ho.set_xlabel("state index n")
-times_ax_ho.set_ylabel("training time (s)")
-times_ax_ho.set_title("Training time per state")
-times_ax_ho.set_xticks(n_values)
-times_ax_ho.grid(alpha=0.2, axis="y")
-times_ax_ho.legend(frameon=False, fontsize=8)
+_state_indices_ho = np.asarray(
+    [
+        state_ho["n"]
+        for state_ho in reference_states_ho
+    ],
+    dtype=int,
+)
 
-as_responsive_svg(comparison_times_figure)
-```
+_reference_analytic_errors_ho = np.asarray(
+    [
+        max(
+            abs(
+                state_ho["eigenvalue"]
+                - (state_ho["n"] + 0.5)
+            ),
+            1.0e-16,
+        )
+        for state_ho in reference_states_ho
+    ],
+    dtype=float,
+)
+
+_selected_analytic_errors_ho = np.asarray(
+    [
+        max(
+            abs(
+                state_ho["eigenvalue"]
+                - (state_ho["n"] + 0.5)
+            ),
+            1.0e-16,
+        )
+        for state_ho in selected_states_ho
+    ],
+    dtype=float,
+)
+
+_reference_times_plot_ho = np.asarray(
+    [
+        state_ho["trainSeconds"]
+        for state_ho in reference_states_ho
+    ],
+    dtype=float,
+)
+
+_selected_times_plot_ho = np.asarray(
+    [
+        state_ho["trainSeconds"]
+        for state_ho in selected_states_ho
+    ],
+    dtype=float,
+)
+
+_eigenvalue_axis_ho.semilogy(
+    _state_indices_ho,
+    _reference_analytic_errors_ho,
+    "o-",
+    color="#2f2b27",
+    label="Direct FE",
+    markersize=3,
+    linewidth=1.0,
+)
+
+_eigenvalue_axis_ho.semilogy(
+    _state_indices_ho,
+    _selected_analytic_errors_ho,
+    "s--",
+    color=selected_style_ho["color"],
+    label=selected_style_ho["label"],
+    markersize=3,
+    linewidth=1.0,
+)
+
+_eigenvalue_axis_ho.set_xlabel(r"state index $n$")
+_eigenvalue_axis_ho.set_ylabel(
+    r"$|E_n-E_n^{\mathrm{exact}}|$"
+)
+_eigenvalue_axis_ho.set_title("Eigenvalue error")
+_eigenvalue_axis_ho.grid(
+    alpha=0.22,
+    which="both",
+)
+_eigenvalue_axis_ho.legend(
+    frameon=False,
+    fontsize=8,
+)
+
+_timing_axis_ho.bar(
+    _state_indices_ho - 0.15,
+    _reference_times_plot_ho,
+    width=0.3,
+    color="#2f2b27",
+    alpha=0.8,
+    label="Direct FE",
+)
+
+_timing_axis_ho.bar(
+    _state_indices_ho + 0.15,
+    _selected_times_plot_ho,
+    width=0.3,
+    color=selected_style_ho["color"],
+    alpha=0.8,
+    label=selected_style_ho["label"],
+)
+
+_timing_axis_ho.set_xlabel(r"state index $n$")
+_timing_axis_ho.set_ylabel("computation time (s)")
+_timing_axis_ho.set_title("Computation time per state")
+_timing_axis_ho.set_xticks(_state_indices_ho)
+_timing_axis_ho.grid(alpha=0.18, axis="y")
+_timing_axis_ho.legend(
+    frameon=False,
+    fontsize=8,
+)
+
+as_responsive_svg_ho(
+    _diagnostics_figure_ho
+)
 ```
 
 ## Method descriptions
@@ -377,11 +664,16 @@ Variational Rayleigh-Ritz minimizes the neural Rayleigh quotient subject to proj
 
 ### Eigenvalue accuracy
 
-All eigenstates are displayed on a shared vertical scale. The Direct FE reference states (solid) and the selected method states (dashed) can be compared visually across the entire spectrum.
+Each solid Direct FE eigenfunction and its dashed neural counterpart are placed
+on the same Direct FE energy baseline. The colored dashed horizontal marks
+independently show the eigenvalues computed by the selected neural method.
 
 ### Eigenfunction accuracy
 
-When the dashed curves overlap the solid reference curves, the method has recovered the eigenfunction shape. The reduced opacity allows all states to remain visible simultaneously.
+When a dashed curve overlaps its solid Direct FE reference, the selected method
+has recovered that eigenfunction's shape. Because each state is shown at its
+own energy level, the entire spectrum can be inspected without different modes
+being superimposed around zero.
 
 ### Timing
 

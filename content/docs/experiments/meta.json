@@ -1,4 +1,4 @@
 {
   "title": "Experiments",
-  "pages": ["index", "harmonic-oscillator", "marimo-demo", "thermodynamic-linear-algebra", "eigenvalue-problems", "surrogate-optimization", "flow-surrogates", "mixed-precision-cfd"]
+  "pages": ["index", "harmonic-oscillator", "thermodynamic-linear-algebra", "eigenvalue-problems"]
 }

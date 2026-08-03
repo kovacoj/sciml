@@ -168,6 +168,7 @@ state_counts_ho = [
 ]
 
 available_state_count_ho = min(state_counts_ho)
+available_state_count_ho = min(available_state_count_ho, 5)
 
 mo.stop(
     available_state_count_ho < 1,
@@ -190,9 +191,8 @@ method_control_ho = mo.ui.dropdown(
     label="Comparison method",
 )
 
-mo.hstack(
+mo.vstack(
     [method_control_ho],
-    justify="center",
     align="center",
 )
 ```
@@ -340,7 +340,7 @@ _method_color_ho = selected_style_ho["color"]
 _wavefunction_scale_ho = 0.35
 
 _figure_ho, _spectrum_axis_ho = plt.subplots(
-    figsize=(6.75, 6.0),
+    figsize=(6.75, 4.5),
     constrained_layout=True,
 )
 

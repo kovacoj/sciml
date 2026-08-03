@@ -16,17 +16,13 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import json
+    import urllib.request
+
     import marimo as mo
     import matplotlib.pyplot as plt
     import numpy as np
-    try:
-        from pyodide.http import open_url
-        running_in_browser = True
-    except ImportError:
-        open_url = None
-        running_in_browser = False
 
-    return json, mo, np, open_url, plt, running_in_browser
+    return json, mo, np, plt, urllib
 
 
 @app.cell
@@ -43,13 +39,10 @@ def _(mo):
 
 
 @app.cell
-def _(json, open_url, running_in_browser):
-    if running_in_browser:
-        with open_url("../../data/harmonic-oscillator-comparison.json") as stream:
-            spectrum = json.load(stream)
-    else:
-        with open("public/data/harmonic-oscillator-comparison.json", encoding="utf-8") as stream:
-            spectrum = json.load(stream)
+def _(json, urllib):
+    data_url = "https://kovacoj.github.io/sciml/data/harmonic-oscillator-comparison.json"
+    with urllib.request.urlopen(data_url) as stream:
+        spectrum = json.loads(stream.read().decode("utf-8"))
     return (spectrum,)
 
 

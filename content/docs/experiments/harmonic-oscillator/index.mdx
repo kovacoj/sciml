@@ -30,12 +30,14 @@ Use the counter or slider to move each sampled eigenfunction onto its computed e
 ```python marimo
 import io
 import json
+import urllib.request
+
 import marimo as mo
 import matplotlib.pyplot as plt
 import numpy as np
-from pyodide.http import open_url
 
-with open_url("/sciml/data/harmonic-oscillator-comparison.json") as data_stream:
+DATA_URL = "https://kovacoj.github.io/sciml/data/harmonic-oscillator-comparison.json"
+with urllib.request.urlopen(DATA_URL) as data_stream:
     spectrum_data = json.load(data_stream)
 
 method_keys = list(spectrum_data["methods"])

@@ -1,4 +1,4 @@
 {
   "title": "Experiments",
-  "pages": ["harmonic-oscillator", "thermodynamic-linear-algebra", "eigenvalue-problems"]
+  "pages": ["harmonic-oscillator", "thermodynamic-linear-algebra"]
 }

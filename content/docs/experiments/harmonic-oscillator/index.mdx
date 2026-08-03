@@ -288,6 +288,48 @@ selected_states_ho = selected_method_ho[
     x_plot_ho,
 )
 
+# Precompute all method data for static plots
+_all_method_keys_ho = ["direct-fe", *comparison_method_keys_ho]
+_all_method_styles_ho = {
+    "direct-fe": {"label": "Direct FE", "color": "#2f2b27"},
+    **METHOD_STYLES_HO,
+}
+
+_all_reference_energies_ho = np.asarray(
+    [
+        float(s["eigenvalue"])
+        for s in reference_method_ho["states"][:available_state_count_ho]
+    ],
+    dtype=float,
+)
+
+_all_errors_by_method_ho = {}
+_all_times_by_method_ho = {}
+
+for _method_key_ho in _all_method_keys_ho:
+    _method_data_ho = methods_ho[_method_key_ho]["states"][
+        :available_state_count_ho
+    ]
+    _method_style_ho = _all_method_styles_ho[_method_key_ho]
+    
+    _errors_ho = np.asarray(
+        [
+            max(
+                abs(float(s["eigenvalue"]) - (s["n"] + 0.5)),
+                1.0e-16,
+            )
+            for s in _method_data_ho
+        ],
+        dtype=float,
+    )
+    _times_ho = np.asarray(
+        [float(s["trainSeconds"]) for s in _method_data_ho],
+        dtype=float,
+    )
+    
+    _all_errors_by_method_ho[_method_key_ho] = _errors_ho
+    _all_times_by_method_ho[_method_key_ho] = _times_ho
+
 potential_ho = 0.5 * x_plot_ho**2
 ```
 
@@ -298,7 +340,7 @@ _method_color_ho = selected_style_ho["color"]
 _wavefunction_scale_ho = 0.35
 
 _figure_ho, _spectrum_axis_ho = plt.subplots(
-    figsize=(6.75, 3.0),
+    figsize=(6.75, 6.0),
     constrained_layout=True,
 )
 
@@ -425,6 +467,7 @@ as_responsive_svg_ho(_figure_ho)
 ```
 
 ```python marimo
+# Static summary table for selected method
 _l2_differences_ho = [
     float(
         np.sqrt(
@@ -471,21 +514,8 @@ _energy_differences_ho = np.abs(
     - reference_energies_ho
 )
 
-_reference_times_ho = np.asarray(
-    [
-        state_ho["trainSeconds"]
-        for state_ho in reference_states_ho
-    ],
-    dtype=float,
-)
-
-_selected_times_ho = np.asarray(
-    [
-        state_ho["trainSeconds"]
-        for state_ho in selected_states_ho
-    ],
-    dtype=float,
-)
+_reference_times_ho = _all_times_by_method_ho["direct-fe"]
+_selected_times_ho = _all_times_by_method_ho[selected_method_key_ho]
 
 mo.md(
     f"""
@@ -505,140 +535,75 @@ mo.md(
 ```
 
 ```python marimo
-_diagnostics_figure_ho, (
-    _eigenvalue_axis_ho,
-    _timing_axis_ho,
-) = plt.subplots(
+# Static plots: all methods, stacked vertically
+_state_indices_ho = np.arange(available_state_count_ho)
+
+_all_errors_figure_ho, _all_errors_axis_ho = plt.subplots(
     1,
-    2,
     figsize=(6.75, 3.0),
     constrained_layout=True,
 )
 
-_diagnostics_figure_ho.set_facecolor("#f4f0e8")
+_all_errors_figure_ho.set_facecolor("#f4f0e8")
+_all_errors_axis_ho.set_facecolor("#f4f0e8")
 
-for _axis_ho in (
-    _eigenvalue_axis_ho,
-    _timing_axis_ho,
-):
-    _axis_ho.set_facecolor("#f4f0e8")
+for _mk_ho in _all_method_keys_ho:
+    _ms_ho = _all_method_styles_ho[_mk_ho]
+    _err_ho = _all_errors_by_method_ho[_mk_ho]
+    _all_errors_axis_ho.semilogy(
+        _state_indices_ho,
+        _err_ho,
+        "o-",
+        color=_ms_ho["color"],
+        label=_ms_ho["label"],
+        markersize=4,
+        linewidth=1.0,
+    )
 
-_state_indices_ho = np.asarray(
-    [
-        state_ho["n"]
-        for state_ho in reference_states_ho
-    ],
-    dtype=int,
-)
-
-_reference_analytic_errors_ho = np.asarray(
-    [
-        max(
-            abs(
-                state_ho["eigenvalue"]
-                - (state_ho["n"] + 0.5)
-            ),
-            1.0e-16,
-        )
-        for state_ho in reference_states_ho
-    ],
-    dtype=float,
-)
-
-_selected_analytic_errors_ho = np.asarray(
-    [
-        max(
-            abs(
-                state_ho["eigenvalue"]
-                - (state_ho["n"] + 0.5)
-            ),
-            1.0e-16,
-        )
-        for state_ho in selected_states_ho
-    ],
-    dtype=float,
-)
-
-_reference_times_plot_ho = np.asarray(
-    [
-        state_ho["trainSeconds"]
-        for state_ho in reference_states_ho
-    ],
-    dtype=float,
-)
-
-_selected_times_plot_ho = np.asarray(
-    [
-        state_ho["trainSeconds"]
-        for state_ho in selected_states_ho
-    ],
-    dtype=float,
-)
-
-_eigenvalue_axis_ho.semilogy(
-    _state_indices_ho,
-    _reference_analytic_errors_ho,
-    "o-",
-    color="#2f2b27",
-    label="Direct FE",
-    markersize=3,
-    linewidth=1.0,
-)
-
-_eigenvalue_axis_ho.semilogy(
-    _state_indices_ho,
-    _selected_analytic_errors_ho,
-    "s--",
-    color=selected_style_ho["color"],
-    label=selected_style_ho["label"],
-    markersize=3,
-    linewidth=1.0,
-)
-
-_eigenvalue_axis_ho.set_xlabel(r"state index $n$")
-_eigenvalue_axis_ho.set_ylabel(
+_all_errors_axis_ho.set_xlabel(r"state index $n$")
+_all_errors_axis_ho.set_ylabel(
     r"$|E_n-E_n^{\mathrm{exact}}|$"
 )
-_eigenvalue_axis_ho.set_title("Eigenvalue error")
-_eigenvalue_axis_ho.grid(
-    alpha=0.22,
-    which="both",
-)
-_eigenvalue_axis_ho.legend(
-    frameon=False,
-    fontsize=8,
+_all_errors_axis_ho.set_title("Eigenvalue error (all methods)")
+_all_errors_axis_ho.grid(alpha=0.22, which="both")
+_all_errors_axis_ho.legend(frameon=False, fontsize=9)
+
+_all_times_figure_ho, _all_times_axis_ho = plt.subplots(
+    1,
+    figsize=(6.75, 3.0),
+    constrained_layout=True,
 )
 
-_timing_axis_ho.bar(
-    _state_indices_ho - 0.15,
-    _reference_times_plot_ho,
-    width=0.3,
-    color="#2f2b27",
-    alpha=0.8,
-    label="Direct FE",
-)
+_all_times_figure_ho.set_facecolor("#f4f0e8")
+_all_times_axis_ho.set_facecolor("#f4f0e8")
 
-_timing_axis_ho.bar(
-    _state_indices_ho + 0.15,
-    _selected_times_plot_ho,
-    width=0.3,
-    color=selected_style_ho["color"],
-    alpha=0.8,
-    label=selected_style_ho["label"],
-)
+_bar_width_ho = 0.12
+for _idx_ho, _mk_ho in enumerate(_all_method_keys_ho):
+    _ms_ho = _all_method_styles_ho[_mk_ho]
+    _times_ho = _all_times_by_method_ho[_mk_ho]
+    _offset_ho = (_idx_ho - len(_all_method_keys_ho) / 2 + 0.5) * _bar_width_ho
+    _all_times_axis_ho.bar(
+        _state_indices_ho + _offset_ho,
+        _times_ho,
+        width=_bar_width_ho,
+        color=_ms_ho["color"],
+        alpha=0.85,
+        label=_ms_ho["label"],
+    )
 
-_timing_axis_ho.set_xlabel(r"state index $n$")
-_timing_axis_ho.set_ylabel("computation time (s)")
-_timing_axis_ho.set_title("Computation time per state")
-_timing_axis_ho.set_xticks(_state_indices_ho)
-_timing_axis_ho.grid(alpha=0.18, axis="y")
-_timing_axis_ho.legend(
-    frameon=False,
-    fontsize=8,
-)
+_all_times_axis_ho.set_xlabel(r"state index $n$")
+_all_times_axis_ho.set_ylabel("computation time (s)")
+_all_times_axis_ho.set_title("Computation time per state (all methods)")
+_all_times_axis_ho.set_xticks(_state_indices_ho)
+_all_times_axis_ho.grid(alpha=0.18, axis="y")
+_all_times_axis_ho.legend(frameon=False, fontsize=9)
 
-as_responsive_svg_ho(
-    _diagnostics_figure_ho
+mo.vstack(
+    [
+        as_responsive_svg_ho(_all_errors_figure_ho),
+        as_responsive_svg_ho(_all_times_figure_ho),
+    ],
+    align="center",
 )
 ```
 

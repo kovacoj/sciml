@@ -679,16 +679,14 @@ Direct FE assembles the CG2 Hamiltonian and mass matrices with Firedrake, then s
 
 ### Weak neural formulation
 
-The weak neural method begins from the same stationary Schrödinger eigenproblem,
+The weak neural method begins from the stationary Schrödinger eigenproblem
 
 $$
 \left(
 -\frac{1}{2}\frac{\mathrm d^2}{\mathrm d x^2}
 +\frac{1}{2}x^2
 \right)\psi
-===========
-
-E\psi,
+=E\psi,
 $$
 
 but it does not enforce this equation pointwise. Instead, the infinite domain is first truncated to
@@ -703,54 +701,48 @@ $$
 \psi(-L)=\psi(L)=0.
 $$
 
-We multiply the differential equation by a test function (v\in H_0^1(\Omega)) and integrate over the domain:
+We multiply the differential equation by a test function $v\in H_0^1(\Omega)$ and integrate over the domain:
 
 $$
--\frac12\int_\Omega \psi''v,\mathrm dx
+-\frac12\int_\Omega \psi''v\,\mathrm dx
 +
-\frac12\int_\Omega x^2\psi v,\mathrm dx
-=======================================
-
-E\int_\Omega \psi v,\mathrm dx.
+\frac12\int_\Omega x^2\psi v\,\mathrm dx
+=E\int_\Omega \psi v\,\mathrm dx.
 $$
 
 Integrating the second-order term by parts gives
 
 $$
-\frac12\int_\Omega \psi'v',\mathrm dx
+\frac12\int_\Omega \psi'v'\,\mathrm dx
 +
-\frac12\int_\Omega x^2\psi v,\mathrm dx
-=======================================
-
-E\int_\Omega \psi v,\mathrm dx
+\frac12\int_\Omega x^2\psi v\,\mathrm dx
+=E\int_\Omega \psi v\,\mathrm dx
 \qquad
 \forall v\in H_0^1(\Omega).
 $$
 
-The boundary contribution vanishes because the test functions are zero at (x=\pm L). Defining
+The boundary contribution vanishes because the test functions are zero at $x=\pm L$. Defining
 
 $$
 a(u,v)
-======
-
-\frac12\int_\Omega u'v',\mathrm dx
+:=
+\frac12\int_\Omega u'v'\,\mathrm dx
 +
-\frac12\int_\Omega x^2uv,\mathrm dx
+\frac12\int_\Omega x^2uv\,\mathrm dx
 $$
 
 and
 
 $$
 m(u,v)
-======
-
-\int_\Omega uv,\mathrm dx,
+:=
+\int_\Omega uv\,\mathrm dx,
 $$
 
 the eigenproblem becomes
 
 $$
-a(\psi,v)=E,m(\psi,v)
+a(\psi,v)=E\,m(\psi,v)
 \qquad
 \forall v\in H_0^1(\Omega).
 $$
@@ -788,21 +780,20 @@ $$
 Because the trial and test spaces differ, this is an enriched Petrov–Galerkin formulation. Let
 
 $$
-{\phi_j}_{j=1}^{N_U}
+\{\phi_j\}_{j=1}^{N_U}
 $$
 
-be a basis of (U_h), and let
+be a basis of $U_h$, and let
 
 $$
-{v_i}_{i=1}^{N_V}
+\{v_i\}_{i=1}^{N_V}
 $$
 
-be a basis of (V_h). The discrete trial function has the form
+be a basis of $V_h$. The discrete trial function has the form
 
 $$
 u_{\theta,h}(x)
-===============
-
+=
 \sum_{j=1}^{N_U}c_j(\theta)\phi_j(x).
 $$
 
@@ -815,48 +806,57 @@ c_1(\theta)&\cdots&c_{N_U}(\theta)
 \end{bmatrix}^{\mathsf T}.
 $$
 
-The network therefore does not directly produce a continuous function at arbitrary collocation points. It produces the coefficients of a finite-element function. Firedrake supplies the mesh, basis functions, quadrature, boundary treatment, and discrete differential operators. This is the optimization scaffold referred to in the page’s current method description. ([kovacoj.github.io][1])
+The network therefore does not directly produce a continuous function at arbitrary collocation points. It produces the coefficients of a finite-element function. Firedrake supplies the mesh, basis functions, quadrature, boundary treatment, and discrete differential operators. This is the optimization scaffold referred to in the page's current method description.
 
 #### Discrete weak residual
 
-Testing the equation against every basis function (v_i) produces one residual component per test-space direction:
+Testing the equation against every basis function $v_i$ produces one residual component per test-space direction:
 
 $$
 r_i(\theta,E)
-=============
-
-## a(u_{\theta,h},v_i)
-
-E,m(u_{\theta,h},v_i).
+=
+a(u_{\theta,h},v_i)
+-
+E\,m(u_{\theta,h},v_i).
 $$
 
 Firedrake assembles the corresponding trial-to-test matrices
 
 $$
 H_{VU,ij}
-=========
-
+=
 \frac12\int_\Omega
-\phi_j'v_i',\mathrm dx
+\phi_j'v_i'\,\mathrm dx
 +
 \frac12\int_\Omega
-x^2\phi_jv_i,\mathrm dx
+x^2\phi_jv_i\,\mathrm dx
 $$
 
 and
 
 $$
 M_{VU,ij}
-=========
-
-\int_\Omega \phi_jv_i,\mathrm dx.
+=
+\int_\Omega \phi_jv_i\,\mathrm dx.
 $$
 
 The complete residual vector is therefore
 
 $$
 r_\theta
-========
+=
+H_{VU}c_\theta
+-
+E_\theta M_{VU}c_\theta.
+$$
+
+Each entry measures how strongly the approximate eigenpair violates the equation in one finite-element test direction. Driving the full vector toward zero approximates the requirement that the weak equation hold for every admissible test function.
+
+The eigenvalue associated with the current trial function is obtained from its Rayleigh quotient,
+
+$$
+E_\theta
+=
 
 ## H_{VU}c_\theta
 
@@ -869,8 +869,7 @@ The eigenvalue associated with the current trial function is obtained from its R
 
 $$
 E_\theta
-========
-
+=
 \frac{
 c_\theta^{\mathsf T}H_Uc_\theta
 }{
@@ -878,13 +877,13 @@ c_\theta^{\mathsf T}M_Uc_\theta
 },
 $$
 
-where (H_U) and (M_U) are the Hamiltonian and mass matrices assembled on the trial space.
+where $H_U$ and $M_U$ are the Hamiltonian and mass matrices assembled on the trial space.
 
 #### Measuring the residual in the test-space dual norm
 
-The Euclidean norm (\lVert r_\theta\rVert_2) depends on the scaling of the chosen test basis. Instead, the residual is measured in a norm induced by the test-function space.
+The Euclidean norm $\lVert r_\theta\rVert_2$ depends on the scaling of the chosen test basis. Instead, the residual is measured in a norm induced by the test-function space.
 
-For the scaled (H^1) test norm, the Gram matrix has the form
+For the scaled $H^1$ test norm, the Gram matrix has the form
 
 $$
 G_V=M_V+h^2K_V,
@@ -894,26 +893,23 @@ where
 
 $$
 (M_V)_{ij}
-==========
-
-\int_\Omega v_jv_i,\mathrm dx
+=
+\int_\Omega v_jv_i\,\mathrm dx
 $$
 
 and
 
 $$
 (K_V)_{ij}
-==========
-
-\int_\Omega v_j'v_i',\mathrm dx.
+=
+\int_\Omega v_j'v_i'\,\mathrm dx.
 $$
 
 The corresponding discrete dual norm is
 
 $$
 \lVert r_\theta\rVert_{V_h^\ast}^2
-==================================
-
+=
 r_\theta^{\mathsf T}G_V^{-1}r_\theta.
 $$
 
@@ -927,12 +923,11 @@ and forming
 
 $$
 \lVert r_\theta\rVert_{V_h^\ast}^2
-==================================
-
+=
 r_\theta^{\mathsf T}z_\theta.
 $$
 
-The experiment supplements this weak residual with an (L^2)-type residual contribution,
+The experiment supplements this weak residual with an $L^2$-type residual contribution,
 
 $$
 r_\theta^{\mathsf T}M_V^{-1}r_\theta,
@@ -942,15 +937,14 @@ so that residual components suppressed by the weaker dual norm are still penaliz
 
 $$
 \mathcal L_{\mathrm{weak}}
-==========================
-
+=
 E_\theta
 +
 \beta
 \left(
 r_\theta^{\mathsf T}G_V^{-1}r_\theta
 +
-\gamma,
+\gamma\,
 r_\theta^{\mathsf T}M_V^{-1}r_\theta
 \right).
 $$
@@ -959,7 +953,7 @@ The residual terms encourage satisfaction of the weak eigenvalue equation, while
 
 #### Higher eigenstates
 
-To recover the spectrum sequentially, the candidate for state (n) is projected onto the mass-orthogonal complement of the previously accepted states. If
+To recover the spectrum sequentially, the candidate for state $n$ is projected onto the mass-orthogonal complement of the previously accepted states. If
 
 $$
 \Psi=
@@ -968,14 +962,13 @@ c_0&c_1&\cdots&c_{n-1}
 \end{bmatrix},
 $$
 
-then a raw neural coefficient vector (z_\theta) is projected as
+then a raw neural coefficient vector $z_\theta$ is projected as
 
 $$
 \widetilde c_\theta
-===================
-
-## z_\theta
-
+=
+z_\theta
+-
 \Psi
 \left(
 \Psi^{\mathsf T}M_U\Psi
@@ -983,12 +976,11 @@ $$
 \Psi^{\mathsf T}M_Uz_\theta.
 $$
 
-It is subsequently normalized in the finite-element (L^2) inner product:
+It is subsequently normalized in the finite-element $L^2$ inner product:
 
 $$
 c_\theta
-========
-
+=
 \frac{\widetilde c_\theta}
 {
 \sqrt{

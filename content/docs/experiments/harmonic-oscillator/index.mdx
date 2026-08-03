@@ -33,9 +33,13 @@ import json
 import marimo as mo
 import matplotlib.pyplot as plt
 import numpy as np
+from js import window
 from pyodide.http import open_url
 
-with open_url("../../../data/harmonic-oscillator-comparison.json") as data_stream:
+site_base = window.location.pathname.split("/docs/", 1)[0]
+data_url = f"{window.location.origin}{site_base}/data/harmonic-oscillator-comparison.json"
+
+with open_url(data_url) as data_stream:
     spectrum_data = json.load(data_stream)
 
 method_keys = list(spectrum_data["methods"])
@@ -139,7 +143,7 @@ mo.md(
 
 ## Data and provenance
 
-The page dataset lives at [`/data/harmonic-oscillator-comparison.json`](/data/harmonic-oscillator-comparison.json). Keeping this compact artifact beside the site source has three advantages over a transient CI artifact: every deployment has a stable URL, changes are reviewable in Git, and the page remains functional after workflow artifacts expire.
+The page dataset lives at [`harmonic-oscillator-comparison.json`](../../../data/harmonic-oscillator-comparison.json). Keeping this compact artifact beside the site source has three advantages over a transient CI artifact: every deployment has a stable URL, changes are reviewable in Git, and the page remains functional after workflow artifacts expire.
 
 The JSON records the generating command, source script, coordinate grid, eigenvalues, sampled normalized eigenfunctions, state-wise errors, and training times. Regenerate it when solver settings or implementations change; do not edit numerical values by hand.
 
@@ -164,10 +168,3 @@ python scripts/import-harmonic-results.py \
   harmonic-results/harmonic-oscillator-comparison.json \
   public/data/harmonic-oscillator-comparison.json
 ```
-
-The standalone read-only notebook uses the same artifact:
-
-<MarimoNotebook
-  slug="harmonic-oscillator-comparison"
-  title="Harmonic oscillator comparison"
-/>

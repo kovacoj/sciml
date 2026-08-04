@@ -1,0 +1,8 @@
+{
+  "origin": "published dataset",
+  "sample_id": "tpfm_unet data/mixer_64.npz inputs[1] (8x8 block majority)",
+  "repo": "https://github.com/techMathGroup/tpfm_unet",
+  "commit": "c0566779b54877ca46053a8ff44096c3351f4805",
+  "convention": "0 = fluid, 1 = solid; row 0 = top of chamber",
+  "notes": "single connected fluid component incl. all four ports; porosity 0.531"
+}

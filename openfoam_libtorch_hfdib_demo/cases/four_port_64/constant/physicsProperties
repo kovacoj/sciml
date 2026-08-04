@@ -1,0 +1,32 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      physicsProperties;
+}
+
+// Physics (paper values)
+nu               0.01;     // kinematic viscosity [m^2/s]
+inletVelocity    0.1;      // [m/s]
+outletPressure   0.0;      // kinematic pressure [m^2/s^2]
+
+// Reference scales (nondimensionalization)
+Uref             0.1;
+Lref             0.128;    // central chamber width [m]
+// Pref = nu*Uref/Lref = 7.8125e-3 is computed in code.
+
+// Loss weights
+gammaContinuity  1.0;
+gammaIb          10.0;
+
+// HFDIB interpolation-point spacings (multiples of local cell size)
+d1Factor         1.5;
+d2Factor         1.0;
+
+// Training
+seed             1234;
+restarts         1;
+adamSteps        3000;
+adamLearningRate 1e-3;
+logEvery         50;

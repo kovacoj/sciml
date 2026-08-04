@@ -28,7 +28,9 @@ def channel_baseline_options(case_dir: str) -> dict:
             "useWallFunction": False,
         },
         "function": {},
-        "normalizeStates": {"U": 10.0, "p": 50.0, "phi": 1.0},
+        # NOTE: no "normalizeStates" — Gate C showed the AD JTV and
+        # getResiduals disagree in normalized coordinates (measured 2026-08-04);
+        # residual scaling will be applied torch-side instead (brief section 26).
     }
 
 

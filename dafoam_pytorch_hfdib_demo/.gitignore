@@ -1,0 +1,23 @@
+# Generated results and large artifacts
+outputs/*
+!outputs/.gitkeep
+cases/*/processor*
+cases/*/0.*
+cases/*/constant/polyMesh/
+cases/*/*.log
+cases/*/log.*
+cases/*/postProcessing/
+*.foam
+*.bin
+*.tar
+
+# Docker scratch
+environment/docker_image_inspect.json
+environment/environment.txt
+environment/pip_freeze.txt
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

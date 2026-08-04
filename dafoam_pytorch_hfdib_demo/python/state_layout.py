@@ -53,6 +53,39 @@ REGISTERED = [
     ("phi", "surfaceScalarState", 1176),
 ]
 
+# Thin-3-D isothermal channel (40x16x1 duct): no thermal state.
+# Faces are MESH faces: 1224 internal + 1392 boundary (front/back walls are
+# 640+640 full slab faces), Global Faces 2616 per the registration print.
+REGISTERED_ISO = [
+    ("U", "volVectorState", 1920),   # 3 * 640 cells, cell-major
+    ("p", "volScalarState", 640),
+    ("phi", "surfaceScalarState", 2616),
+]
+
+
+def layout_from_registration(registered) -> StateLayout:
+    entries: list[StateEntry] = []
+    by_name: dict[str, list[int]] = {}
+    offset = 0
+    for name, typ, size in registered:
+        ids = []
+        for j in range(size):
+            idx = offset + j
+            if name == "U":
+                entries.append(StateEntry(idx, name, j // 3, j % 3, "cell"))
+            elif typ == "surfaceScalarState":
+                entries.append(StateEntry(idx, name, j, None, "face"))
+            else:
+                entries.append(StateEntry(idx, name, j, None, "cell"))
+            ids.append(idx)
+        by_name[name] = ids[:]
+        offset += size
+    return StateLayout(
+        ordering="state",
+        entries=entries,
+        indices_by_name={k: np.asarray(v, dtype=np.int64) for k, v in by_name.items()},
+    )
+
 
 @dataclass(frozen=True)
 class StateEntry:
@@ -80,25 +113,6 @@ class StateLayout:
         return self.indices_by_name[name]
 
 
-def build_state_layout() -> StateLayout:
-    entries: list[StateEntry] = []
-    by_name: dict[str, list[int]] = {}
-    offset = 0
-    for name, typ, size in REGISTERED:
-        ids = []
-        for j in range(size):
-            idx = offset + j
-            if name == "U":
-                entries.append(StateEntry(idx, name, j // 3, j % 3, "cell"))
-            elif typ == "surfaceScalarState":
-                entries.append(StateEntry(idx, name, j, None, "face"))
-            else:
-                entries.append(StateEntry(idx, name, j, None, "cell"))
-            ids.append(idx)
-        by_name[name] = ids[:]
-        offset += size
-    return StateLayout(
-        ordering="state",
-        entries=entries,
-        indices_by_name={k: np.asarray(v, dtype=np.int64) for k, v in by_name.items()},
-    )
+def build_state_layout(kind: str = "thermal") -> StateLayout:
+    registered = REGISTERED if kind == "thermal" else REGISTERED_ISO
+    return layout_from_registration(registered)

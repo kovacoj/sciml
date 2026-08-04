@@ -34,6 +34,25 @@ def channel_baseline_options(case_dir: str) -> dict:
     }
 
 
+def isothermal_channel_options(case_dir: str) -> dict:
+    """daOptions for the thin-3-D ISOTHERMAL channel (states [U, p, phi])."""
+    return {
+        "solverName": "DASimpleFoam",
+        "discipline": "aero",
+        "useAD": {"mode": "reverse"},
+        "printDAOptions": False,
+        "primalMinResTol": 1.0e-10,
+        "primalMinResTolDiff": 1e12,
+        "primalBC": {
+            "U0": {"variable": "U", "patches": ["inlet"], "value": [0.2, 0.0, 0.0]},
+            "p0": {"variable": "p", "patches": ["outlet"], "value": [0.0]},
+            "useWallFunction": False,
+        },
+        "function": {},
+        # no "normalizeStates" (see channel_baseline_options note)
+    }
+
+
 def write_json(path: str, payload) -> None:
     with open(path, "w") as f:
         json.dump(payload, f, indent=2, default=str)

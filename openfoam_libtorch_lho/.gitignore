@@ -1,0 +1,26 @@
+# Build / runtime artifacts
+.deps/
+**/linux64GccDPInt32Opt/
+*.o
+applications/fvNeuralLHO/fvNeuralLHO
+applications/torchFoamSmoke/torchFoamSmoke
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Generated OpenFOAM mesh & time directories
+**/constant/polyMesh/
+**/postProcessing/
+cases/*/0/background
+cases/*/0/potential
+cases/*/0/psiNN_*
+cases/*/0/psiDirectFV_*
+
+# Logs
+*.log
+direct.log
+
+# Temp
+*.tmp

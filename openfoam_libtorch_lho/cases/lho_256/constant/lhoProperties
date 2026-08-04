@@ -1,0 +1,31 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      lhoProperties;
+}
+
+kineticScale       0.5;
+potentialScale     0.5;
+
+numberOfStates     11;
+
+hiddenWidth        64;
+hiddenLayers       3;
+enforceParity      true;
+
+baseSeed           1234;
+restarts           1;
+
+adamSteps          500;
+pretrainSteps      150;
+adamLearningRate   1e-3;
+
+lbfgsMaxIterations 20;
+lbfgsHistorySize   100;
+
+logEvery           20;
+epsilon            1e-30;
+
+writeMatrices      false;

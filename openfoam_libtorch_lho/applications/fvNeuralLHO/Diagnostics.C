@@ -118,30 +118,37 @@ std::vector<double> Diagnostics::exactSpectrum(int numStates, double omegaY)
 
 std::vector<double> Diagnostics::laplacianDiskSpectrum(int numStates)
 {
-    // Squares of Bessel-function zeros j_{m,k}^2 (distinct, ascending).
-    static const double diskEigs[] = {
-        5.783185962947,
-        14.681970642124,
-        26.374616427163,
-        30.471262343662,
-        40.706465818200,
-        49.218456321695,
-        57.582940903291,
-        70.849998919096,
-        74.887006790695,
-        76.938928333647,
-        95.277572544037,
-        98.726272477249,
-        103.499453895137,
-        122.427796064928,
-        122.907600203616,
-        135.020708865970
+    // Dirichlet eigenvalues of -Laplacian on the unit disk: squares of Bessel
+    // zeros j_{m,k}^2. m=0 modes are non-degenerate (mult 1), m>0 modes come
+    // as cos/sin doublets (mult 2). The returned list expands multiplicities
+    // so it aligns index-by-index with a numerically computed eigenvalue list.
+    static const struct { double lambda; int multiplicity; } diskEigs[] = {
+        {  5.783185962947, 1},   // j_{0,1}^2
+        { 14.681970642124, 2},   // j_{1,1}^2
+        { 26.374616427163, 2},   // j_{2,1}^2
+        { 30.471262343662, 1},   // j_{0,2}^2
+        { 40.706465818200, 2},   // j_{3,1}^2
+        { 49.218456321695, 2},   // j_{1,2}^2
+        { 57.582940903291, 2},   // j_{4,1}^2
+        { 70.849998919096, 2},   // j_{2,2}^2
+        { 74.887006790695, 1},   // j_{0,3}^2
+        { 76.938928333647, 2},   // j_{5,1}^2
+        { 95.277572544037, 2},   // j_{3,2}^2
+        { 98.726272477249, 2},   // j_{6,1}^2
+        {103.499453895137, 2},   // j_{1,3}^2
+        {122.427796064928, 2},   // j_{4,2}^2
+        {122.907600203616, 2},   // j_{7,1}^2
+        {135.020708865970, 2},   // j_{2,3}^2
     };
 
     std::vector<double> E;
-    for (int i = 0; i < numStates && i < (int)(sizeof(diskEigs) / sizeof(double)); i++)
+    for (const auto& de : diskEigs)
     {
-        E.push_back(diskEigs[i]);
+        for (int r = 0; r < de.multiplicity && (int)E.size() < numStates; r++)
+        {
+            E.push_back(de.lambda);
+        }
+        if ((int)E.size() >= numStates) break;
     }
     return E;
 }

@@ -1,0 +1,25 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      psi;
+}
+
+dimensions      [0 0 0 0 0 0 0];
+
+internalField   uniform 0;
+
+boundaryField
+{
+    rim
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+
+    topAndBottom
+    {
+        type            empty;
+    }
+}

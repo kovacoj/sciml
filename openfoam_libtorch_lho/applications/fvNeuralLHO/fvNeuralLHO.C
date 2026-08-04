@@ -336,7 +336,9 @@ int main(int argc, char* argv[])
         fileName profilesPath = postProcDir / "profiles.csv";
         {
             OFstream os(profilesPath);
-            os << "cell,x,volume,potential";
+            os << "cell,x";
+            if (dimension == 2) os << ",y";
+            os << ",volume,potential";
             for (int n = 0; n < std::min((int)neuralStates.size(), numberOfStates); n++)
             {
                 os << ",psiNN_" << n << ",psiDirectFV_" << n;
@@ -346,8 +348,12 @@ int main(int argc, char* argv[])
             for (Foam::label cellI = 0; cellI < x.size(0); cellI++)
             {
                 os << cellI << ","
-                   << x[cellI].item<double>() << ","
-                   << M[cellI].item<double>() << ","
+                   << x[cellI].item<double>() << ",";
+                if (dimension == 2)
+                {
+                    os << y[cellI].item<double>() << ",";
+                }
+                os << M[cellI].item<double>() << ","
                    << fvOp.potential()[cellI].item<double>();
 
                 for (int n = 0; n < std::min((int)neuralStates.size(), numberOfStates); n++)

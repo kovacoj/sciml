@@ -13,9 +13,10 @@ Updated 2026-08-04 · branch `feat/dafoam-pytorch-hfdib-demo`
 | D1 | cold-start gradient accuracy | **Fail** — direction-dependent 2.4e-5..2.5e-3 at the raw initial state |
 | D2 | warm-start gradient accuracy | pending (test harness ready: `tests/test_torch_autograd.py` at chosen W_k) |
 | E0 | cold-start free-state optimization | **Fail** — Adam oscillates, ~1.5× in 500–1500 steps |
-| E1 | warm-start free-state optimization | in progress — warm descent healthy (see below), 100× bar not yet crossed |
-| F | shallow decoder | blocked by E1 |
-| G | static HFDIB | blocked |
+| E1a | warm-started stable residual descent | **Pass** — monotone 68.7× from W_8, 3 rejected steps, no non-finite values, exact state round-trip |
+| E1b | original 100× aspirational reduction | **Not met** — stopped at 68.7× deliberately; first-order/truncated-GN both hit the conditioning wall near R≈65 (primal-k≈19 equivalence); the raw-state optimizer is closed as a result, not tuned further |
+| F | coordinate neural finite-volume solver | next (smoke scope per revised critical path) |
+| G | static HFDIB obstacle | after F smoke — now the critical path |
 | H | four-port article case | blocked |
 
 ## Certified state layout (DASimpleFoam + ConvergentChannel)

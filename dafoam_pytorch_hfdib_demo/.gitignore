@@ -2,8 +2,7 @@
 outputs/*
 !outputs/.gitkeep
 cases/*/processor*
-cases/*/0.*
-cases/*/constant/polyMesh/
+cases/*/processor*
 cases/*/*.log
 cases/*/log.*
 cases/*/postProcessing/

@@ -14,6 +14,8 @@ docker run \
     -it \
     --rm \
     --ipc=host \
+    --user "$(id -u):$(id -g)" \
+    -e HOME=/home/dafoamuser \
     --mount type=bind,src=/home/cady/chapel/sciml,target=/home/dafoamuser/sciml \
     -w /home/dafoamuser/sciml/dafoam_pytorch_hfdib_demo \
     "$IMG" \

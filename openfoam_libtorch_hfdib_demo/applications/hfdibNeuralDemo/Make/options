@@ -1,0 +1,17 @@
+EXE_INC = \
+    -D_GLIBCXX_USE_CXX11_ABI=1 \
+    -I$(HFDIB_DEMO_ROOT)/applications/common \
+    -I$(LIB_SRC)/finiteVolume/lnInclude \
+    -I$(LIB_SRC)/meshTools/lnInclude \
+    -I$(LIBTORCH_ROOT)/include \
+    -I$(LIBTORCH_ROOT)/include/torch/csrc/api/include
+
+EXE_LIBS = \
+    -lfiniteVolume \
+    -lmeshTools \
+    -L$(LIBTORCH_ROOT)/lib \
+    -Wl,-rpath,$(LIBTORCH_ROOT)/lib \
+    -Wl,--no-as-needed \
+    -ltorch \
+    -ltorch_cpu \
+    -lc10

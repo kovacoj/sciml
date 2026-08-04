@@ -1,0 +1,10 @@
+hfdibNeuralDemo.C
+BitmapTopology.C
+HfdibGeometryBuilder.C
+HfdibInterpolationBuilder.C
+FvMeshDataBuilder.C
+ShallowFlowMLP.C
+DifferentiableFvResidual.C
+PhysicsTrainer.C
+
+EXE = $(FOAM_USER_APPBIN)/hfdibNeuralDemo

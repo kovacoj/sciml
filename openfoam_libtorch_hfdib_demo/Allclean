@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-wclean applications/hfdibNeuralDemo
+cd applications/hfdibNeuralDemo && wclean && cd - > /dev/null

@@ -71,10 +71,20 @@ int main(int argc, char* argv[])
     int adamSteps = readInt(lhoProperties.lookup("adamSteps"));
     scalar adamLearningRate = readScalar(lhoProperties.lookup("adamLearningRate"));
     int lbfgsMaxIterations = readInt(lhoProperties.lookup("lbfgsMaxIterations"));
+    // Coefficient mode (Gate 2) has no network preconditioning: Adam plateaus
+    // quickly and LBFGS does the real convergence work, so it gets its own
+    // explicit internal-iteration budget (historically ~20x lbfgsMaxIterations
+    // due to the nested-step bug).
+    int lbfgsCoefficientMaxIterations = lhoProperties.lookupOrDefault<int>(
+        "lbfgsCoefficientMaxIterations", lbfgsMaxIterations);
     int lbfgsHistorySize = readInt(lhoProperties.lookup("lbfgsHistorySize"));
     int logEvery = readInt(lhoProperties.lookup("logEvery"));
     scalar epsilon = readScalar(lhoProperties.lookup("epsilon"));
     bool writeMatrices = readBool(lhoProperties.lookup("writeMatrices"));
+    // The full dense O(N^3) eigendecomposition is validation, not part of the
+    // training mechanism; make it skippable for large meshes.
+    bool computeDirectReference =
+        lhoProperties.lookupOrDefault<bool>("computeDirectReference", true);
 
     RunMode mode = RunMode::DIRECT;
     if (args.optionFound("mode"))
@@ -131,7 +141,19 @@ int main(int argc, char* argv[])
     }
 
     Diagnostics diag(K, M);
-    auto [energiesDirect, eigenstatesDirect] = diag.solveDirectFV(numberOfStates);
+
+    std::vector<double> energiesDirect;
+    std::vector<torch::Tensor> eigenstatesDirect;
+    if (computeDirectReference)
+    {
+        std::tie(energiesDirect, eigenstatesDirect) =
+            diag.solveDirectFV(numberOfStates);
+    }
+    else
+    {
+        Info << "computeDirectReference=false: skipping dense O(N^3) "
+             << "direct eigensolve" << nl;
+    }
 
     // Exact spectrum (harmonic => 1D n+0.5; anisotropic => sorted 2D;
     // laplacian => unit-disk Bessel zeros squared)
@@ -142,16 +164,19 @@ int main(int argc, char* argv[])
     }
     else
     {
-        exactEnergies = Diagnostics::exactSpectrum(numberOfStates, omegaY);
+        exactEnergies = Diagnostics::exactSpectrum(numberOfStates, dimension, omegaY);
     }
 
-    Info << "\n=== Direct FV Eigenvalues ===" << nl;
-    for (int n = 0; n < std::min((int)eigenstatesDirect.size(), numberOfStates); n++)
+    if (computeDirectReference)
     {
-        double E_exact = exactEnergies[n];
-        Info << "State " << n << ": E_FV = " << energiesDirect[n]
-             << ", E_exact = " << E_exact
-             << ", error = " << std::abs(energiesDirect[n] - E_exact) << nl;
+        Info << "\n=== Direct FV Eigenvalues ===" << nl;
+        for (int n = 0; n < std::min((int)eigenstatesDirect.size(), numberOfStates); n++)
+        {
+            double E_exact = exactEnergies[n];
+            Info << "State " << n << ": E_FV = " << energiesDirect[n]
+                 << ", E_exact = " << E_exact
+                 << ", error = " << std::abs(energiesDirect[n] - E_exact) << nl;
+        }
     }
 
     if (mode == RunMode::DIRECT)
@@ -165,7 +190,14 @@ int main(int argc, char* argv[])
 
     if (mode == RunMode::COEFFICIENTS || mode == RunMode::NEURAL)
     {
-        EigenTraining trainer(K, M, numberOfStates, epsilon);
+        // Rayleigh numerator psi^T K psi via the O(nFaces) face stencil
+        // (identical to K.matmul(psi).dot(psi); checked at assembly).
+        EigenTraining trainer(
+            [&fvOp](const torch::Tensor& psi)
+            {
+                return fvOp.rayleighNumerator(psi);
+            },
+            M, numberOfStates, epsilon);
 
         // Normalised coordinate tensor [N, dim]: 1D = [x], 2D = [x, y]
         torch::Tensor coords;
@@ -193,7 +225,9 @@ int main(int argc, char* argv[])
                     neuralStates,
                     adamSteps,
                     adamLearningRate,
-                    lbfgsMaxIterations
+                    lbfgsCoefficientMaxIterations,
+                    lbfgsHistorySize,
+                    logEvery
                 );
             }
             else
@@ -211,7 +245,9 @@ int main(int argc, char* argv[])
                     adamLearningRate,
                     lbfgsMaxIterations,
                     restarts,
-                    baseSeed
+                    baseSeed,
+                    lbfgsHistorySize,
+                    logEvery
                 );
             }
 
@@ -219,15 +255,23 @@ int main(int argc, char* argv[])
             trainingHistories.push_back(history);
 
             double E_NN = trainer.rayleighQuotient(psi_n);
-            double overlap = std::abs(diag.computeOverlap(psi_n, eigenstatesDirect[n]));
-            double fieldError = diag.computeFieldError(psi_n, eigenstatesDirect[n]);
 
             Info << "State " << n << " complete:" << nl;
             Info << "  E_NN = " << E_NN << nl;
-            Info << "  E_direct = " << energiesDirect[n] << nl;
-            Info << "  |E_NN - E_direct| = " << std::abs(E_NN - energiesDirect[n]) << nl;
-            Info << "  Overlap with direct = " << overlap << nl;
-            Info << "  Field error = " << fieldError << nl;
+            if (computeDirectReference)
+            {
+                // Note: for degenerate states (e.g. unit-disk doublets), a
+                // state-by-state overlap is basis-dependent and NOT a valid
+                // accuracy measure; use the subspace diagnostics in
+                // scripts/plot_eigenfunctions_2d.py instead.
+                double overlap = std::abs(diag.computeOverlap(psi_n, eigenstatesDirect[n]));
+                double fieldError = diag.computeFieldError(psi_n, eigenstatesDirect[n]);
+
+                Info << "  E_direct = " << energiesDirect[n] << nl;
+                Info << "  |E_NN - E_direct| = " << std::abs(E_NN - energiesDirect[n]) << nl;
+                Info << "  Overlap with direct = " << overlap << nl;
+                Info << "  Field error = " << fieldError << nl;
+            }
         }
     }
 
@@ -280,36 +324,39 @@ int main(int argc, char* argv[])
             psiNN.correctBoundaryConditions();
             psiNN.write();
 
-            word psiDirectName = "psiDirectFV_" + std::to_string(n);
-            volScalarField psiDirect
-            (
-                IOobject
-                (
-                    psiDirectName,
-                    Foam::Time::timeName(runTime.value()),
-                    mesh,
-                    IOobject::NO_READ,
-                    IOobject::AUTO_WRITE
-                ),
-                mesh,
-                dimensionedScalar("zero", dimless, 0)
-            );
-
-            for (Foam::label cellI = 0; cellI < eigenstatesDirect[n].size(0); cellI++)
+            if (computeDirectReference)
             {
-                psiDirect[cellI] = eigenstatesDirect[n][cellI].item<double>();
+                word psiDirectName = "psiDirectFV_" + std::to_string(n);
+                volScalarField psiDirect
+                (
+                    IOobject
+                    (
+                        psiDirectName,
+                        Foam::Time::timeName(runTime.value()),
+                        mesh,
+                        IOobject::NO_READ,
+                        IOobject::AUTO_WRITE
+                    ),
+                    mesh,
+                    dimensionedScalar("zero", dimless, 0)
+                );
+
+                for (Foam::label cellI = 0; cellI < eigenstatesDirect[n].size(0); cellI++)
+                {
+                    psiDirect[cellI] = eigenstatesDirect[n][cellI].item<double>();
+                }
+                psiDirect.correctBoundaryConditions();
+                psiDirect.write();
             }
-            psiDirect.correctBoundaryConditions();
-            psiDirect.write();
         }
 
         fileName csvPath = postProcDir / "eigenvalues.csv";
         std::vector<double> energiesNN;
         for (const auto& psi : neuralStates)
         {
-            // Inline M-weighted Rayleigh quotient (trainer is out of scope)
-            double e = ((K.matmul(psi) * psi).sum()
-                        / ((M * psi * psi).sum() + epsilon)).item<double>();
+            // Face-stencil M-weighted Rayleigh quotient (O(nFaces))
+            double e = (fvOp.rayleighNumerator(psi).item<double>()
+                        / ((M * psi * psi).sum() + epsilon).item<double>());
             energiesNN.push_back(e);
         }
         diag.writeEigenvaluesCSV(csvPath, energiesNN, energiesDirect, exactEnergies, mesh.nCells());
@@ -341,7 +388,8 @@ int main(int argc, char* argv[])
             os << ",volume,potential";
             for (int n = 0; n < std::min((int)neuralStates.size(), numberOfStates); n++)
             {
-                os << ",psiNN_" << n << ",psiDirectFV_" << n;
+                os << ",psiNN_" << n;
+                if (computeDirectReference) os << ",psiDirectFV_" << n;
             }
             os << endl;
 
@@ -359,7 +407,10 @@ int main(int argc, char* argv[])
                 for (int n = 0; n < std::min((int)neuralStates.size(), numberOfStates); n++)
                 {
                     os << "," << neuralStates[n][cellI].item<double>();
-                    os << "," << eigenstatesDirect[n][cellI].item<double>();
+                    if (computeDirectReference)
+                    {
+                        os << "," << eigenstatesDirect[n][cellI].item<double>();
+                    }
                 }
                 os << endl;
             }

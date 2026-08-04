@@ -8,17 +8,36 @@
 // NOTE: This translation unit is Torch-only.  No OpenFOAM headers are
 // included, so OpenFOAM's macro set cannot interfere with LibTorch here.
 
+using Clock = std::chrono::high_resolution_clock;
+
+static double durationSince(const Clock::time_point& a, const Clock::time_point& b)
+{
+    return std::chrono::duration<double>(b - a).count();
+}
+
+void EigenTraining::TimingStats::print(int stateIndex) const
+{
+    std::cout << "    [timing] state " << stateIndex
+              << ": forward=" << forward << "s"
+              << ", rayleigh-eval=" << rayleigh << "s"
+              << ", backward=" << backward << "s"
+              << ", optimizer.step=" << optimizer << "s"
+              << " (the LBFGS step entry includes its internal closure evaluations)"
+              << ", LBFGS closure calls=" << closureCalls
+              << std::endl;
+}
+
 EigenTraining::EigenTraining
 (
-    const torch::Tensor& K,
+    std::function<torch::Tensor(const torch::Tensor&)> numerator,
     const torch::Tensor& M,
     int numberOfStates,
     double epsilon
 )
 :
-    K_(K),
     M_(M),
-    nCells_(K.size(0)),
+    numerator_(std::move(numerator)),
+    nCells_(M.size(0)),
     epsilon_(epsilon)
 {
 }
@@ -41,7 +60,7 @@ torch::Tensor EigenTraining::computePsi
 
 torch::Tensor EigenTraining::lossTensor(const torch::Tensor& psi)
 {
-    auto num = (K_.matmul(psi) * psi).sum();
+    auto num = numerator_(psi);
     auto den = (M_ * psi * psi).sum() + epsilon_;
     return num / den;
 }
@@ -71,27 +90,15 @@ double EigenTraining::orthogonalityError
     return maxErr;
 }
 
-double EigenTraining::closureLoss
-(
-    torch::optim::Optimizer& optimizer,
-    const std::function<torch::Tensor()>& forwardPsi,
-    const std::vector<torch::Tensor>& previousStates
-)
-{
-    optimizer.zero_grad();
-    auto psi = computePsi(forwardPsi(), previousStates);
-    auto loss = lossTensor(psi);
-    loss.backward();
-    return loss.item<double>();
-}
-
 std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainCoefficientState
 (
     int stateIndex,
     const std::vector<torch::Tensor>& previousStates,
     int adamSteps,
     double adamLr,
-    int lbfgsMaxIter
+    int lbfgsMaxIter,
+    int lbfgsHistorySize,
+    int logEvery
 )
 {
     torch::manual_seed(1234 + stateIndex * 1000);
@@ -102,13 +109,15 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainCoeffic
     );
     z.set_requires_grad(true);
 
+    TimingStats stats;
+
     std::vector<TrainingState> history;
-    auto t0 = std::chrono::high_resolution_clock::now();
+    auto t0 = Clock::now();
 
     auto record = [&](int step)
     {
         auto psi = computePsi(z.detach(), previousStates);
-        auto t1 = std::chrono::high_resolution_clock::now();
+        auto t1 = Clock::now();
         TrainingState ts;
         ts.step = step;
         ts.energy = rayleighQuotient(psi);
@@ -116,7 +125,7 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainCoeffic
         ts.gradNorm = (z.grad().defined())
             ? z.grad().abs().max().item<double>() : 0.0;
         ts.orthogonalityError = orthogonalityError(psi, previousStates);
-        ts.elapsedSeconds = std::chrono::duration<double>(t1 - t0).count();
+        ts.elapsedSeconds = durationSince(t0, t1);
         history.push_back(ts);
     };
 
@@ -128,8 +137,13 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainCoeffic
         for (int step = start; step < end; step++)
         {
             optimizer.zero_grad();
+
+            auto tR0 = Clock::now();
             auto psi = computePsi(z, previousStates);
             auto energy = lossTensor(psi);
+            auto tR1 = Clock::now();
+            stats.rayleigh += durationSince(tR0, tR1);
+
             double loss = energy.item<double>();
 
             if (!std::isfinite(loss))
@@ -139,10 +153,17 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainCoeffic
                     + std::to_string(step));
             }
 
+            auto tB0 = Clock::now();
             energy.backward();
-            optimizer.step();
+            auto tB1 = Clock::now();
+            stats.backward += durationSince(tB0, tB1);
 
-            if (step % 20 == 0 || step == adamSteps - 1)
+            auto tO0 = Clock::now();
+            optimizer.step();
+            auto tO1 = Clock::now();
+            stats.optimizer += durationSince(tO0, tO1);
+
+            if (step % logEvery == 0 || step == adamSteps - 1)
             {
                 record(step);
             }
@@ -163,33 +184,47 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainCoeffic
     }
 
     // --- LBFGS phase ------------------------------------------------------
+    // ONE optimizer.step() call: LBFGSOptions::max_iter bounds the total
+    // number of internal iterations; tolerance_grad/change terminate early.
+    // (Previously an outer loop of step() calls multiplied the budget.)
     if (lbfgsMaxIter > 0)
     {
         torch::optim::LBFGSOptions opts(1.0);
-        opts.max_iter(20);
-        opts.history_size(100);
+        opts.max_iter(lbfgsMaxIter);
+        opts.history_size(lbfgsHistorySize);
         opts.tolerance_grad(1e-12);
         opts.tolerance_change(1e-14);
 
         torch::optim::LBFGS optimizer(std::vector<torch::Tensor>{z}, opts);
 
-        for (int iter = 0; iter < lbfgsMaxIter; iter++)
+        auto closure = [&]() -> torch::Tensor
         {
-            optimizer.step([&]() -> torch::Tensor
-            {
-                optimizer.zero_grad();
-                auto psi = computePsi(z, previousStates);
-                auto energy = lossTensor(psi);
-                energy.backward();
-                return energy;
-            });
+            ++stats.closureCalls;
+            optimizer.zero_grad();
 
-            if (iter % 20 == 0 || iter == lbfgsMaxIter - 1)
-            {
-                record(adamSteps + iter);
-            }
-        }
+            auto tR0 = Clock::now();
+            auto psi = computePsi(z, previousStates);
+            auto energy = lossTensor(psi);
+            auto tR1 = Clock::now();
+            stats.rayleigh += durationSince(tR0, tR1);
+
+            auto tB0 = Clock::now();
+            energy.backward();
+            auto tB1 = Clock::now();
+            stats.backward += durationSince(tB0, tB1);
+
+            return energy;
+        };
+
+        auto tO0 = Clock::now();
+        optimizer.step(closure);
+        auto tO1 = Clock::now();
+        stats.optimizer += durationSince(tO0, tO1);
+
+        record(adamSteps + lbfgsMaxIter);
     }
+
+    stats.print(stateIndex);
 
     return {computePsi(z.detach(), previousStates), history};
 }
@@ -206,13 +241,17 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
     double adamLr,
     int lbfgsMaxIter,
     int restarts,
-    long baseSeed
+    long baseSeed,
+    int lbfgsHistorySize,
+    int logEvery
 )
 {
     torch::Tensor bestPsi;
     double bestEnergy = INFINITY;
     int bestRestart = 0;
     std::vector<TrainingState> bestHistory;
+
+    TimingStats stats;
 
     // Normalised coordinates ~[-1, 1] (1D: [N,1]; 2D: [N,2]).  Augmented
     // with a constant channel so the input tensor is [N, dim+1] = [coords, 1]
@@ -243,7 +282,7 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
         };
 
         std::vector<TrainingState> history;
-        auto t0 = std::chrono::high_resolution_clock::now();
+        auto t0 = Clock::now();
 
         auto record = [&](int step)
         {
@@ -257,7 +296,7 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
             }
 
             auto psi = computePsi(forwardPsi().detach(), previousStates);
-            auto t1 = std::chrono::high_resolution_clock::now();
+            auto t1 = Clock::now();
 
             TrainingState ts;
             ts.step = step;
@@ -265,8 +304,37 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
             ts.massNorm = massNorm(psi);
             ts.gradNorm = gradMax;
             ts.orthogonalityError = orthogonalityError(psi, previousStates);
-            ts.elapsedSeconds = std::chrono::duration<double>(t1 - t0).count();
+            ts.elapsedSeconds = durationSince(t0, t1);
             history.push_back(ts);
+        };
+
+        // One timed optimizer sweep: zero_grad assumed already handled
+        auto sweep = [&](torch::optim::Optimizer& optimizer) -> double
+        {
+            auto tF0 = Clock::now();
+            auto raw = forwardPsi();
+            auto tF1 = Clock::now();
+            stats.forward += durationSince(tF0, tF1);
+
+            auto psi = computePsi(raw, previousStates);
+            auto energy = lossTensor(psi);
+            auto tR1 = Clock::now();
+            stats.rayleigh += durationSince(tF1, tR1);
+
+            double loss = energy.item<double>();
+            if (!std::isfinite(loss)) return loss;
+
+            auto tB0 = Clock::now();
+            energy.backward();
+            auto tB1 = Clock::now();
+            stats.backward += durationSince(tB0, tB1);
+
+            auto tO0 = Clock::now();
+            optimizer.step();
+            auto tO1 = Clock::now();
+            stats.optimizer += durationSince(tO0, tO1);
+
+            return loss;
         };
 
         bool diverged = false;
@@ -283,14 +351,10 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
             for (int step = 0; step < pretrainSteps; step++)
             {
                 optimizer.zero_grad();
-                auto psi = computePsi(forwardPsi(), previousStates);
-                auto energy = lossTensor(psi);
-                double loss = energy.item<double>();
+                double loss = sweep(optimizer);
                 if (!std::isfinite(loss)) { diverged = true; break; }
-                energy.backward();
-                optimizer.step();
 
-                if (step % 25 == 0 || step == pretrainSteps - 1)
+                if (step % logEvery == 0 || step == pretrainSteps - 1)
                 {
                     record(stepBase + step);
                 }
@@ -308,14 +372,10 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
             for (int step = 0; step < adamSteps; step++)
             {
                 optimizer.zero_grad();
-                auto psi = computePsi(forwardPsi(), previousStates);
-                auto energy = lossTensor(psi);
-                double loss = energy.item<double>();
+                double loss = sweep(optimizer);
                 if (!std::isfinite(loss)) { diverged = true; break; }
-                energy.backward();
-                optimizer.step();
 
-                if (step % 25 == 0 || step == adamSteps - 1)
+                if (step % logEvery == 0 || step == adamSteps - 1)
                 {
                     record(stepBase + step);
                 }
@@ -323,33 +383,48 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
         }
         stepBase += adamSteps;
 
-        // --- Phase 3: LBFGS -----------------------------------------------
+        // --- Phase 3: LBFGS ------------------------------------------------
+        // ONE optimizer.step() call with max_iter bounding the total internal
+        // iteration count (see coefficient-mode note above).
         if (!diverged && lbfgsMaxIter > 0)
         {
             torch::optim::LBFGSOptions opts(0.5);
-            opts.max_iter(20);
-            opts.history_size(100);
+            opts.max_iter(lbfgsMaxIter);
+            opts.history_size(lbfgsHistorySize);
             opts.tolerance_grad(1e-12);
             opts.tolerance_change(1e-14);
 
             torch::optim::LBFGS optimizer(model.parameters(), opts);
 
-            for (int iter = 0; iter < lbfgsMaxIter; iter++)
+            auto closure = [&]() -> torch::Tensor
             {
-                optimizer.step([&]() -> torch::Tensor
-                {
-                    optimizer.zero_grad();
-                    auto psi = computePsi(forwardPsi(), previousStates);
-                    auto energy = lossTensor(psi);
-                    energy.backward();
-                    return energy;
-                });
+                ++stats.closureCalls;
+                optimizer.zero_grad();
 
-                if (iter % 20 == 0 || iter == lbfgsMaxIter - 1)
-                {
-                    record(adamSteps + iter);
-                }
-            }
+                auto tF0 = Clock::now();
+                auto raw = forwardPsi();
+                auto tF1 = Clock::now();
+                stats.forward += durationSince(tF0, tF1);
+
+                auto psi = computePsi(raw, previousStates);
+                auto energy = lossTensor(psi);
+                auto tR1 = Clock::now();
+                stats.rayleigh += durationSince(tF1, tR1);
+
+                auto tB0 = Clock::now();
+                energy.backward();
+                auto tB1 = Clock::now();
+                stats.backward += durationSince(tB0, tB1);
+
+                return energy;
+            };
+
+            auto tO0 = Clock::now();
+            optimizer.step(closure);
+            auto tO1 = Clock::now();
+            stats.optimizer += durationSince(tO0, tO1);
+
+            record(stepBase + lbfgsMaxIter);
         }
 
         if (!diverged && !history.empty())
@@ -369,6 +444,8 @@ std::pair<torch::Tensor, std::vector<TrainingState>> EigenTraining::trainNeuralS
 
     std::cout << "  Best restart for state " << stateIndex << ": " << bestRestart
               << " with energy " << bestEnergy << std::endl;
+
+    stats.print(stateIndex);
 
     return {bestPsi, bestHistory};
 }

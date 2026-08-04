@@ -48,7 +48,7 @@ This is solved directly using torch.linalg.eigh after transforming to standard f
 
 ### Coordinate MLP
 
-A neural network ψ_θ(ξ) takes normalized coordinates ξ = x/L ∈ [-1, 1] and outputs eigenfunction values. Architecture:
+A neural network ψ_θ(ξ) takes normalized coordinates ξ = x/L ∈ [-1, 1] and outputs eigenfunction values. The depth is set by `hiddenLayers` in `lhoProperties`; with the default `hiddenLayers=3`, `hiddenWidth=64`:
 
 ```
 Linear(1, 64) → Tanh → Linear(64, 64) → Tanh → Linear(64, 64) → Tanh → Linear(64, 1)
@@ -68,14 +68,37 @@ Minimize the finite-volume Rayleigh quotient:
 E[ψ_θ] = (ψ_θᵀ K ψ_θ) / (ψ_θᵀ M ψ_θ)
 ```
 
+The numerator is evaluated from the face stencil in O(N_faces):
+
+```
+ψᵀ K ψ = Σ_int g_f (ψ_n − ψ_o)² + Σ_bnd g_b ψ_c² + Σ_c m_c V_c ψ_c²
+```
+
+(exactly equal to the dense quadratic form; cross-checked at assembly), so training does not need the dense matrix.
+
 Higher states are obtained by M-orthogonal projection against previously computed states.
 
 ### Optimization
 
-1. **Adam**: 5000 steps at lr=1e-3
-2. **LBFGS**: 300 iterations, history size 100
+The schedule per state (configured in `lhoProperties`) is:
 
-Three deterministic restarts are performed; the best is selected.
+1. **Pretrain**: Adam at 10× learning rate (`pretrainSteps`)
+2. **Adam**: `adamSteps` at `adamLearningRate`
+3. **LBFGS**: one solver call whose total internal iteration count is bounded by `lbfgsMaxIterations` (history size `lbfgsHistorySize`), with tolerance-based early termination. The number of closure evaluations is reported per state.
+
+Gate-2 coefficient mode (no network preconditioning) uses `lbfgsCoefficientMaxIterations` (default: `lbfgsMaxIterations`) because LBFGS performs nearly all of the convergence there (`lho_256` sets it to 400, ~263 closure evaluations per state).
+
+The tracked `lho_256` case uses 150 pretrain + 500 Adam + 100 true LBFGS internal iterations, 1 restart (higher excited states cap out at 20; 100 restores convergence at all 11 states). The case template retains a larger budget (5000 Adam, 300 LBFGS, 3 restarts); with deterministic `baseSeed`, restarts are reproducible and the best is selected.
+
+Per-state wall-clock timings (forward / Rayleigh evaluation / backward / optimizer step) are printed for benchmarking.
+
+### Optional Validation Reference
+
+The direct dense eigensolve (`torch.linalg.eigh`, O(N³)) is validation only and can be skipped on large meshes with:
+
+```
+computeDirectReference false;
+```
 
 ## Division of Responsibility
 
@@ -209,7 +232,7 @@ openfoam_libtorch_lho/
 
 ## Current Limitations
 
-1. Dense matrix storage (acceptable up to N ~ 1024)
+1. Dense matrix storage retained for assembly and optional validation; the training loop evaluates ψᵀKψ from the O(N_faces) face stencil
 2. Serial CPU execution only
 3. Uniform orthogonal 1-D mesh
 4. Stationary linear operator

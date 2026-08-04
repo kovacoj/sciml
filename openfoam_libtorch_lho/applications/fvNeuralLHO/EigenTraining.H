@@ -20,9 +20,11 @@ struct TrainingState
 class EigenTraining
 {
 public:
+    // The numerator functor evaluates psi^T K psi (e.g. the O(nFaces) face
+    // stencil of LhoFvOperator); it must be differentiable.
     EigenTraining
     (
-        const torch::Tensor& K,
+        std::function<torch::Tensor(const torch::Tensor&)> numerator,
         const torch::Tensor& M,
         int numberOfStates = 6,
         double epsilon = 1e-30
@@ -35,12 +37,15 @@ public:
         const std::vector<torch::Tensor>& previousStates,
         int adamSteps = 3000,
         double adamLr = 1e-2,
-        int lbfgsMaxIter = 300
+        int lbfgsMaxIter = 300,
+        int lbfgsHistorySize = 100,
+        int logEvery = 20
     );
 
     // Train a coordinate neural network state
     // Schedule: pretrainSteps (Adam, higher LR) -> adamSteps (Adam)
-    //           -> lbfgsMaxIter (LBFGS), with `restarts` restarts (1 = none)
+    //           -> ONE LBFGS run with at most lbfgsMaxIter internal iterations
+    //           (tolerance-controlled), with `restarts` restarts (1 = none)
     std::pair<torch::Tensor, std::vector<TrainingState>> trainNeuralState
     (
         CoordinateMLP& model,
@@ -53,7 +58,9 @@ public:
         double adamLr = 1e-3,
         int lbfgsMaxIter = 20,
         int restarts = 1,
-        long baseSeed = 1234
+        long baseSeed = 1234,
+        int lbfgsHistorySize = 100,
+        int logEvery = 25
     );
 
     // M-weighted Rayleigh quotient (scalar)
@@ -80,16 +87,21 @@ private:
     // Differentiable Rayleigh-quotient tensor
     torch::Tensor lossTensor(const torch::Tensor& psi);
 
-    // One zero_grad + forward + backward sweep used by optimizers
-    double closureLoss
-    (
-        torch::optim::Optimizer& optimizer,
-        const std::function<torch::Tensor()>& forwardPsi,
-        const std::vector<torch::Tensor>& previousStates
-    );
+    // Per-phase wall-clock and closure-evaluation accounting, printed at the
+    // end of each state so the optimization budget is auditable.
+    struct TimingStats
+    {
+        double forward = 0.0;   // network forward passes
+        double rayleigh = 0.0;  // projection + quotient evaluation
+        double backward = 0.0;
+        double optimizer = 0.0; // optimizer.step() (incl. LBFGS line search)
+        long closureCalls = 0;  // LBFGS closure evaluations
 
-    torch::Tensor K_;
+        void print(int stateIndex) const;
+    };
+
     torch::Tensor M_;
+    std::function<torch::Tensor(const torch::Tensor&)> numerator_;
     int nCells_;
     double epsilon_;
 };

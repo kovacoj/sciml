@@ -82,12 +82,13 @@ torch::Tensor Diagnostics::analyticalEigenfunction(int n, const torch::Tensor& x
     return H_n * expTerm / normFactor;
 }
 
-std::vector<double> Diagnostics::exactSpectrum(int numStates, double omegaY)
+std::vector<double> Diagnostics::exactSpectrum(
+    int numStates,
+    int dimension,
+    double omegaY)
 {
-    if (omegaY <= 1.0 + 1e-14)
+    if (dimension == 1)
     {
-        // 1D harmonic oscillator (also isotropic-2D ordered list happens to be
-        // n + 0.5 only in the non-degenerate 1D case).
         std::vector<double> E(numStates);
         for (int n = 0; n < numStates; n++) E[n] = n + 0.5;
         return E;
@@ -199,19 +200,30 @@ void Diagnostics::writeEigenvaluesCSV
     os << "state,E_NN,E_directFV,E_exact,dE_NN_direct,dE_direct_exact,dE_NN_exact"
        << endl;
 
-    for (size_t n = 0; n < std::min(energiesNN.size(), energiesDirect.size()); n++)
+    // When the direct dense solve was skipped (computeDirectReference off),
+    // energiesDirect is empty and the corresponding columns are written as nan.
+    const bool haveDirect = !energiesDirect.empty();
+
+    for (size_t n = 0; n < energiesNN.size(); n++)
     {
         double E_exact = (n < energiesExact.size()) ? energiesExact[n] : (n + 0.5);
-        double dNN_Direct = std::abs(energiesNN[n] - energiesDirect[n]);
-        double dDirect_Exact = std::abs(energiesDirect[n] - E_exact);
         double dNN_Exact = std::abs(energiesNN[n] - E_exact);
 
         os << n << ","
-           << energiesNN[n] << ","
-           << energiesDirect[n] << ","
-           << E_exact << ","
-           << dNN_Direct << ","
-           << dDirect_Exact << ","
-           << dNN_Exact << endl;
+           << energiesNN[n] << ",";
+
+        if (haveDirect)
+        {
+            os << energiesDirect[n] << ","
+               << E_exact << ","
+               << std::abs(energiesNN[n] - energiesDirect[n]) << ","
+               << std::abs(energiesDirect[n] - E_exact) << ",";
+        }
+        else
+        {
+            os << "nan," << E_exact << ",nan,nan,";
+        }
+
+        os << dNN_Exact << endl;
     }
 }

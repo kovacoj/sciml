@@ -5,6 +5,8 @@
 #include "surfaceFields.H"
 #include "OSspecific.H"
 #include <iostream>
+#include <cmath>
+#include <vector>
 
 using namespace Foam;
 
@@ -65,7 +67,47 @@ LhoFvOperator::LhoFvOperator
             << exit(FatalError);
     }
 
+    // Cross-check the face-based quadratic form against the dense matrix on a
+    // deterministic probe vector (regression guard for the training path).
+    {
+        auto probe = torch::zeros({nCells_}, torch::kFloat64);
+        for (label c = 0; c < nCells_; ++c)
+        {
+            probe[c] = 1.0 + static_cast<double>(c % 7);
+        }
+        const double qDense = probe.dot(K_.matmul(probe)).item<double>();
+        const double qFace = rayleighNumerator(probe).item<double>();
+        const double relErr = std::abs(qFace - qDense)
+                            / (std::abs(qDense) + SMALL);
+        Info << "Face quadratic form vs dense K: relative error " << relErr << nl;
+        if (relErr > 1e-12)
+        {
+            FatalErrorInFunction
+                << "Face-based quadratic form disagrees with dense K"
+                << exit(FatalError);
+        }
+    }
+
     Info << "Finite-volume operator assembled successfully" << nl;
+}
+
+torch::Tensor LhoFvOperator::rayleighNumerator(const torch::Tensor& psi) const
+{
+    // Dirichlet energy psi^T K psi assembled from the face stencil:
+    //   sum_int g_f (psi_n - psi_o)^2  +  sum_bnd g_b psi_c^2
+    //   + sum_c m_c V_c psi_c^2  (potential, zero for "laplacian" mode)
+    auto jumps = psi.index_select(0, faceNeighbour_)
+               - psi.index_select(0, faceOwner_);
+    auto energy = (faceConductance_ * jumps.square()).sum();
+
+    if (boundaryCell_.numel() > 0)
+    {
+        auto psiB = psi.index_select(0, boundaryCell_);
+        energy = energy + (boundaryConductance_ * psiB.square()).sum();
+    }
+
+    energy = energy + (mass_ * potential_ * psi.square()).sum();
+    return energy;
 }
 
 void LhoFvOperator::assembleKinetic()
@@ -77,6 +119,10 @@ void LhoFvOperator::assembleKinetic()
     const auto& neighbour = mesh_.neighbour();
 
     // Internal faces
+    std::vector<int64_t> ownerIdx(owner.size());
+    std::vector<int64_t> neighbourIdx(neighbour.size());
+    std::vector<double> intConductance(owner.size());
+
     forAll(owner, faceI)
     {
         label o = owner[faceI];
@@ -103,9 +149,25 @@ void LhoFvOperator::assembleKinetic()
         K_[n][n] += g_f;
         K_[o][n] -= g_f;
         K_[n][o] -= g_f;
+
+        ownerIdx[faceI] = o;
+        neighbourIdx[faceI] = n;
+        intConductance[faceI] = g_f;
     }
 
+    auto intOptsI = torch::TensorOptions().dtype(torch::kInt64);
+    auto intOptsD = torch::TensorOptions().dtype(torch::kFloat64);
+    faceOwner_ = torch::from_blob(
+        ownerIdx.data(), {(int64_t)ownerIdx.size()}, intOptsI).clone();
+    faceNeighbour_ = torch::from_blob(
+        neighbourIdx.data(), {(int64_t)neighbourIdx.size()}, intOptsI).clone();
+    faceConductance_ = torch::from_blob(
+        intConductance.data(), {(int64_t)intConductance.size()}, intOptsD).clone();
+
     // Boundary faces
+    std::vector<int64_t> bndCellIdx;
+    std::vector<double> bndConductance;
+
     const auto& boundary = mesh_.boundary();
     forAll(boundary, patchI)
     {
@@ -137,8 +199,26 @@ void LhoFvOperator::assembleKinetic()
 
                 scalar g_b = kineticScale_ * A_f / d_b;
                 K_[c][c] += g_b;
+
+                bndCellIdx.push_back(c);
+                bndConductance.push_back(g_b);
             }
         }
+    }
+
+    auto bndOptsI = torch::TensorOptions().dtype(torch::kInt64);
+    auto bndOptsD = torch::TensorOptions().dtype(torch::kFloat64);
+    if (bndCellIdx.empty())
+    {
+        boundaryCell_ = torch::empty({0}, bndOptsI);
+        boundaryConductance_ = torch::empty({0}, bndOptsD);
+    }
+    else
+    {
+        boundaryCell_ = torch::from_blob(
+            bndCellIdx.data(), {(int64_t)bndCellIdx.size()}, bndOptsI).clone();
+        boundaryConductance_ = torch::from_blob(
+            bndConductance.data(), {(int64_t)bndConductance.size()}, bndOptsD).clone();
     }
 }
 

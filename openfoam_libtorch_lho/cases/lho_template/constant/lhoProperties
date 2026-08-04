@@ -22,9 +22,14 @@ adamSteps          5000;
 adamLearningRate   1e-3;
 
 lbfgsMaxIterations 300;
+// Gate-2 raw-coefficient mode LBFGS budget (defaults to lbfgsMaxIterations)
+lbfgsCoefficientMaxIterations 400;
 lbfgsHistorySize   100;
 
 logEvery           20;
 epsilon            1e-30;
 
 writeMatrices      false;
+
+// Full dense O(N^3) validation eigensolve (set false to skip on large meshes)
+computeDirectReference true;

@@ -1,0 +1,421 @@
+From cd5b9c786329c8678321978624aa4992a4871e33 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?J=C3=A1n=20Kova=C4=8Dovsk=C3=BD?= <kovacoj1@gmail.com>
+Date: Wed, 5 Aug 2026 00:54:59 +0200
+Subject: [PATCH] feat(hfdib): static first-order HFDIB rectangular-solid
+ fvSource
+
+DAFvSourceHFDIBStaticRect: passive geometry (lambda/masks/surface
+points/normals/IDW stencils) + active residual path
+(f_ib = chi * (M_h(U_ib) + grad p)) for a single stationary axis-aligned
+rectangle, registered type 'hfdibStaticRect'. Header guards
+addToRunTimeSelectionTable.H as required by this DAFoam/OpenFOAM build.
+---
+ .../DAFvSource/DAFvSourceHFDIBStaticRect.C    | 278 ++++++++++++++++++
+ .../DAFvSource/DAFvSourceHFDIBStaticRect.H    |  97 ++++++
+ src/adjoint/Make/files                        |   1 +
+ 3 files changed, 376 insertions(+)
+ create mode 100644 src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
+ create mode 100644 src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H
+
+diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
+new file mode 100644
+index 0000000..7539d04
+--- /dev/null
++++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
+@@ -0,0 +1,278 @@
++/*---------------------------------------------------------------------------*\
++    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: static HFDIB)
++\*---------------------------------------------------------------------------*/
++
++#include "DAFvSourceHFDIBStaticRect.H"
++#include "fvm.H"
++#include "fvc.H"
++#include "surfaceFields.H"
++#include "IOMRFZoneListDF.H"
++#include <cmath>
++#include <algorithm>
++
++namespace Foam
++{
++
++defineTypeNameAndDebug(DAFvSourceHFDIBStaticRect, 0);
++addToRunTimeSelectionTable(DAFvSource, DAFvSourceHFDIBStaticRect, dictionary);
++
++// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
++
++DAFvSourceHFDIBStaticRect::DAFvSourceHFDIBStaticRect(
++    const word modelType,
++    const fvMesh& mesh,
++    const DAOption& daOption,
++    const DAModel& daModel,
++    const DAIndex& daIndex)
++    : DAFvSource(modelType, mesh, daOption, daModel, daIndex),
++      x0_(0.0), y0_(0.0), z0_(0.0), x1_(0.1), y1_(0.1), z1_(0.1),
++      d1Factor_(1.5), built_(false)
++{
++    // per-source params from daOptions["fvSource"][<name>]
++    const dictionary& allOptions = daOption.getAllOptions();
++    if (allOptions.subDict("fvSource").toc().size() != 0)
++    {
++        word name = allOptions.subDict("fvSource").toc()[0];
++        const dictionary& sub = allOptions.subDict("fvSource").subDict(name);
++        scalarList bounds;
++        if (sub.readIfPresent("bounds", bounds) && bounds.size() == 6)
++        {
++            x0_ = bounds[0]; y0_ = bounds[1]; z0_ = bounds[2];
++            x1_ = bounds[3]; y1_ = bounds[4]; z1_ = bounds[5];
++        }
++        d1Factor_ = sub.lookupOrDefault<scalar>("d1Factor", 1.5);
++    }
++    Info << "DAFvSourceHFDIBStaticRect: bounds [" << x0_ << " " << y0_ << " "
++         << z0_ << " " << x1_ << " " << y1_ << " " << z1_ << "], d1Factor "
++         << d1Factor_ << endl;
++}
++
++bool DAFvSourceHFDIBStaticRect::inRect(scalar x, scalar y, scalar z) const
++{
++    return x >= x0_ && x <= x1_ && y >= y0_ && y <= y1_ && z >= z0_ && z <= z1_;
++}
++
++void DAFvSourceHFDIBStaticRect::rectSignedDistance(
++    scalar x, scalar y, scalar z, double& sig, double q[3], double nrm[3]) const
++{
++    if (inRect(x, y, z))
++    {
++        // negative inside; q = nearest face point, normal TOWARD fluid
++        double dx0 = x - x0_, dx1 = x1_ - x;
++        double dy0 = y - y0_, dy1 = y1_ - y;
++        double dz0 = z - z0_, dz1 = z1_ - z;
++        double vals[6] = {dx0, dx1, dy0, dy1, dz0, dz1};
++        int imin = 0;
++        for (int i = 1; i < 6; ++i) if (vals[i] < vals[imin]) imin = i;
++        double d = vals[imin];
++        q[0] = x; q[1] = y; q[2] = z;
++        double nv[3] = {0, 0, 0};
++        switch (imin)
++        {
++        case 0: q[0] = x0_; nv[0] = -1; break;
++        case 1: q[0] = x1_; nv[0] = +1; break;
++        case 2: q[1] = y0_; nv[1] = -1; break;
++        case 3: q[1] = y1_; nv[1] = +1; break;
++        case 4: q[2] = z0_; nv[2] = -1; break;
++        default: q[2] = z1_; nv[2] = +1; break;
++        }
++        if (d < 1e-15) { nv[0] = 0; nv[1] = 0; nv[2] = 0; }
++        nrm[0] = nv[0]; nrm[1] = nv[1]; nrm[2] = nv[2];
++        sig = -d;
++        return;
++    }
++    // outside: clamp to rect, normal from surface toward the point
++    double qx = clampd(x, x0_, x1_);
++    double qy = clampd(y, y0_, y1_);
++    double qz = clampd(z, z0_, z1_);
++    q[0] = qx; q[1] = qy; q[2] = qz;
++    double dx = x - qx, dy = y - qy, dz = z - qz;
++    double d = std::sqrt(dx * dx + dy * dy + dz * dz);
++    if (d > 1e-15)
++    {
++        nrm[0] = dx / d; nrm[1] = dy / d; nrm[2] = dz / d;
++    }
++    else
++    {
++        nrm[0] = 0; nrm[1] = 0; nrm[2] = 0;
++    }
++    sig = d;
++}
++
++void DAFvSourceHFDIBStaticRect::buildGeometry()
++{
++    if (built_) return;
++    const volVectorField::Internal& C = mesh_.C();
++    const scalarField& V = mesh_.V();
++    const label nCells = mesh_.nCells();
++    const auto& cellPoints = mesh_.cellPoints();
++    const pointField& pts = mesh_.points();
++
++    lambda_.assign(nCells, 0.0);
++    chi_.assign(nCells, 0.0);
++    sigma_.assign(nCells, 0.0);
++
++    label nSolid = 0, nIface = 0;
++    for (label cellI = 0; cellI < nCells; ++cellI)
++    {
++        double sig; double q[3]; double nrm[3];
++        rectSignedDistance(C[cellI].x(), C[cellI].y(), C[cellI].z(),
++                           sig, q, nrm);
++        sigma_[cellI] = sig;
++
++        // classify via in-plane-cell-vertex membership (rect is convex:
++        // a cell is intersected iff its 4 in-plane corner vertices differ)
++        const labelList& cp = cellPoints[cellI];
++        label nIn = 0;
++        for (const label pi : cp)
++        {
++            const point& pp = pts[pi];
++            if (inRect(pp.x(), pp.y(), pp.z())) ++nIn;
++        }
++        const bool mixed = (nIn > 0 && nIn < cp.size());
++
++        if (!mixed)
++        {
++            lambda_[cellI] = (nIn == cp.size()) ? 1.0 : 0.0;
++        }
++        else
++        {
++            const double hEff = std::cbrt(static_cast<double>(V[cellI]));
++            lambda_[cellI] = 0.5 * (1.0 - std::tanh(sig / hEff));
++        }
++        chi_[cellI] = std::ceil(lambda_[cellI]);
++
++        // interface (mixed) cells get interpolation stencils
++        if (mixed)
++        {
++            ++nIface;
++            const double hEff = std::cbrt(static_cast<double>(V[cellI]));
++            const double d1 = d1Factor_ * hEff;
++            ifCells_.push_back(cellI);
++            ifIsSolid_.push_back(0);
++            ifCoeff_.push_back(std::abs(sig) / d1);
++
++            // fluid-side interpolation point x1 = q + d1 * n
++            const double px = q[0] + d1 * nrm[0];
++            const double py = q[1] + d1 * nrm[1];
++            const double pz = q[2] + d1 * nrm[2];
++
++            // IDW over cells with lambda < 1 within 2.5 * hEff radius
++            std::vector<label> srcs;
++            std::vector<double> ws;
++            double wsum = 0.0;
++            const double rMax = 2.5 * hEff;
++            for (label c2 = 0; c2 < nCells; ++c2)
++            {
++                if (lambda_[c2] >= 1.0) continue;
++                const double rx = C[c2].x() - px;
++                const double ry = C[c2].y() - py;
++                const double rz = C[c2].z() - pz;
++                const double r2 = rx * rx + ry * ry + rz * rz;
++                if (r2 > rMax * rMax) continue;
++                double s2, q2[3], n2[3];
++                rectSignedDistance(px, py, pz, s2, q2, n2);
++                // source points must themselves sit fluid-side of the surface
++                if (s2 <= 0.0 && lambda_[c2] > 0.0) continue;
++                const double w = 1.0 / (r2 + 1e-30);
++                srcs.push_back(c2);
++                ws.push_back(w);
++                wsum += w;
++            }
++            if (srcs.empty())
++            {
++                // fallback order 0: treat as solid (u_ib = 0)
++                ifIsSolid_.back() = 1;
++                ifCoeff_.back() = 0.0;
++                ifSrcCells_.push_back({});
++                ifSrcW_.push_back({});
++            }
++            else
++            {
++                for (auto& w : ws) w /= wsum;  // normalize
++                ifSrcCells_.push_back(srcs);
++                ifSrcW_.push_back(ws);
++            }
++        }
++        if (lambda_[cellI] >= 1.0) ++nSolid;
++    }
++
++    Info << "DAFvSourceHFDIBStaticRect: " << nCells << " cells, " << nSolid
++         << " solid, " << nIface << " interface with stencils" << endl;
++    built_ = true;
++}
++
++// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
++
++void DAFvSourceHFDIBStaticRect::calcFvSource(volVectorField& fvSource)
++{
++    if (!built_) buildGeometry();
++
++    // ---- active fields (plain scalar in normal builds, AD in ADR) --------
++    volVectorField& U = const_cast<volVectorField&>(
++        mesh_.thisDb().lookupObject<volVectorField>("U"));
++    volScalarField& p = const_cast<volScalarField&>(
++        mesh_.thisDb().lookupObject<volScalarField>("p"));
++    surfaceScalarField& phi = const_cast<surfaceScalarField&>(
++        mesh_.thisDb().lookupObject<surfaceScalarField>("phi"));
++    volScalarField& alphaPorosity = const_cast<volScalarField&>(
++        mesh_.thisDb().lookupObject<volScalarField>("alphaPorosity"));
++    const IOMRFZoneListDF& MRF = mesh_.thisDb().lookupObject<IOMRFZoneListDF>(
++        "MRFProperties");
++    DATurbulenceModel& daTurb =
++        const_cast<DATurbulenceModel&>(daModel_.getDATurbulenceModel());
++
++    // ---- assemble the SAME residual momentum operator as DAResidual, ----
++    // ---- MINUS the fvSource / fvOptions terms (avoid self-reference) -----
++    fvVectorMatrix UEqn(
++        fvm::div(phi, U)
++        + fvm::Sp(alphaPorosity, U)
++        + MRF.DDt(U)
++        + daTurb.divDevReff(U));
++    fvVectorMatrix& UEqnR = UEqn;
++    // no relax()/constrain here: fvSource machinery runs within the tape;
++    // matrix is used pointwise via operator&.
++
++    // ---- imposed field: U fluid unchanged, solid 0, interface profile ----
++    volVectorField Uib("UibHFDIB", U);
++    for (std::size_t i = 0; i < ifCells_.size(); ++i)
++    {
++        const label c = ifCells_[i];
++        if (ifIsSolid_[i])
++        {
++            Uib[c] = vector::zero;
++            continue;
++        }
++        vector u1(Zero);
++        for (std::size_t j = 0; j < ifSrcCells_[i].size(); ++j)
++        {
++            u1 += ifSrcW_[i][j] * U[ifSrcCells_[i][j]];
++        }
++        Uib[c] = ifCoeff_[i] * u1;  // (ds/d1) * u1  (first-order profile)
++    }
++    for (label c = 0; c < mesh_.nCells(); ++c)
++    {
++        if (lambda_[c] >= 1.0) Uib[c] = vector::zero;  // pure solid
++    }
++
++    // ---- fvSource = chi * ( M_h(Uib) + grad(p) ) per cell ----------------
++    const volVectorField Mib = UEqnR & Uib;
++    const volVectorField gradP = fvc::grad(p);
++
++    forAll(fvSource, cellI)
++    {
++        if (chi_[cellI] > 0.0)
++        {
++            fvSource[cellI] = Mib[cellI] + gradP[cellI];
++        }
++        else
++        {
++            fvSource[cellI] = vector::zero;
++        }
++    }
++    fvSource.correctBoundaryConditions();
++}
++
++} // End namespace Foam
++
++// ************************************************************************* //
+diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H
+new file mode 100644
+index 0000000..b0931d4
+--- /dev/null
++++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H
+@@ -0,0 +1,97 @@
++/*---------------------------------------------------------------------------*\
++    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: static HFDIB)
++
++    Description:
++        Static immersed-boundary momentum source for a single stationary,
++        axis-aligned rectangular solid (first-order line-interpolation
++        HFDIB, stationary wall u_Gamma = 0).
++
++        Precomputed once (passive data): lambda field (0 fluid, 1 solid,
++        smeared interface), chi = ceil(lambda), surface points/normals,
++        fluid-side interpolation stencils and IDW weights.
++
++        Per residual evaluation (active data path):
++            U_ib = imposed velocity (0 in solid, linear profile at interface)
++            f_ib = chi * ( M_h(U_ib) + grad(p) )     [UEqn built w/o sources]
++            fvSource += f_ib
++
++        All geometry/scales remain passive doubles (never differentiated);
++        every operation on U/p/phi uses the active scalar type of the build
++        (plain scalar in normal builds, AD scalar in ADR builds).
++\*---------------------------------------------------------------------------*/
++
++#ifndef DAFvSourceHFDIBStaticRect_H
++#define DAFvSourceHFDIBStaticRect_H
++
++#include "DAFvSource.H"
++#include "addToRunTimeSelectionTable.H"
++
++namespace Foam
++{
++
++class DAFvSourceHFDIBStaticRect
++    : public DAFvSource
++{
++
++private:
++    /// Disallow default bitwise copy construct
++    DAFvSourceHFDIBStaticRect(const DAFvSourceHFDIBStaticRect&);
++
++    /// Disallow default bitwise assignment
++    void operator=(const DAFvSourceHFDIBStaticRect&);
++
++    /// rectangle bounds [x0, y0, z0, x1, y1, z1]
++    scalar x0_, y0_, z0_, x1_, y1_, z1_;
++
++    /// fluid-side interpolation offset multiplier (d1 = d1Factor * V^(1/3))
++    scalar d1Factor_;
++
++    /// per-cell lambda (0 fluid, 1 solid) and chi = ceil(lambda)
++    std::vector<double> lambda_;
++    std::vector<double> chi_;
++
++    /// interface-cell stencil data (parallel arrays), built once
++    std::vector<label> ifCells_;                 // interface cell ids
++    std::vector<label> ifIsSolid_;               // 1 for pure solid cells (no sources)
++    std::vector<double> ifCoeff_;                // ds/d1 per interface cell
++    std::vector<std::vector<label>> ifSrcCells_; // interpolation source cells
++    std::vector<std::vector<double>> ifSrcW_;    // interpolation weights
++
++    /// passive diagnostics (parallel to cell ids): sigma and surface point
++    std::vector<double> sigma_;
++    bool built_;
++
++    void buildGeometry();
++
++    bool inRect(scalar x, scalar y, scalar z) const;
++    void rectSignedDistance(scalar x, scalar y, scalar z,
++                            double& sig, double q[3], double nrm[3]) const;
++
++    static inline double clampd(double v, double lo, double hi)
++    {
++        return v < lo ? lo : (v > hi ? hi : v);
++    }
++
++public:
++    //- Runtime type information
++    TypeName("hfdibStaticRect");
++
++    // Constructors
++    DAFvSourceHFDIBStaticRect(
++        const word modelType,
++        const fvMesh& mesh,
++        const DAOption& daOption,
++        const DAModel& daModel,
++        const DAIndex& daIndex);
++
++    virtual ~DAFvSourceHFDIBStaticRect()
++    {
++    }
++
++    /// Calculate the HFDIB momentum source
++    virtual void calcFvSource(volVectorField& fvSource);
++};
++
++} // End namespace Foam
++
++#endif
+diff --git a/src/adjoint/Make/files b/src/adjoint/Make/files
+index 87385b2..9d01ad0 100755
+--- a/src/adjoint/Make/files
++++ b/src/adjoint/Make/files
+@@ -50,6 +50,7 @@ DAFvSource/DAFvSourceActuatorLine.C
+ DAFvSource/DAFvSourceActuatorPoint.C
+ DAFvSource/DAFvSourceHeatSource.C
+ DAFvSource/DAFvSourceUniformPressureGradient.C
++DAFvSource/DAFvSourceHFDIBStaticRect.C
+ 
+ DAInput/DAInput.C
+ DAInput/DAInputVolCoord.C
+-- 
+2.43.0
+

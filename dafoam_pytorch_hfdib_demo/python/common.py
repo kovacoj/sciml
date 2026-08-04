@@ -53,6 +53,29 @@ def isothermal_channel_options(case_dir: str) -> dict:
     }
 
 
+# Static HFDIB obstacle definition (single rectangle) used by the
+# single_obstacle case and Gate G experiments. Kept here so the fvSource
+# wiring lives in exactly one place.
+HFDIB_OBSTACLE = {
+    "type": "hfdibStaticRect",
+    "bounds": [0.45, 0.03, 0.0, 0.55, 0.07, 0.005],
+    "d1Factor": 1.5,
+}
+
+
+def hfdib_options(case_dir: str) -> dict:
+    """daOptions for channel_isothermal geometry + one static HFDIB rectangle.
+
+    Identical physics to isothermal_channel_options except for the taped
+    fvSource carrying the immersed-boundary forcing (the SAME equations are
+    used for the partial-primal warm start and the JTV-differentiated
+    residual, as required).
+    """
+    opts = isothermal_channel_options(case_dir)
+    opts["fvSource"] = {"obstacle": dict(HFDIB_OBSTACLE)}
+    return opts
+
+
 def write_json(path: str, payload) -> None:
     with open(path, "w") as f:
         json.dump(payload, f, indent=2, default=str)

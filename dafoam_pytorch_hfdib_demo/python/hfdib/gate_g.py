@@ -59,12 +59,12 @@ def _run_module(module, *args, cwd=None):
 
 
 def _compute_delta_jtv(h_results, b_results):
-    """Compute same-epsilon delta-JTV from batch-worker results.
-
-    Each row contains: epsilons[], fd_values[], ad_value.
-    Delta FD at each eps = fd_h - fd_b (same eps).
-    Select best eps AFTER forming delta.
-    """
+    """Compute same-epsilon delta-JTV from batch-worker results."""
+    if len(h_results) != len(b_results):
+        raise RuntimeError(
+            f"Derivative row count mismatch: "
+            f"HFDIB={len(h_results)}, base={len(b_results)}"
+        )
     delta_rows = []
     for h_row, b_row in zip(h_results, b_results):
         # verify same direction
@@ -136,7 +136,6 @@ def main() -> int:
     ks = SMOKE_KS if smoke else FULL_KS
     n_dirs = SMOKE_N_DIRS if smoke else FULL_N_DIRS
     mode_label = "smoke" if smoke else "full"
-
     out_dir = os.path.join(PROJECT_ROOT, "outputs", "hfdib_gate_g")
     shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir, exist_ok=True)
@@ -331,10 +330,10 @@ def main() -> int:
         "mass_imbalance": phys.get("mass_imbalance", {}).get("mass_imbalance", 1),
         "residual_l2": phys.get("residuals", {}).get("residual_l2", 1e10),
         "selected_warm_k": k_star if k_star else -1,
-        "full_jtv_median": full_med if full_med else 1,
-        "full_jtv_max": full_max if full_max else 1,
-        "delta_jtv_median": delta_med if delta_med else 1,
-        "delta_jtv_max": delta_max if delta_max else 1,
+        "full_jtv_median": full_med if full_med is not None else 1.0,
+        "full_jtv_max": full_max if full_max is not None else 1.0,
+        "delta_jtv_median": delta_med if delta_med is not None else 1.0,
+        "delta_jtv_max": delta_max if delta_max is not None else 1.0,
         "gate_g": "fail" if failures else "pass",
         "failures": failures,
     }
@@ -345,6 +344,11 @@ def main() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
+    elif smoke:
+        print("GATE G SMOKE PASS:")
+        print("The HFDIB validation pipeline is operational. "
+              "Run --full for certification.")
+        return 0
     else:
         print("GATE G PASS:")
         print("Static HFDIB is physically active, convergent, "

@@ -78,9 +78,11 @@ def main() -> int:
     if args.smoke:
         block_pairs = [("U", "U"), ("U", "p"), ("U", "phi")]
         n_dirs = 1
+        eps_grid = [1e-4]
     else:
         block_pairs = [(v, d) for v in blocks for d in blocks]
         n_dirs = args.n_dirs
+        eps_grid = EPS_GRID
 
     results = []
     for v_name, d_name in block_pairs:
@@ -94,7 +96,7 @@ def main() -> int:
             ad = float(d @ jtv)
 
             fd_vals = []
-            for eps in EPS_GRID:
+            for eps in eps_grid:
                 rp = bridge.residual(w + eps * d)
                 rm = bridge.residual(w - eps * d)
                 fd = float(v @ (rp - rm) / (2 * eps))
@@ -106,7 +108,7 @@ def main() -> int:
                 "d_block": d_name,
                 "direction_id": dir_i,
                 "direction_hash": _dir_hash(d, v),
-                "epsilons": EPS_GRID,
+                "epsilons": eps_grid,
                 "fd_values": fd_vals,
                 "ad_value": ad,
             })

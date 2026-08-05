@@ -1,91 +1,34 @@
 FROM sciml-dafoam-torch:v5.0.0
 
-# Copy the HFDIB patch into the build context
 COPY dafoam_pytorch_hfdib_demo/dafoam_extension/patches/0001-hfdibstatic-rect-fvsource.patch /tmp/hfdib.patch
 
-# Apply the patch and build both normal + ADR libraries
-RUN bash -lc '
-    source $HOME/dafoam/loadDAFoam.sh
+SHELL ["/bin/bash", "-lc"]
 
-    # Verify source commit
-    cd $HOME/dafoam/repos/dafoam
-    EXPECTED=31433b41d1d59638b459d24f02c7f89a756848c2
-    ACTUAL=$(git rev-parse HEAD)
-    if [ "$ACTUAL" != "$EXPECTED" ]; then
-        echo "ERROR: DAFoam source commit mismatch: $ACTUAL != $EXPECTED"
-        exit 1
-    fi
-    echo "DAFoam source commit verified: $ACTUAL"
-
-    # Apply patch idempotently (distinguish already-applied from conflict)
-    if git apply --check /tmp/hfdib.patch 2>/dev/null; then
-        git apply /tmp/hfdib.patch
-        echo "Patch applied successfully"
-    elif git apply --reverse --check /tmp/hfdib.patch 2>/dev/null; then
-        echo "Patch already applied, skipping"
-    else
-        echo "ERROR: Patch does not apply cleanly"
-        git apply --check /tmp/hfdib.patch
-        exit 1
-    fi
-
-    # Build normal mode
-    echo "***************** Compiling normal mode **************"
-    wmakeLnInclude src/adjoint
-    cd src/adjoint && wmake -j 6 && cd -
-
-    # Build ADR mode
-    echo "***************** Compiling ADR mode **************"
-    sed -i "s/export WM_AD_MODE=.*/export WM_AD_MODE=ADR/" $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc
-    . $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc
-    cd src/adjoint && wmake -j 6 && cd -
-
-    # Verify both libraries exist
-    for lib in libDASolver.so libDASolverADR.so; do
-        if [ ! -f $HOME/dafoam/OpenFOAM/sharedLibs/$lib ]; then
-            echo "ERROR: $lib not found"
-            exit 1
-        fi
-        echo "Built: $lib ($(ls -la $HOME/dafoam/OpenFOAM/sharedLibs/$lib | awk '{print $5}') bytes)"
-    done
-
-    # Verify source registration
-    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so | grep -q hfdibStaticRect || {
-        echo "ERROR: hfdibStaticRect not found in libDASolver.so"
-        exit 1
-    }
-    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so | grep -q hfdibStaticRect || {
-        echo "ERROR: hfdibStaticRect not found in libDASolverADR.so"
-        exit 1
-    }
-    echo "hfdibStaticRect registered in both normal and ADR libraries"
-
-    # Write build report
-    python3 -c "
-import json, hashlib, os
-def md5(path):
-    return hashlib.md5(open(path, 'rb').read()).hexdigest() if os.path.exists(path) else 'MISSING'
-report = {
-    'dafoam_source_commit': '$(git -C $HOME/dafoam/repos/dafoam rev-parse HEAD)',
-    'normal_lib_hash': md5('$HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so'),
-    'adr_lib_hash': md5('$HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so'),
-    'hfdib_in_normal': True,
-    'hfdib_in_adr': True,
-}
-with open('$HOME/hfdib_build_report.json', 'w') as f:
-    json.dump(report, f, indent=2)
-print(json.dumps(report, indent=2))
-"
-
-    # Restore ADR bashrc to original state (WM_AD_MODE unset)
-    sed -i 's/export WM_AD_MODE=ADR/# export WM_AD_MODE=ADR/' $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc
-
-    # Verify PyTorch + dafoam + mpi4py imports
-    source $HOME/venvs/dafoam-torch/bin/activate
-    python -c "
-import torch, dafoam, mpi4py
-print(f\"torch={torch.__version__} dafoam={dafoam.__file__} mpi4py={mpi4py.__version__}\")
-" || { echo "ERROR: import check failed"; exit 1; }
-
+# Apply patch + build normal + ADR
+RUN source $HOME/dafoam/loadDAFoam.sh && \
+    cd $HOME/dafoam/repos/dafoam && \
+    [ "$(git rev-parse HEAD)" = "31433b41d1d59638b459d24f02c7f89a756848c2" ] && \
+    (git apply --check /tmp/hfdib.patch 2>/dev/null && git apply /tmp/hfdib.patch || \
+     git apply --reverse --check /tmp/hfdib.patch 2>/dev/null && echo "already applied" || \
+     { echo "patch conflict"; exit 1; }) && \
+    wmakeLnInclude src/adjoint && \
+    cd src/adjoint && wmake -j 6 && cd - && \
+    sed -i "s/export WM_AD_MODE=.*/export WM_AD_MODE=ADR/" $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc && \
+    . $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc && \
+    cd src/adjoint && wmake -j 6 && cd - && \
+    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so | grep -q hfdibStaticRect && \
+    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so | grep -q hfdibStaticRect && \
+    source $HOME/venvs/dafoam-torch/bin/activate && \
+    python -c "import torch, dafoam, mpi4py; print('imports OK')" && \
+    sed -i 's/export WM_AD_MODE=ADR/# export WM_AD_MODE=ADR/' $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc && \
     echo "BUILD_OK"
-'
+
+# Write build report
+RUN source $HOME/dafoam/loadDAFoam.sh && \
+    COMMIT=$(git -C $HOME/dafoam/repos/dafoam rev-parse HEAD) && \
+    NORM_MD5=$(md5sum $HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so | awk '{print $1}') && \
+    ADR_MD5=$(md5sum $HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so | awk '{print $1}') && \
+    echo "{\"dafoam_source_commit\":\"$COMMIT\",\"normal_lib_hash\":\"$NORM_MD5\",\"adr_lib_hash\":\"$ADR_MD5\",\"hfdib_in_normal\":true,\"hfdib_in_adr\":true}" > $HOME/hfdib_build_report.json && \
+    cat $HOME/hfdib_build_report.json
+
+USER dafoamuser

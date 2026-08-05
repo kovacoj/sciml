@@ -56,15 +56,28 @@ def capture_fd(path: str, fn) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ks", type=int, nargs="*", default=[0, 1, 2, 3, 5, 8, 10, 15, 20])
+    parser.add_argument("--case", type=str, default="channel_baseline",
+                        help="Case name under cases/")
+    parser.add_argument("--options", type=str, default="channel",
+                        choices=["channel", "isothermal", "hfdib"],
+                        help="Options factory to use")
+    parser.add_argument("--prefix", type=str, default="partial",
+                        help="Output dir prefix (e.g. 'hfdib' -> outputs/work/hfdib-k8/)")
     args = parser.parse_args()
 
-    from common import channel_baseline_options  # noqa: E402
+    from common import channel_baseline_options, isothermal_channel_options, hfdib_options  # noqa: E402
     from dafoam_bridge import DAFoamResidualBridge  # noqa: E402
 
-    case_dir = os.path.join(PROJECT_ROOT, "cases", "channel_baseline")
+    opts_factory = {
+        "channel": channel_baseline_options,
+        "isothermal": isothermal_channel_options,
+        "hfdib": hfdib_options,
+    }[args.options]
+
+    case_dir = os.path.join(PROJECT_ROOT, "cases", args.case)
 
     for k in args.ks:
-        out_dir = os.path.join(PROJECT_ROOT, "outputs", "work", f"partial-k{k}")
+        out_dir = os.path.join(PROJECT_ROOT, "outputs", "work", f"{args.prefix}-k{k}")
         work = os.path.join(out_dir, "case")
         shutil.rmtree(out_dir, ignore_errors=True)
         os.makedirs(work, exist_ok=True)
@@ -76,7 +89,7 @@ def main() -> int:
 
         edit_control_dict(os.path.join(work, "system", "controlDict"), k)
 
-        opts = channel_baseline_options(work)
+        opts = opts_factory(work)
         opts["primalMinResTol"] = 1e-30
         opts["primalMinIters"] = max(k + 1, 2)
         opts["printInterval"] = 1

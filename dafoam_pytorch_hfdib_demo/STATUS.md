@@ -16,7 +16,7 @@ Updated 2026-08-04 · branch `feat/dafoam-pytorch-hfdib-demo`
 | E1a | warm-started stable residual descent | **Pass** — monotone 68.7× from W_8, 3 rejected steps, no non-finite values, exact state round-trip |
 | E1b | original 100× aspirational reduction | **Not met** — stopped at 68.7× deliberately; first-order/truncated-GN both hit the conditioning wall near R≈65 (primal-k≈19 equivalence); the raw-state optimizer is closed as a result, not tuned further |
 | F | coordinate neural finite-volume solver | next (smoke scope per revised critical path) |
-| G | static HFDIB obstacle | **pending** — C++ compiles (normal+ADR verified), Gate-G harness under static-review correction (fixes 1-12); NOT yet run |
+| G | static HFDIB obstacle | **smoke PASS (physical)** — all physical checks pass at converged HFDIB solve; JTV at k=8 (non-converged) fails on phi pairs (same far-field issue as baseline). Needs warm-start continuation or full convergence to pass JTV thresholds. |
 | H | four-port article case | blocked |
 
 ## Certified state layout (DASimpleFoam + ConvergentChannel)

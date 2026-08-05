@@ -1,9 +1,9 @@
 diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
 new file mode 100644
-index 0000000..c8fa2cd
+index 0000000..72456fb
 --- /dev/null
 +++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
-@@ -0,0 +1,488 @@
+@@ -0,0 +1,508 @@
 +/*---------------------------------------------------------------------------*\
 +    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: static HFDIB)
 +\*---------------------------------------------------------------------------*/
@@ -130,13 +130,18 @@ index 0000000..c8fa2cd
 +    lambda_.assign(nCells, 0.0);
 +    chi_.assign(nCells, 0.0);
 +    sigma_.assign(nCells, 0.0);
-+    ifCells_.clear(); ifIsSolid_.clear(); ifCoeff_.clear();
++    ifCells_.clear(); ifCoeff_.clear();
 +    ifSrcCells_.clear(); ifSrcW_.clear();
 +
++    // Store per-interface-cell geometry for Pass 2
++    std::vector<double> ifSurfX_, ifSurfY_, ifSurfZ_;
++    std::vector<double> ifNrmX_, ifNrmY_, ifNrmZ_;
++    std::vector<double> ifD1_, ifHEff_, ifCX_, ifCY_, ifCZ_;
++
++    // ---- Pass 1: classify all cells (lambda, chi, sigma) ----------------
 +    label nSolid = 0, nIface = 0;
 +    for (label cellI = 0; cellI < nCells; ++cellI)
 +    {
-+        // passive extraction of the cell centre
 +        double cx, cy, cz;
 +        assignValueCheckAD(cx, C[cellI][0]);
 +        assignValueCheckAD(cy, C[cellI][1]);
@@ -176,23 +181,35 @@ index 0000000..c8fa2cd
 +            ++nIface;
 +            const double d1 = d1Factor_ * hEff;
 +            ifCells_.push_back(cellI);
-+            ifIsSolid_.push_back(0);
-+            // coefficient ds/d1 clamped to [0, 1]
 +            ifCoeff_.push_back(clampd(std::abs(sig) / d1, 0.0, 1.0));
++            ifSurfX_.push_back(q[0]); ifSurfY_.push_back(q[1]); ifSurfZ_.push_back(q[2]);
++            ifNrmX_.push_back(nrm[0]); ifNrmY_.push_back(nrm[1]); ifNrmZ_.push_back(nrm[2]);
++            ifD1_.push_back(d1); ifHEff_.push_back(hEff);
++            ifCX_.push_back(cx); ifCY_.push_back(cy); ifCZ_.push_back(cz);
++        }
++        if (lambda_[cellI] >= 1.0) ++nSolid;
++    }
 +
-+            // fluid-side interpolation point x1 = q + d1*n
-+            const double px = q[0] + d1 * nrm[0];
-+            const double py = q[1] + d1 * nrm[1];
-+            const double pz = q[2] + d1 * nrm[2];
++    // ---- Pass 2: construct stencils using COMPLETE chi_ array ------------
++    for (std::size_t i = 0; i < ifCells_.size(); ++i)
++    {
++        const double hEff = ifHEff_[i];
++        const double d1 = ifD1_[i];
++        const double px = ifSurfX_[i] + d1 * ifNrmX_[i];
++        const double py = ifSurfY_[i] + d1 * ifNrmY_[i];
++        const double pz = ifSurfZ_[i] + d1 * ifNrmZ_[i];
 +
-+            // IDW weights over PURE FLUID cells within 2.5*h radius
-+            std::vector<label> srcs;
-+            std::vector<double> ws;
-+            double wsum = 0.0;
-+            const double rMax = 2.5 * hEff;
++        // adaptive radius search: start at 2.5h, expand up to 10h
++        std::vector<label> srcs;
++        std::vector<double> ws;
++        double wsum = 0.0;
++        for (double rMult = 2.5; rMult <= 10.0; rMult *= 2.0)
++        {
++            srcs.clear(); ws.clear(); wsum = 0.0;
++            const double rMax = rMult * hEff;
 +            for (label c2 = 0; c2 < nCells; ++c2)
 +            {
-+                // source cells must be strictly fluid-side: chi == 0
++                // source cells must be strictly fluid: chi == 0 (now complete)
 +                if (chi_[c2] > 0.0) continue;
 +                double ux_, uy_, uz_;
 +                assignValueCheckAD(ux_, C[c2][0]);
@@ -206,28 +223,25 @@ index 0000000..c8fa2cd
 +                ws.push_back(w);
 +                wsum += w;
 +            }
-+            if (srcs.empty())
-+            {
-+                // FAIL instead of silent fallback (section 1.5)
-+                FatalErrorInFunction
-+                    << "No fluid-side interpolation stencil for interface cell "
-+                    << cellI << "\n"
-+                    << "  centre: (" << cx << " " << cy << " " << cz << ")\n"
-+                    << "  surface point: (" << q[0] << " " << q[1] << " " << q[2] << ")\n"
-+                    << "  normal: (" << nrm[0] << " " << nrm[1] << " " << nrm[2] << ")\n"
-+                    << "  d1: " << d1 << "\n"
-+                    << "  search radius: " << rMax << "\n"
-+                    << "  candidates checked: " << (nCells - nSolid) << "\n"
-+                    << exit(FatalError);
-+            }
-+            else
-+            {
-+                for (auto& w : ws) w /= wsum;
-+                ifSrcCells_.push_back(srcs);
-+                ifSrcW_.push_back(ws);
-+            }
++            if (!srcs.empty()) break;
 +        }
-+        if (lambda_[cellI] >= 1.0) ++nSolid;
++
++        if (srcs.empty())
++        {
++            FatalErrorInFunction
++                << "No fluid-side interpolation stencil for interface cell "
++                << ifCells_[i] << "\n"
++                << "  centre: (" << ifCX_[i] << " " << ifCY_[i] << " " << ifCZ_[i] << ")\n"
++                << "  surface: (" << ifSurfX_[i] << " " << ifSurfY_[i] << " " << ifSurfZ_[i] << ")\n"
++                << "  normal: (" << ifNrmX_[i] << " " << ifNrmY_[i] << " " << ifNrmZ_[i] << ")\n"
++                << "  d1: " << d1 << "\n"
++                << "  search radius exhausted at 10*hEff = " << 10.0 * hEff
++                << exit(FatalError);
++        }
++
++        for (auto& w : ws) w /= wsum;
++        ifSrcCells_.push_back(srcs);
++        ifSrcW_.push_back(ws);
 +    }
 +
 +    // ---- consistency checks (section 1.5) ----------------------------------
@@ -415,11 +429,6 @@ index 0000000..c8fa2cd
 +    for (std::size_t i = 0; i < ifCells_.size(); ++i)
 +    {
 +        const label c = ifCells_[i];
-+        if (ifIsSolid_[i])
-+        {
-+            Uib[c] = vector::zero;
-+            continue;
-+        }
 +        vector u1(Zero);
 +        for (std::size_t j = 0; j < ifSrcCells_[i].size(); ++j)
 +        {
@@ -452,7 +461,7 @@ index 0000000..c8fa2cd
 +    // ---- optional field diagnostics (section 1.7) -------------------------
 +    if (writeDiagnostics_)
 +    {
-+        // write lambda, chi, sigma as volScalarFields
++        // write lambda, chi, sigma as copies (never rename live fields)
 +        volScalarField lambdaField
 +        (
 +            IOobject("lambdaHFDIB", mesh_.time().timeName(), mesh_,
@@ -469,7 +478,7 @@ index 0000000..c8fa2cd
 +        (
 +            IOobject("sigmaHFDIB", mesh_.time().timeName(), mesh_,
 +                     IOobject::NO_READ, IOobject::AUTO_WRITE),
-+            mesh_, dimensionedScalar("zero", dimless, 0)
++            mesh_, dimensionedScalar("zero", dimLength, 0)
 +        );
 +        forAll(lambdaField, c)
 +        {
@@ -481,11 +490,22 @@ index 0000000..c8fa2cd
 +        chiField.write();
 +        sigmaField.write();
 +
-+        // write Uib and fvSource
-+        Uib.rename("UibHFDIB");
-+        Uib.write();
-+        fvSource.rename("fvSourceHFDIB");
-+        fvSource.write();
++        // write copies of Uib and fvSource (never rename the live fields)
++        volVectorField UibDiag
++        (
++            IOobject("UibHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            Uib
++        );
++        UibDiag.write();
++
++        volVectorField fvSourceDiag
++        (
++            IOobject("fvSourceHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            fvSource
++        );
++        fvSourceDiag.write();
 +    }
 +}
 +
@@ -494,10 +514,10 @@ index 0000000..c8fa2cd
 +// ************************************************************************* //
 diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H
 new file mode 100644
-index 0000000..510e509
+index 0000000..0e81ded
 --- /dev/null
 +++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,106 @@
 +/*---------------------------------------------------------------------------*\
 +    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: static HFDIB)
 +
@@ -554,7 +574,6 @@ index 0000000..510e509
 +
 +    /// interface-cell stencil data (parallel arrays), built once
 +    std::vector<label> ifCells_;                  // interface cell ids
-+    std::vector<label> ifIsSolid_;                // 1 => u_ib = 0 exactly
 +    std::vector<double> ifCoeff_;                 // ds/d1 clamped to [0,1]
 +    std::vector<std::vector<label>> ifSrcCells_;  // interpolation sources
 +    std::vector<std::vector<double>> ifSrcW_;     // interpolation weights

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Regenerate clean meshes for the isothermal channel and single-obstacle cases.
-# Removes all generated time dirs, processor dirs, postProcessing, and stale
-# polyMesh, then runs blockMesh + checkMesh inside the container.
+# Removes ONLY generated time dirs and polyMesh, never the tracked 0/ fields.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,8 +10,9 @@ PROJECT="$(cd "$HERE/.." && pwd)"
 for case in cases/channel_isothermal cases/single_obstacle; do
   echo '=== resetting '\$case' ==='
   cd \$case || exit 1
-  # remove generated artifacts
-  rm -rf [0-9]* 0.* processor* postProcessing constant/polyMesh
+  # remove ONLY numeric time dirs (NOT 0/), processor dirs, postProcessing, polyMesh
+  find . -maxdepth 1 -name '[1-9]*' -type d -exec rm -rf {} +
+  rm -rf processor* postProcessing constant/polyMesh
   # regenerate mesh
   blockMesh > log.blockMesh 2>&1
   checkMesh > log.checkMesh 2>&1

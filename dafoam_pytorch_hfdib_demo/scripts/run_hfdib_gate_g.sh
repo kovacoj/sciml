@@ -16,10 +16,13 @@ docker run \
     "$IMG" bash -lc '
         source $HOME/activate_dafoam_torch.sh
         export MPLCONFIGDIR=/tmp/mplcfg
+        export PYTHONPATH=/home/dafoamuser/sciml/dafoam_pytorch_hfdib_demo/python:${PYTHONPATH:-}
         cd /home/dafoamuser/sciml/dafoam_pytorch_hfdib_demo
-        # regenerate meshes first
+        # regenerate meshes (NEVER touch 0/ fields — only time dirs + polyMesh)
         for case in cases/channel_isothermal cases/single_obstacle; do
-            cd $case && rm -rf [0-9]* 0.* processor* postProcessing constant/polyMesh
+            cd $case
+            find . -maxdepth 1 -name '[1-9]*' -type d -exec rm -rf {} +
+            rm -rf processor* postProcessing constant/polyMesh log.*
             blockMesh > log.blockMesh 2>&1
             cd - > /dev/null
         done

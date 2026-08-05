@@ -13,11 +13,12 @@ import time
 import shutil
 import re
 
+from pathlib import Path
+
 import numpy as np
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "python"))
+PYTHON_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PYTHON_ROOT))
 
 from common import (isothermal_channel_options, hfdib_options,  # noqa: E402
                      write_json, PROJECT_ROOT)

@@ -20,6 +20,7 @@ from .losses import (
     weighted_residual_loss_torch,
     weighted_residual_loss_numpy,
 )
+from dafoam_residual_function import dafoam_residual
 
 
 EPS_GRID = [1e-2, 3e-3, 1e-3, 3e-4, 1e-4, 3e-5, 1e-5, 3e-6, 1e-6]

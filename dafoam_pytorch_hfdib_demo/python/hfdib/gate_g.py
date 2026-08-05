@@ -236,6 +236,133 @@ def main() -> int:
                 failures.append(f"{name}: {check}")
             print(f"[gate_g] {name}: {check.get('pass', '?')}")
 
+    # ---- 6b. Converged-state derivative check (G2) ------------------------
+    print("[gate_g] running converged-state derivative check (G2)...", flush=True)
+    conv_w_path = os.path.join(solve_hfdib_dir, "W.npy")
+    conv_out_h = os.path.join(out_dir, "jtv_conv_hfdib.json")
+    conv_out_0 = os.path.join(out_dir, "jtv_conv_base.json")
+    conv_args_h = ["--case", work_hfdib, "--options", "hfdib",
+                   "--state", conv_w_path, "--k", str(-1),
+                   "--n-dirs", str(n_dirs), "--out", conv_out_h]
+    if smoke:
+        conv_args_h.append("--smoke")
+    _run_module("hfdib.batch_derivative_worker", *conv_args_h, cwd=str(PYTHON_ROOT))
+    with open(conv_out_h) as f:
+        conv_h = json.load(f)
+    conv_args_0 = ["--case", work_base, "--options", "isothermal",
+                   "--state", conv_w_path, "--k", str(-1),
+                   "--n-dirs", str(n_dirs), "--out", conv_out_0]
+    if smoke:
+        conv_args_0.append("--smoke")
+    _run_module("hfdib.batch_derivative_worker", *conv_args_0, cwd=str(PYTHON_ROOT))
+    with open(conv_out_0) as f:
+        conv_b = json.load(f)
+    conv_full_rows = []
+    for row in conv_h:
+        best = None
+        for eps, fd in zip(row["epsilons"], row["fd_values"]):
+            ad = row["ad_value"]
+            denom = max(abs(fd), abs(ad), 1e-12)
+            rel = abs(fd - ad) / denom
+            if best is None or rel < best[1]:
+                best = (eps, rel, abs(fd - ad), fd)
+        conv_full_rows.append({"k": -1, "v_block": row["v_block"],
+            "d_block": row["d_block"], "direction_id": row["direction_id"],
+            "best_eps": best[0], "relative_error": best[1],
+            "absolute_error": best[2], "fd_value": best[3], "ad_value": ad})
+    conv_delta_rows = _compute_delta_jtv(conv_h, conv_b)
+    conv_full_errs = np.asarray([r["relative_error"] for r in conv_full_rows])
+    conv_delta_errs = np.asarray([r["relative_error"] for r in conv_delta_rows])
+    conv_full_med = float(np.median(conv_full_errs)) if len(conv_full_errs) else 1.0
+    conv_full_max = float(np.max(conv_full_errs)) if len(conv_full_errs) else 1.0
+    conv_delta_med = float(np.median(conv_delta_errs)) if len(conv_delta_errs) else 1.0
+    conv_delta_max = float(np.max(conv_delta_errs)) if len(conv_delta_errs) else 1.0
+    for rows, name in [(conv_full_rows, "jtv_conv_full.csv"),
+                        (conv_delta_rows, "jtv_conv_delta.csv")]:
+        if rows:
+            with open(os.path.join(out_dir, name), "w", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+                w.writeheader()
+                w.writerows(rows)
+    print(f"[gate_g] converged full:  median={conv_full_med:.2e} max={conv_full_max:.2e}")
+    print(f"[gate_g] converged delta: median={conv_delta_med:.2e} max={conv_delta_max:.2e}")
+    g2_pass = (conv_full_med < 1e-5 and conv_full_max < 1e-4
+               and conv_delta_med < 1e-6 and conv_delta_max < 1e-5)
+    g2_delta_only = (conv_delta_med < 1e-6 and conv_delta_max < 1e-5)
+    if not g2_pass:
+        if g2_delta_only:
+            print("[gate_g] G2: delta-JTV PASS, full-JTV FAIL (baseline Jacobian)")
+        else:
+            failures.append(f"G2 delta-JTV FAIL: median={conv_delta_med:.2e} max={conv_delta_max:.2e}")
+
+    # ---- 6b. Converged-state derivative check (G2) ------------------------
+    print("[gate_g] running converged-state derivative check (G2)...", flush=True)
+    conv_w_path = os.path.join(solve_hfdib_dir, "W.npy")
+
+    conv_out_h = os.path.join(out_dir, "jtv_conv_hfdib.json")
+    conv_out_0 = os.path.join(out_dir, "jtv_conv_base.json")
+    conv_args_h = ["--case", work_hfdib, "--options", "hfdib",
+                   "--state", conv_w_path, "--k", str(-1),
+                   "--n-dirs", str(n_dirs), "--out", conv_out_h]
+    if smoke:
+        conv_args_h.append("--smoke")
+    _run_module("hfdib.batch_derivative_worker", *conv_args_h, cwd=str(PYTHON_ROOT))
+    with open(conv_out_h) as f:
+        conv_h = json.load(f)
+
+    conv_args_0 = ["--case", work_base, "--options", "isothermal",
+                   "--state", conv_w_path, "--k", str(-1),
+                   "--n-dirs", str(n_dirs), "--out", conv_out_0]
+    if smoke:
+        conv_args_0.append("--smoke")
+    _run_module("hfdib.batch_derivative_worker", *conv_args_0, cwd=str(PYTHON_ROOT))
+    with open(conv_out_0) as f:
+        conv_b = json.load(f)
+
+    conv_full_rows = []
+    for row in conv_h:
+        best = None
+        for eps, fd in zip(row["epsilons"], row["fd_values"]):
+            ad = row["ad_value"]
+            denom = max(abs(fd), abs(ad), 1e-12)
+            rel = abs(fd - ad) / denom
+            if best is None or rel < best[1]:
+                best = (eps, rel, abs(fd - ad), fd)
+        conv_full_rows.append({
+            "k": -1, "v_block": row["v_block"], "d_block": row["d_block"],
+            "direction_id": row["direction_id"],
+            "best_eps": best[0], "relative_error": best[1],
+            "absolute_error": best[2], "fd_value": best[3],
+            "ad_value": ad,
+        })
+
+    conv_delta_rows = _compute_delta_jtv(conv_h, conv_b)
+
+    conv_full_errs = np.asarray([r["relative_error"] for r in conv_full_rows]) if conv_full_rows else np.array([1.0])
+    conv_delta_errs = np.asarray([r["relative_error"] for r in conv_delta_rows]) if conv_delta_rows else np.array([1.0])
+    conv_full_med = float(np.median(conv_full_errs))
+    conv_full_max = float(np.max(conv_full_errs))
+    conv_delta_med = float(np.median(conv_delta_errs))
+    conv_delta_max = float(np.max(conv_delta_errs))
+
+    for rows, name in [(conv_full_rows, "jtv_conv_full.csv"),
+                       (conv_delta_rows, "jtv_conv_delta.csv")]:
+        if rows:
+            with open(os.path.join(out_dir, name), "w", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+                w.writeheader()
+                w.writerows(rows)
+
+    print(f"[gate_g] converged full:  median={conv_full_med:.2e} max={conv_full_max:.2e}")
+    print(f"[gate_g] converged delta: median={conv_delta_med:.2e} max={conv_delta_max:.2e}")
+
+    g2_pass = (conv_full_med < 1e-5 and conv_full_max < 1e-4
+               and conv_delta_med < 1e-6 and conv_delta_max < 1e-5)
+    delta_only_pass = (conv_delta_med < 1e-6 and conv_delta_max < 1e-5)
+    if not g2_pass and not delta_only_pass:
+        failures.append(f"G2 converged-state delta-JTV FAIL: "
+                        f"median={conv_delta_med:.2e} max={conv_delta_max:.2e}")
+
     # ---- 7. Derivative checks (batch workers with full eps sweep) --------
     full_by_k = {}
     delta_by_k = {}

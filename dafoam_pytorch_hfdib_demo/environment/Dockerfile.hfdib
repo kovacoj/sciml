@@ -1,0 +1,62 @@
+FROM sciml-dafoam-torch:v5.0.0
+
+# Copy the HFDIB patch into the build context
+COPY dafoam_pytorch_hfdib_demo/dafoam_extension/patches/0001-hfdibstatic-rect-fvsource.patch /tmp/hfdib.patch
+
+# Apply the patch and build both normal + ADR libraries
+RUN bash -lc '
+    source $HOME/dafoam/loadDAFoam.sh
+
+    # Verify source commit
+    cd $HOME/dafoam/repos/dafoam
+    EXPECTED=31433b41d1d59638b459d24f02c7f89a756848c2
+    ACTUAL=$(git rev-parse HEAD)
+    if [ "$ACTUAL" != "$EXPECTED" ]; then
+        echo "ERROR: DAFoam source commit mismatch: $ACTUAL != $EXPECTED"
+        exit 1
+    fi
+    echo "DAFoam source commit verified: $ACTUAL"
+
+    # Apply patch idempotently
+    git apply --check /tmp/hfdib.patch 2>/dev/null && git apply /tmp/hfdib.patch || echo "Patch already applied"
+
+    # Build normal mode
+    echo "***************** Compiling normal mode **************"
+    wmakeLnInclude src/adjoint
+    cd src/adjoint && wmake -j 6 && cd -
+
+    # Build ADR mode
+    echo "***************** Compiling ADR mode **************"
+    sed -i "s/export WM_AD_MODE=.*/export WM_AD_MODE=ADR/" $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc
+    . $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc
+    cd src/adjoint && wmake -j 6 && cd -
+
+    # Verify both libraries exist
+    for lib in libDASolver.so libDASolverADR.so; do
+        if [ ! -f $HOME/dafoam/OpenFOAM/sharedLibs/$lib ]; then
+            echo "ERROR: $lib not found"
+            exit 1
+        fi
+        echo "Built: $lib ($(ls -la $HOME/dafoam/OpenFOAM/sharedLibs/$lib | awk '{print $5}') bytes)"
+    done
+
+    # Verify source registration
+    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so | grep -q hfdibStaticRect || {
+        echo "ERROR: hfdibStaticRect not found in libDASolver.so"
+        exit 1
+    }
+    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so | grep -q hfdibStaticRect || {
+        echo "ERROR: hfdibStaticRect not found in libDASolverADR.so"
+        exit 1
+    }
+    echo "hfdibStaticRect registered in both normal and ADR libraries"
+
+    # Verify PyTorch + dafoam + mpi4py imports
+    source $HOME/venvs/dafoam-torch/bin/activate
+    python -c "
+import torch, dafoam, mpi4py
+print(f\"torch={torch.__version__} dafoam={dafoam.__file__} mpi4py={mpi4py.__version__}\")
+" || { echo "ERROR: import check failed"; exit 1; }
+
+    echo "BUILD_OK"
+'

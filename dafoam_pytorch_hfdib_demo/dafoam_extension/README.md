@@ -39,7 +39,7 @@ Option schema (inside `daOptions` / PYDAFOAM):
 |---|---|
 | Upstream image | `dafoam/opt-packages:v5.0.0` |
 | Upstream source | DAFoam commit `31433b41d1d59638b459d24f02c7f89a756848c2` (`v4.0.4-2-g31433b4`) |
-| fork/branch | fork at `/home/cady/chapel/dafoam_hfdib_fork`, ext commit `cd5b9c7` |
+| fork/branch | fork at `/home/cady/chapel/dafoam_hfdib_fork`, ext commit `23cca51` |
 | Patch | `patches/0001-hfdibstatic-rect-fvsource.patch` |
 
 ## Apply + build (inside `sciml-dafoam-torch:v5.0.0`)

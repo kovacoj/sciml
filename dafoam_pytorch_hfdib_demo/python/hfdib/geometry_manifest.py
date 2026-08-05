@@ -64,19 +64,67 @@ def load(case_dir: str) -> GeometryManifest:
 
 def validate(manifest: GeometryManifest) -> list[str]:
     """Return list of error messages (empty = valid)."""
+    import math
     errors = []
+    cells = manifest.cells
+    n = len(cells)
+
+    # cell IDs contiguous and unique
+    ids = [c["cell_id"] for c in cells]
+    if ids != list(range(n)):
+        errors.append("cell IDs are not contiguous range(0,n)")
+    if len(set(ids)) != n:
+        errors.append("cell IDs are not unique")
+
     if manifest.n_fluid == 0:
         errors.append("zero fluid cells")
     if manifest.n_solid == 0:
         errors.append("zero solid cells")
     if manifest.n_interface == 0:
         errors.append("zero interface cells")
+
+    # stencil IDs match interface cells
+    iface_ids = set(interface_cell_ids(manifest))
+    sten_ids = set(s["cell_id"] for s in manifest.stencils)
+    if sten_ids != iface_ids:
+        errors.append(f"stencil cell IDs ({len(sten_ids)}) != "
+                      f"interface cell IDs ({len(iface_ids)})")
+
     for s in manifest.stencils:
+        cid = s["cell_id"]
         if not s["source_cells"]:
-            errors.append(f"empty stencil for cell {s['cell_id']}")
+            errors.append(f"empty stencil for cell {cid}")
+            continue
+        if len(s["source_cells"]) != len(s["source_weights"]):
+            errors.append(f"source/weight length mismatch for cell {cid}")
+            continue
         wsum = sum(s["source_weights"])
         if abs(wsum - 1.0) > 1e-12:
-            errors.append(f"weights sum {wsum} != 1 for cell {s['cell_id']}")
+            errors.append(f"weights sum {wsum} != 1 for cell {cid}")
+        for src in s["source_cells"]:
+            if src < 0 or src >= n:
+                errors.append(f"source cell {src} out of range for cell {cid}")
+                break
+            if cells[src]["chi"] != 0.0:
+                errors.append(f"source cell {src} not pure fluid "
+                              f"(chi={cells[src]['chi']}) for cell {cid}")
+                break
+        for w in s["source_weights"]:
+            if not math.isfinite(w):
+                errors.append(f"non-finite weight for cell {cid}")
+                break
+
+    for c in cells:
+        if not math.isfinite(c["lambda"]):
+            errors.append(f"non-finite lambda for cell {c['cell_id']}")
+        if not math.isfinite(c["sigma"]):
+            errors.append(f"non-finite sigma for cell {c['cell_id']}")
+        if c["is_interface"]:
+            if not math.isfinite(c["coeff"]):
+                errors.append(f"non-finite coeff for cell {c['cell_id']}")
+            elif c["coeff"] < 0.0 or c["coeff"] > 1.0:
+                errors.append(f"coeff {c['coeff']} outside [0,1] for "
+                              f"cell {c['cell_id']}")
     return errors
 
 

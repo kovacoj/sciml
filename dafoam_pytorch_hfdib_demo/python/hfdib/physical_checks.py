@@ -137,19 +137,25 @@ def check_residuals(r_hfdib, layout) -> dict:
 def run_all(state_hfdib, state_base, r_hfdib_at_whfdib, r_base_at_whfdib,
             manifest: GeometryManifest, layout,
             u_in: float, n_internal_faces: int, n_inlet_faces: int) -> dict:
-    """Physical checks using arrays only (no bridge objects needed).
+    """Physical checks using arrays only (no bridge objects needed)."""
+    delta_r = r_hfdib_at_whfdib - r_base_at_whfdib
+    u_idx = layout.indices("U")
+    delta_u = delta_r[u_idx].reshape(-1, 3)
 
-    r_hfdib_at_whfdib: R_H(W_H) evaluated at the HFDIB converged state
-    r_base_at_whfdib: R_0(W_H) evaluated at the SAME state (source isolation)
-    """
+    # source activation + localization
+    source_l2 = float(np.linalg.norm(delta_r[u_idx]))
+    non_chi_ids = [c["cell_id"] for c in manifest.cells if c["chi"] == 0.0]
+    max_outside = 0.0
+    if non_chi_ids:
+        max_outside = float(np.max(np.linalg.norm(delta_u[non_chi_ids], axis=1)))
+
     return {
         "solid_noslip": check_solid_noslip(state_hfdib, manifest, u_in, layout),
         "interface_velocity": check_interface_velocity(state_hfdib, manifest, layout, u_in),
         "source_activation": {
-            "source_l2": float(np.linalg.norm(
-                (r_hfdib_at_whfdib - r_base_at_whfdib)[layout.indices("U")])),
-            "pass": float(np.linalg.norm(
-                (r_hfdib_at_whfdib - r_base_at_whfdib)[layout.indices("U")])) > 0.0,
+            "source_l2": source_l2,
+            "max_source_outside_chi": max_outside,
+            "pass": source_l2 > 0.0 and max_outside < 1e-10,
         },
         "mass_imbalance": check_mass_imbalance(state_hfdib, layout,
                                                 n_internal_faces, n_inlet_faces),

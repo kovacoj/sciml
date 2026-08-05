@@ -40,7 +40,11 @@ def main() -> int:
     bridge = DAFoamResidualBridge(args.case, opts_factory(args.case))
 
     if args.mode == "solve":
-        bridge.solver()
+        status = bridge.solver()
+        if status != 0:
+            print(f"[phys-worker] primal solve FAILED (status={status})",
+                  file=sys.stderr)
+            return 1
         w = np.ascontiguousarray(
             bridge.solver.getStates().copy(), dtype=np.float64)
         r = bridge.residual(w)

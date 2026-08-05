@@ -48,8 +48,8 @@ boundary
     }
     frontAndBack
     {
-        // thin-3D: one cell deep, PHYSICAL no-slip walls (not empty)
-        type wall;
+        // thin-3D: one cell deep, symmetry for quasi-2D flow
+        type            symmetryPlane;
         faces
         (
             (0 3 2 1)

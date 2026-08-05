@@ -26,20 +26,18 @@ def check_solid_noslip(state, manifest: GeometryManifest, u_in: float,
     }
 
 
-def check_source_norm(r_hfdib, r_base, manifest: GeometryManifest,
-                      layout) -> dict:
-    """Source activation: |f_ib|_2 = |R_H - R_0|_2 restricted to U rows > 0."""
+def check_source_activation(bridge_hfdib, bridge_base, w, manifest, layout):
+    """Source activation: evaluate R_H(W) - R_0(W) at the SAME state."""
+    r_h = bridge_hfdib.residual(w)
+    r_0 = bridge_base.residual(w)
     u_idx = layout.indices("U")
-    delta = r_hfdib - r_base
+    delta = r_h - r_0
     source_l2 = float(np.linalg.norm(delta[u_idx]))
-    # also check source is zero outside chi=1 cells
-    chi_cells = [c for c in manifest.cells if c["chi"] > 0.0]
-    non_chi_ids = [c["cell_id"] for c in manifest.cells if c["chi"] == 0.0]
-    # per-cell U residual delta (3 per cell)
-    delta_u = delta[u_idx].reshape(-1, 3)
-    if non_chi_ids:
-        max_nonchi = float(np.max(np.linalg.norm(
-            delta_u[non_chi_ids], axis=1)))
+    # check source is zero outside chi>0 cells
+    non_chi = [c["cell_id"] for c in manifest.cells if c["chi"] == 0.0]
+    if non_chi:
+        delta_u = delta[u_idx].reshape(-1, 3)
+        max_nonchi = float(np.max(np.linalg.norm(delta_u[non_chi], axis=1)))
     else:
         max_nonchi = 0.0
     return {
@@ -47,6 +45,34 @@ def check_source_norm(r_hfdib, r_base, manifest: GeometryManifest,
         "max_source_outside_chi": max_nonchi,
         "pass": source_l2 > 0.0 and max_nonchi < 1e-10,
     }
+
+
+def check_interface_velocity(state, manifest, layout, u_in):
+    """Compare U at interface cells against the HFDIB-imposed Uib.
+
+    Uib is computed from the manifest stencils: u_ib = coeff * Σ w * U[src]
+    """
+    u_idx = layout.indices("U")
+    u_vec = state[u_idx].reshape(-1, 3)  # cell-major
+    iface_ids = [c["cell_id"] for c in manifest.cells if c["is_interface"]]
+    if not iface_ids:
+        return {"error": 0.0, "pass": False, "reason": "no interface cells"}
+
+    total_err_sq = 0.0
+    for s in manifest.stencils:
+        cid = s["cell_id"]
+        cell_geom = manifest.cells[cid]
+        coeff = cell_geom["coeff"]
+        u_ib = np.zeros(2)  # 2D (x,y)
+        for j, src in enumerate(s["source_cells"]):
+            w = s["source_weights"][j]
+            u_ib[:2] += w * u_vec[src, :2]
+        u_ib *= coeff
+        u_cell = u_vec[cid, :2]
+        total_err_sq += np.sum((u_cell - u_ib) ** 2)
+
+    error = float(np.sqrt(total_err_sq) / (u_in * np.sqrt(len(iface_ids)) + 1e-30))
+    return {"error": error, "pass": error < 1e-3}
 
 
 def check_mass_imbalance(state, layout, n_internal_faces: int,

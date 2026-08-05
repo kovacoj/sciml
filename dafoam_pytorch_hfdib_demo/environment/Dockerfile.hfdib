@@ -17,8 +17,17 @@ RUN bash -lc '
     fi
     echo "DAFoam source commit verified: $ACTUAL"
 
-    # Apply patch idempotently
-    git apply --check /tmp/hfdib.patch 2>/dev/null && git apply /tmp/hfdib.patch || echo "Patch already applied"
+    # Apply patch idempotently (distinguish already-applied from conflict)
+    if git apply --check /tmp/hfdib.patch 2>/dev/null; then
+        git apply /tmp/hfdib.patch
+        echo "Patch applied successfully"
+    elif git apply --reverse --check /tmp/hfdib.patch 2>/dev/null; then
+        echo "Patch already applied, skipping"
+    else
+        echo "ERROR: Patch does not apply cleanly"
+        git apply --check /tmp/hfdib.patch
+        exit 1
+    fi
 
     # Build normal mode
     echo "***************** Compiling normal mode **************"
@@ -50,6 +59,26 @@ RUN bash -lc '
         exit 1
     }
     echo "hfdibStaticRect registered in both normal and ADR libraries"
+
+    # Write build report
+    python3 -c "
+import json, hashlib, os
+def md5(path):
+    return hashlib.md5(open(path, 'rb').read()).hexdigest() if os.path.exists(path) else 'MISSING'
+report = {
+    'dafoam_source_commit': '$(git -C $HOME/dafoam/repos/dafoam rev-parse HEAD)',
+    'normal_lib_hash': md5('$HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so'),
+    'adr_lib_hash': md5('$HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so'),
+    'hfdib_in_normal': True,
+    'hfdib_in_adr': True,
+}
+with open('$HOME/hfdib_build_report.json', 'w') as f:
+    json.dump(report, f, indent=2)
+print(json.dumps(report, indent=2))
+"
+
+    # Restore ADR bashrc to original state (WM_AD_MODE unset)
+    sed -i 's/export WM_AD_MODE=ADR/# export WM_AD_MODE=ADR/' $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc
 
     # Verify PyTorch + dafoam + mpi4py imports
     source $HOME/venvs/dafoam-torch/bin/activate

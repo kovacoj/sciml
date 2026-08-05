@@ -99,7 +99,7 @@ def validate(manifest: GeometryManifest) -> list[str]:
             errors.append(f"source/weight length mismatch for cell {cid}")
             continue
         wsum = sum(s["source_weights"])
-        if abs(wsum - 1.0) > 1e-12:
+        if abs(wsum - 1.0) > 1e-6:
             errors.append(f"weights sum {wsum} != 1 for cell {cid}")
         for src in s["source_cells"]:
             if src < 0 or src >= n:

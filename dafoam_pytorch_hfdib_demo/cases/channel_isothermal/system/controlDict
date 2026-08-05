@@ -20,7 +20,7 @@ application     simpleDAFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         500;
+endTime         5000;
 deltaT          1;
 writeControl    timeStep;
 writeInterval   500;

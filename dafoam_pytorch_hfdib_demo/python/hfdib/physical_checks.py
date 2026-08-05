@@ -134,14 +134,25 @@ def check_residuals(r_hfdib, layout) -> dict:
     }
 
 
-def run_all(state_hfdib, state_base, r_hfdib, r_base,
+def run_all(state_hfdib, state_base, r_hfdib_at_whfdib, r_base_at_whfdib,
             manifest: GeometryManifest, layout,
             u_in: float, n_internal_faces: int, n_inlet_faces: int) -> dict:
+    """Physical checks using arrays only (no bridge objects needed).
+
+    r_hfdib_at_whfdib: R_H(W_H) evaluated at the HFDIB converged state
+    r_base_at_whfdib: R_0(W_H) evaluated at the SAME state (source isolation)
+    """
     return {
         "solid_noslip": check_solid_noslip(state_hfdib, manifest, u_in, layout),
-        "source_activation": check_source_norm(r_hfdib, r_base, manifest, layout),
+        "interface_velocity": check_interface_velocity(state_hfdib, manifest, layout, u_in),
+        "source_activation": {
+            "source_l2": float(np.linalg.norm(
+                (r_hfdib_at_whfdib - r_base_at_whfdib)[layout.indices("U")])),
+            "pass": float(np.linalg.norm(
+                (r_hfdib_at_whfdib - r_base_at_whfdib)[layout.indices("U")])) > 0.0,
+        },
         "mass_imbalance": check_mass_imbalance(state_hfdib, layout,
                                                 n_internal_faces, n_inlet_faces),
         "flow_deflection": check_flow_deflection(state_hfdib, state_base, layout),
-        "residuals": check_residuals(r_hfdib, layout),
+        "residuals": check_residuals(r_hfdib_at_whfdib, layout),
     }

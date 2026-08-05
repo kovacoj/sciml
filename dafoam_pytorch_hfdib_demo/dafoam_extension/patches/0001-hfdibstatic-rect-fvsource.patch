@@ -1,9 +1,9 @@
 diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
 new file mode 100644
-index 0000000..98f4e9b
+index 0000000..c8fa2cd
 --- /dev/null
 +++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
-@@ -0,0 +1,336 @@
+@@ -0,0 +1,488 @@
 +/*---------------------------------------------------------------------------*\
 +    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: static HFDIB)
 +\*---------------------------------------------------------------------------*/
@@ -59,6 +59,8 @@ index 0000000..98f4e9b
 +            scalar tmp = sub.getScalar("d1Factor");
 +            assignValueCheckAD(d1Factor_, tmp);
 +        }
++        writeGeometryManifest_ = sub.lookupOrDefault<label>("writeGeometryManifest", 1);
++        writeDiagnostics_ = sub.lookupOrDefault<label>("writeDiagnostics", 0);
 +    }
 +    Info << "DAFvSourceHFDIBStaticRect: bounds [" << x0_ << " " << y0_ << " "
 +         << z0_ << " " << x1_ << " " << y1_ << " " << z1_ << "] d1Factor "
@@ -206,10 +208,17 @@ index 0000000..98f4e9b
 +            }
 +            if (srcs.empty())
 +            {
-+                ifIsSolid_.back() = 1;
-+                ifCoeff_.back() = 0.0;
-+                ifSrcCells_.push_back(std::vector<label>{});
-+                ifSrcW_.push_back(std::vector<double>{});
++                // FAIL instead of silent fallback (section 1.5)
++                FatalErrorInFunction
++                    << "No fluid-side interpolation stencil for interface cell "
++                    << cellI << "\n"
++                    << "  centre: (" << cx << " " << cy << " " << cz << ")\n"
++                    << "  surface point: (" << q[0] << " " << q[1] << " " << q[2] << ")\n"
++                    << "  normal: (" << nrm[0] << " " << nrm[1] << " " << nrm[2] << ")\n"
++                    << "  d1: " << d1 << "\n"
++                    << "  search radius: " << rMax << "\n"
++                    << "  candidates checked: " << (nCells - nSolid) << "\n"
++                    << exit(FatalError);
 +            }
 +            else
 +            {
@@ -221,6 +230,70 @@ index 0000000..98f4e9b
 +        if (lambda_[cellI] >= 1.0) ++nSolid;
 +    }
 +
++    // ---- consistency checks (section 1.5) ----------------------------------
++    if (nSolid == 0)
++    {
++        FatalErrorInFunction
++            << "Zero solid cells detected for rectangle bounds ["
++            << x0_ << "," << y0_ << "," << z0_ << " - "
++            << x1_ << "," << y1_ << "," << z1_ << "]"
++            << exit(FatalError);
++    }
++    if (nIface == 0)
++    {
++        FatalErrorInFunction
++            << "Zero interface cells detected — rectangle may be aligned"
++            << " with cell boundaries or too small"
++            << exit(FatalError);
++    }
++    // validate each interface stencil
++    for (std::size_t i = 0; i < ifCells_.size(); ++i)
++    {
++        if (ifSrcCells_[i].empty())
++        {
++            FatalErrorInFunction
++                << "Interface cell " << ifCells_[i]
++                << " has empty stencil (should have been caught earlier)"
++                << exit(FatalError);
++        }
++        double wsum_check = 0.0;
++        for (double w : ifSrcW_[i])
++        {
++            if (!std::isfinite(w))
++            {
++                FatalErrorInFunction
++                    << "Non-finite weight in stencil for cell "
++                    << ifCells_[i] << exit(FatalError);
++            }
++            wsum_check += w;
++        }
++        if (std::abs(wsum_check - 1.0) > 1e-12)
++        {
++            FatalErrorInFunction
++                << "Stencil weights sum to " << wsum_check
++                << " (not 1.0) for cell " << ifCells_[i]
++                << exit(FatalError);
++        }
++        if (ifCoeff_[i] < 0.0 || ifCoeff_[i] > 1.0)
++        {
++            FatalErrorInFunction
++                << "Interpolation coefficient " << ifCoeff_[i]
++                << " outside [0,1] for cell " << ifCells_[i]
++                << exit(FatalError);
++        }
++        for (label srcCell : ifSrcCells_[i])
++        {
++            if (chi_[srcCell] > 0.0)
++            {
++                FatalErrorInFunction
++                    << "Source cell " << srcCell
++                    << " is not pure fluid (chi=" << chi_[srcCell]
++                    << ") in stencil for cell " << ifCells_[i]
++                    << exit(FatalError);
++            }
++        }
++    }
++
 +    Info << "DAFvSourceHFDIBStaticRect: cells " << nCells << ", solid "
 +         << nSolid << ", interface stencils " << nIface << endl;
 +    built_ = true;
@@ -229,43 +302,83 @@ index 0000000..98f4e9b
 +
 +void DAFvSourceHFDIBStaticRect::writeManifest() const
 +{
++    if (!writeGeometryManifest_) return;
 +    if (!Pstream::master()) return;
 +
-+    std::ofstream cellsOs("hfdibGeometry_cells.csv");
-+    cellsOs << "cell,lambda,chi,sigma,is_interface,coeff\n";
++    // write to postProcessing/hfdibGeometry/
++    fileName dir = "postProcessing/hfdibGeometry";
++    Foam::mkDir(dir);
++
++    // geometry.csv with full column set
++    std::ofstream cellsOs((dir / "geometry.csv").c_str());
++    cellsOs << "cell_id,cx,cy,cz,lambda,chi,sigma,is_interface,"
++            << "surface_x,surface_y,surface_z,"
++            << "normal_x,normal_y,normal_z,"
++            << "interpolation_coefficient\n";
++
++    const volVectorField::Internal& C = mesh_.C();
++    const label nCells = mesh_.nCells();
++    std::size_t ifIdx = 0;
++    for (label c = 0; c < nCells; ++c)
 +    {
-+        std::size_t i = 0;
-+        for (label c = 0; c < mesh_.nCells(); ++c)
++        double cx, cy, cz;
++        assignValueCheckAD(cx, C[c][0]);
++        assignValueCheckAD(cy, C[c][1]);
++        assignValueCheckAD(cz, C[c][2]);
++
++        bool isIface = false;
++        double coef = 0.0;
++        double sx = 0, sy = 0, sz = 0, nx = 0, ny = 0, nz = 0;
++
++        if (ifIdx < ifCells_.size() && ifCells_[ifIdx] == c)
 +        {
-+            cellsOs << c << "," << lambda_[c] << "," << chi_[c] << ","
-+                    << sigma_[c] << ",";
-+            bool iface = false;
-+            double coef = 0.0;
-+            // interface cells are exactly the ifCells_ entries
-+            if (i < ifCells_.size() && ifCells_[i] == c)
-+            {
-+                iface = true;
-+                coef = ifCoeff_[i];
-+                ++i;
-+            }
-+            cellsOs << (iface ? 1 : 0) << "," << coef << "\n";
++            isIface = true;
++            coef = ifCoeff_[ifIdx];
++            // surface point and normal stored per interface cell
++            // (recompute from rectSignedDistance for simplicity — passive)
++            double sig_, q_[3], n_[3];
++            rectSignedDistance(cx, cy, cz, sig_, q_, n_);
++            sx = q_[0]; sy = q_[1]; sz = q_[2];
++            nx = n_[0]; ny = n_[1]; nz = n_[2];
++            ++ifIdx;
 +        }
++
++        cellsOs << c << "," << cx << "," << cy << "," << cz << ","
++                << lambda_[c] << "," << chi_[c] << "," << sigma_[c] << ","
++                << (isIface ? 1 : 0) << ","
++                << sx << "," << sy << "," << sz << ","
++                << nx << "," << ny << "," << nz << ","
++                << coef << "\n";
 +    }
 +    cellsOs.close();
 +
-+    std::ofstream stenOs("hfdibGeometry_stencils.csv");
-+    stenOs << "target,term,source,weight\n";
++    // stencils.json
++    std::ofstream stenOs((dir / "stencils.json").c_str());
++    stenOs << "[\n";
 +    for (std::size_t i = 0; i < ifCells_.size(); ++i)
 +    {
++        stenOs << "  {\"cell_id\": " << ifCells_[i]
++               << ", \"source_cells\": [";
 +        for (std::size_t j = 0; j < ifSrcCells_[i].size(); ++j)
 +        {
-+            stenOs << ifCells_[i] << "," << j << "," << ifSrcCells_[i][j]
-+                   << "," << ifSrcW_[i][j] << "\n";
++            if (j > 0) stenOs << ", ";
++            stenOs << ifSrcCells_[i][j];
 +        }
++        stenOs << "], \"source_weights\": [";
++        for (std::size_t j = 0; j < ifSrcW_[i].size(); ++j)
++        {
++            if (j > 0) stenOs << ", ";
++            stenOs << ifSrcW_[i][j];
++        }
++        stenOs << "]}";
++        if (i + 1 < ifCells_.size()) stenOs << ",";
++        stenOs << "\n";
 +    }
++    stenOs << "]\n";
 +    stenOs.close();
++
 +    Info << "DAFvSourceHFDIBStaticRect: geometry manifest written to "
-+            "hfdibGeometry_{cells,stencils}.csv" << endl;
++         << dir << "/{geometry.csv,stencils.json}" << endl;
 +}
 +
 +// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -335,6 +448,45 @@ index 0000000..98f4e9b
 +        }
 +    }
 +    fvSource.correctBoundaryConditions();
++
++    // ---- optional field diagnostics (section 1.7) -------------------------
++    if (writeDiagnostics_)
++    {
++        // write lambda, chi, sigma as volScalarFields
++        volScalarField lambdaField
++        (
++            IOobject("lambdaHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            mesh_, dimensionedScalar("zero", dimless, 0)
++        );
++        volScalarField chiField
++        (
++            IOobject("chiHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            mesh_, dimensionedScalar("zero", dimless, 0)
++        );
++        volScalarField sigmaField
++        (
++            IOobject("sigmaHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            mesh_, dimensionedScalar("zero", dimless, 0)
++        );
++        forAll(lambdaField, c)
++        {
++            lambdaField[c] = lambda_[c];
++            chiField[c] = chi_[c];
++            sigmaField[c] = sigma_[c];
++        }
++        lambdaField.write();
++        chiField.write();
++        sigmaField.write();
++
++        // write Uib and fvSource
++        Uib.rename("UibHFDIB");
++        Uib.write();
++        fvSource.rename("fvSourceHFDIB");
++        fvSource.write();
++    }
 +}
 +
 +} // End namespace Foam
@@ -342,10 +494,10 @@ index 0000000..98f4e9b
 +// ************************************************************************* //
 diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H
 new file mode 100644
-index 0000000..0504796
+index 0000000..510e509
 --- /dev/null
 +++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.H
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,107 @@
 +/*---------------------------------------------------------------------------*\
 +    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: static HFDIB)
 +
@@ -408,6 +560,10 @@ index 0000000..0504796
 +    std::vector<std::vector<double>> ifSrcW_;     // interpolation weights
 +
 +    bool built_;
++
++    /// optional manifest and diagnostics flags
++    bool writeGeometryManifest_;
++    bool writeDiagnostics_;
 +
 +    void buildGeometry();
 +

@@ -49,7 +49,7 @@ boundary
     frontAndBack
     {
         // thin-3D: one cell deep, symmetry for quasi-2D flow
-        type            symmetryPlane;
+        type            symmetry;
         faces
         (
             (0 3 2 1)

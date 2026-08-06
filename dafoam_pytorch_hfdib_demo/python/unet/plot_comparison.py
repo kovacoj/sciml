@@ -110,7 +110,7 @@ def main() -> int:
     args = ap.parse_args()
 
     import torch
-    from unet.models import FlowUNet
+    from unet.factory import load_model_from_checkpoint
     from unet.boundary import BoundaryEnforcer
 
     output_dir = Path(args.output)
@@ -118,14 +118,9 @@ def main() -> int:
         output_dir = Path(PROJECT_ROOT) / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load models
-    sup_model = FlowUNet()
-    sup_model.load_state_dict(torch.load(args.supervised_ckpt)["model_state_dict"])
-    sup_model.eval()
-
-    phys_model = FlowUNet()
-    phys_model.load_state_dict(torch.load(args.physics_ckpt)["model_state_dict"])
-    phys_model.eval()
+    # Load models from checkpoints (architecture-aware)
+    sup_model = load_model_from_checkpoint(args.supervised_ckpt)
+    phys_model = load_model_from_checkpoint(args.physics_ckpt)
 
     bc = BoundaryEnforcer(64, 64)
 

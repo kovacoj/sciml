@@ -54,6 +54,52 @@ def main() -> int:
     print(f"[dataset] {len(topo_dirs)} topologies found")
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    shared_dir = output_dir / "shared"
+    shared_dir.mkdir(exist_ok=True)
+
+    # Generate shared k=0 base state from first topology's case
+    first_case = topo_dirs[0].name
+    first_case_dir = str(output_dir / first_case / "case")
+
+    # Build mesh metadata from the case
+    from pinn.mesh_metadata import build_from_polymesh
+    mesh_meta = build_from_polymesh(first_case_dir)
+    mesh_meta.save(str(shared_dir / "mesh_metadata.npz"),
+                  str(shared_dir / "mesh_metadata.json"))
+
+    # Get k=0 state (initial OpenFOAM state before any primal iterations)
+    os.chdir(first_case_dir)
+    from mpi4py import MPI
+    bridge_k0 = DAFoamResidualBridge(
+        first_case_dir,
+        hfdib_signed_distance_options(first_case_dir),
+        comm=MPI.COMM_SELF,
+    )
+    w0 = np.ascontiguousarray(
+        bridge_k0.solver.getStates().copy(), dtype=np.float64)
+    np.save(shared_dir / "base_state_k0.npy", w0)
+
+    # Compute residual at k=0 for loss weight initialization
+    r0 = bridge_k0.residual(w0)
+    layout = build_state_layout("isothermal")
+    u_ids = layout.indices("U")
+    p_ids = layout.indices("p")
+    phi_ids = layout.indices("phi")
+
+    lu = 0.5 * float(np.dot(r0[u_ids], r0[u_ids]))
+    lp = 0.5 * float(np.dot(r0[p_ids], r0[p_ids]))
+    lphi = 0.5 * float(np.dot(r0[phi_ids], r0[phi_ids]))
+
+    loss_config = {
+        "gamma_u": 1.0 / (lu + 1e-30),
+        "gamma_p": 1.0 / (lp + 1e-30),
+        "gamma_phi": 1.0 / (lphi + 1e-30),
+    }
+    with open(shared_dir / "physics_loss_config.json", "w") as f:
+        json.dump(loss_config, f, indent=2)
+
+    print(f"[dataset] shared k=0 state: ||R||={np.linalg.norm(r0):.3e}")
+    print(f"[dataset] loss config: {loss_config}")
 
     for idx, topo_dir in enumerate(topo_dirs):
         tid = topo_dir.name

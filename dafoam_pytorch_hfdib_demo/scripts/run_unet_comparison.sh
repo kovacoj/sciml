@@ -6,9 +6,6 @@ PROJECT="$(cd "$HERE/.." && pwd)"
 
 IMG="${SCIML_HFDIB_IMAGE:-sciml-dafoam-torch-hfdib:latest}"
 
-MODE="${1:-supervised}"
-shift || true
-
 docker run \
     --rm \
     --ipc=host \
@@ -24,5 +21,5 @@ docker run \
         export MPLCONFIGDIR=/tmp/mplcfg
         export PYTHONPATH=$PWD/python:${PYTHONPATH:-}
         cd /home/dafoamuser/sciml/dafoam_pytorch_hfdib_demo
-        python -m unet.train --mode '"$MODE"' "$@"
+        python -m unet.train "$@"
     ' _ "$@"

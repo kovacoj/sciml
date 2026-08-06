@@ -16,7 +16,8 @@ import numpy as np
 def worker_main(case_dir: str, topology_id: str,
                 u_ids, p_ids, phi_ids,
                 gamma_u: float, gamma_p: float, gamma_phi: float,
-                parent_pipe):
+                parent_pipe,
+                inlet_patches=None, outlet_patches=None):
     """Main loop for a DAFoam residual worker."""
     # Set thread limits before importing MPI/DAFoam
     os.environ["OMP_NUM_THREADS"] = "1"
@@ -39,10 +40,16 @@ def worker_main(case_dir: str, topology_id: str,
         from common import hfdib_signed_distance_options
         from dafoam_bridge import DAFoamResidualBridge
 
+        kw = {}
+        if inlet_patches is not None:
+            kw["inlet_patches"] = inlet_patches
+        if outlet_patches is not None:
+            kw["outlet_patches"] = outlet_patches
+
         os.chdir(case_dir)
         bridge = DAFoamResidualBridge(
             case_dir,
-            hfdib_signed_distance_options(case_dir),
+            hfdib_signed_distance_options(case_dir, **kw),
             comm=MPI.COMM_SELF,
         )
 

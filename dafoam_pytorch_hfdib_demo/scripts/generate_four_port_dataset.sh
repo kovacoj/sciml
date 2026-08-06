@@ -8,7 +8,7 @@ IMG="${SCIML_HFDIB_IMAGE:-sciml-dafoam-torch-hfdib:latest}"
 
 # Step 1: Generate case template + topology masks (host-side, no container needed)
 cd "$PROJECT"
-python -m unet.generate_case
+PYTHONPATH="$PROJECT/python" python3 -m unet.generate_case
 
 # Step 2: Generate dataset (needs DAFoam for converged solves)
 docker run \

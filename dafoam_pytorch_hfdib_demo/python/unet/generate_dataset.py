@@ -197,7 +197,9 @@ def main() -> int:
     from mpi4py import MPI
     bridge_k0 = DAFoamResidualBridge(
         first_case_dir,
-        hfdib_signed_distance_options(first_case_dir),
+        hfdib_signed_distance_options(first_case_dir,
+            inlet_patches=["inletLower","inletUpper"],
+            outlet_patches=["outletLower","outletUpper"]),
         comm=MPI.COMM_SELF,
     )
     w0 = np.ascontiguousarray(bridge_k0.solver.getStates().copy(), dtype=np.float64)
@@ -233,7 +235,9 @@ def main() -> int:
         os.chdir(case_dir)
         bridge = DAFoamResidualBridge(
             case_dir,
-            hfdib_signed_distance_options(case_dir),
+            hfdib_signed_distance_options(case_dir,
+                inlet_patches=["inletLower","inletUpper"],
+                outlet_patches=["outletLower","outletUpper"]),
             comm=MPI.COMM_SELF,
         )
         bridge.solver()

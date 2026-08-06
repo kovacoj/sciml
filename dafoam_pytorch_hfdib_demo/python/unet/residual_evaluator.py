@@ -27,7 +27,9 @@ def main() -> int:
 
     os.chdir(args.case)
     bridge = DAFoamResidualBridge(args.case,
-                                  hfdib_signed_distance_options(args.case),
+                                  hfdib_signed_distance_options(args.case,
+                                    inlet_patches=["inletLower","inletUpper"],
+                                    outlet_patches=["outletLower","outletUpper"]),
                                   comm=MPI.COMM_SELF)
 
     state = np.load(args.state)

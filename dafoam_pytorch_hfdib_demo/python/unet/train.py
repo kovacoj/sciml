@@ -140,9 +140,12 @@ def train_physics(model, samples, optimizer, device, epochs, dataset_dir, worker
 
     # Build per-topology context
     from pinn.mesh_metadata import MeshMetadata
+    ds_dir = Path(dataset_dir)
+    if not ds_dir.is_absolute():
+        ds_dir = Path(PROJECT_ROOT) / ds_dir
     mesh_meta = MeshMetadata.load(
-        str(Path(args.dataset if os.path.isabs(args.dataset) else os.path.join(PROJECT_ROOT, args.dataset)) / "shared" / "mesh_metadata.npz"),
-        str(Path(args.dataset if os.path.isabs(args.dataset) else os.path.join(PROJECT_ROOT, args.dataset)) / "shared" / "mesh_metadata.json"),
+        str(ds_dir / "shared" / "mesh_metadata.npz"),
+        str(ds_dir / "shared" / "mesh_metadata.json"),
     )
     layout = build_isothermal_layout(mesh_meta.n_cells, mesh_meta.n_faces)
 
@@ -188,6 +191,8 @@ def train_physics(model, samples, optimizer, device, epochs, dataset_dir, worker
             u_ids=layout.indices("U"),
             p_ids=layout.indices("p"),
             phi_ids=layout.indices("phi"),
+            inlet_patches=["inletLower", "inletUpper"],
+            outlet_patches=["outletLower", "outletUpper"],
         ))
 
     pool = TopologyWorkerPool(prepared)
@@ -243,6 +248,7 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--split", default="train", choices=["train", "test"])
+    ap.add_argument("--output", default=None)
     args = ap.parse_args()
 
     if args.device != "cpu":

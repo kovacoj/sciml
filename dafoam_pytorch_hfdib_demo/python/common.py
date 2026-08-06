@@ -79,18 +79,43 @@ def hfdib_options(case_dir: str) -> dict:
 def hfdib_signed_distance_options(
     case_dir: str,
     geometry_file: str = "hfdibGeometry/signedDistance",
+    inlet_patches: list = None,
+    outlet_patches: list = None,
+    inlet_velocity: float = 0.1,
 ) -> dict:
-    """daOptions for topology-conditioned HFDIB using a signed-distance field."""
-    opts = isothermal_channel_options(case_dir)
-    opts["fvSource"] = {
-        "obstacle": {
-            "type": "hfdibSignedDistance",
-            "geometryFile": geometry_file,
-            "solidSign": -1,
-            "d1Factor": 1.5,
-        }
+    """daOptions for topology-conditioned HFDIB using a signed-distance field.
+    
+    Patch names are configurable for different case geometries:
+    - 40x16 channel: ["inlet"] / ["outlet"]
+    - 64x64 four-port: ["inletLower","inletUpper"] / ["outletLower","outletUpper"]
+    """
+    if inlet_patches is None:
+        inlet_patches = ["inlet"]
+    if outlet_patches is None:
+        outlet_patches = ["outlet"]
+
+    return {
+        "solverName": "DASimpleFoam",
+        "discipline": "aero",
+        "useAD": {"mode": "reverse"},
+        "printDAOptions": False,
+        "primalMinResTol": 1.0e-10,
+        "primalMinResTolDiff": 1e12,
+        "primalBC": {
+            "U0": {"variable": "U", "patches": inlet_patches, "value": [inlet_velocity, 0.0, 0.0]},
+            "p0": {"variable": "p", "patches": outlet_patches, "value": [0.0]},
+            "useWallFunction": False,
+        },
+        "function": {},
+        "fvSource": {
+            "obstacle": {
+                "type": "hfdibSignedDistance",
+                "geometryFile": geometry_file,
+                "solidSign": -1,
+                "d1Factor": 1.5,
+            }
+        },
     }
-    return opts
 
 
 def write_json(path: str, payload) -> None:

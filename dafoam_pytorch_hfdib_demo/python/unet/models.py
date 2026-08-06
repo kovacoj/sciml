@@ -90,7 +90,7 @@ class FlowUNet(nn.Module):
         xx, yy = torch.meshgrid(ax, ax, indexing="ij")
         kernel = torch.exp(-(xx**2 + yy**2) / (2 * sigma**2))
         kernel = kernel / kernel.sum()
-        self.register_buffer("smooth_kernel", kernel.view(1, 1, k, k).expand(out_channels, 1, k, k))
+        self.register_buffer("smooth_kernel", kernel.view(1, 1, k, k).expand(out_channels, 1, k, k).contiguous())
         self.smooth_conv = nn.Conv2d(out_channels, out_channels, kernel_size=k, padding=k//2,
                                       groups=out_channels, bias=False, padding_mode="replicate")
         with torch.no_grad():

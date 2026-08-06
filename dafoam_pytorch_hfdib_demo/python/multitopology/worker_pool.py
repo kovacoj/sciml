@@ -43,7 +43,9 @@ class TopologyWorkerPool:
                       topo.loss_config.gamma_u,
                       topo.loss_config.gamma_p,
                       topo.loss_config.gamma_phi,
-                      child_conn),
+                      child_conn,
+                      topo.inlet_patches or ["inlet"],
+                      topo.outlet_patches or ["outlet"]),
             )
             p.daemon = False
             p.start()

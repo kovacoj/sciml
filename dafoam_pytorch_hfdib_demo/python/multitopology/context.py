@@ -22,6 +22,8 @@ class PreparedTopology:
     u_ids: np.ndarray
     p_ids: np.ndarray
     phi_ids: np.ndarray
+    inlet_patches: list = None
+    outlet_patches: list = None
 
 
 def load_prepared_topology(topo_dir: str | Path,
@@ -55,4 +57,6 @@ def load_prepared_topology(topo_dir: str | Path,
         u_ids=layout.indices("U"),
         p_ids=layout.indices("p"),
         phi_ids=layout.indices("phi"),
+        inlet_patches=lc.get("inlet_patches", ["inlet"]),
+        outlet_patches=lc.get("outlet_patches", ["outlet"]),
     )

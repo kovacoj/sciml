@@ -106,10 +106,12 @@ def main() -> int:
     ap.add_argument("--dataset", required=True)
     ap.add_argument("--supervised-ckpt", required=True)
     ap.add_argument("--physics-ckpt", required=True)
+    ap.add_argument("--output", required=True)
     ap.add_argument("--split", default="test", choices=["train", "test"])
     args = ap.parse_args()
 
     import torch
+    torch.set_default_dtype(torch.float64)
     from unet.factory import load_model_from_checkpoint
     from unet.boundary import BoundaryEnforcer
 

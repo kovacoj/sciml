@@ -60,22 +60,20 @@ scale   1;
 
 vertices
 (
-    // Bottom-left
+    // z=0 plane (indices 0-11)
     (0              0              0)
     ({DOMAIN_W}    0              0)
     ({DOMAIN_W}    {y_lo_start}   0)
     (0              {y_lo_start}   0)
-    // Lower port to mid
     (0              {y_lo_end}     0)
     ({DOMAIN_W}    {y_lo_end}     0)
     ({DOMAIN_W}    {y_hi_start}   0)
     (0              {y_hi_start}   0)
-    // Upper port to top
     (0              {y_hi_end}     0)
     ({DOMAIN_W}    {y_hi_end}     0)
     ({DOMAIN_W}    {DOMAIN_H}     0)
     (0              {DOMAIN_H}     0)
-    // z=0.002 copies (indices 12-23)
+    // z={DOMAIN_D} plane (indices 12-23)
     (0              0              {DOMAIN_D})
     ({DOMAIN_W}    0              {DOMAIN_D})
     ({DOMAIN_W}    {y_lo_start}   {DOMAIN_D})
@@ -92,16 +90,16 @@ vertices
 
 blocks
 (
-    // Bottom strip (below lower port)
-    hex (0 1 2 3 12 13 14 15) ({NX} 8 1) simpleGrading (1 1 1)
-    // Lower port
-    hex (3 2 4 5 15 14 16 17) ({NX} 8 1) simpleGrading (1 1 1)
-    // Middle section
-    hex (5 4 6 7 17 16 18 19) ({NX} 32 1) simpleGrading (1 1 1)
-    // Upper port
-    hex (7 6 8 9 19 18 20 21) ({NX} 8 1) simpleGrading (1 1 1)
-    // Top strip (above upper port)
-    hex (9 8 10 11 21 20 22 23) ({NX} 8 1) simpleGrading (1 1 1)
+    // y = 0.000 ... 0.016
+    hex (0 1 2 3 12 13 14 15) (64 8 1) simpleGrading (1 1 1)
+    // y = 0.016 ... 0.032: lower port strip
+    hex (3 2 5 4 15 14 17 16) (64 8 1) simpleGrading (1 1 1)
+    // y = 0.032 ... 0.096
+    hex (4 5 6 7 16 17 18 19) (64 32 1) simpleGrading (1 1 1)
+    // y = 0.096 ... 0.112: upper port strip
+    hex (7 6 9 8 19 18 21 20) (64 8 1) simpleGrading (1 1 1)
+    // y = 0.112 ... 0.128
+    hex (8 9 10 11 20 21 22 23) (64 8 1) simpleGrading (1 1 1)
 );
 
 boundary
@@ -109,33 +107,46 @@ boundary
     inletLower
     {{
         type patch;
-        faces ((0 12 15 3));
+        faces
+        (
+            (3 15 16 4)
+        );
     }}
     inletUpper
     {{
         type patch;
-        faces ((5 17 20 9));
+        faces
+        (
+            (7 19 20 8)
+        );
     }}
     outletLower
     {{
         type patch;
-        faces ((1 2 14 13));
+        faces
+        (
+            (2 5 17 14)
+        );
     }}
     outletUpper
     {{
         type patch;
-        faces ((8 10 23 21));
+        faces
+        (
+            (6 9 21 18)
+        );
     }}
     sideWalls
     {{
         type wall;
         faces
         (
-            (3 15 17 5)
-            (5 17 19 7)
-            (7 19 21 9)
-            (0 1 13 12)
-            (11 23 22 10)
+            (0 12 15 3)
+            (1 2 14 13)
+            (4 16 19 7)
+            (5 6 18 17)
+            (8 20 23 11)
+            (9 10 22 21)
         );
     }}
     topBottomWalls
@@ -143,8 +154,8 @@ boundary
         type wall;
         faces
         (
-            (0 3 15 12)
-            (9 11 23 20)
+            (0 1 13 12)
+            (11 23 22 10)
         );
     }}
     frontAndBack
@@ -152,16 +163,16 @@ boundary
         type symmetry;
         faces
         (
-            (0 1 2 3)
-            (3 2 4 5)
-            (5 4 6 7)
-            (7 6 8 9)
-            (9 8 10 11)
-            (12 15 14 13)
-            (15 17 16 14)
-            (17 19 18 16)
-            (19 21 20 18)
-            (21 23 22 20)
+            (0 3 2 1)
+            (3 4 5 2)
+            (4 7 6 5)
+            (7 8 9 6)
+            (8 11 10 9)
+            (12 13 14 15)
+            (15 14 17 16)
+            (16 17 18 19)
+            (19 18 21 20)
+            (20 21 22 23)
         );
     }}
 );

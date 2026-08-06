@@ -77,13 +77,27 @@ def build_64x64_mesh_metadata(case_dir: str):
             cell_centres[cid] = [i * dx + dx/2, j * dy + dy/2, dz/2]
             cell_to_grid[cid] = [j, i]
 
-    sf_int = np.zeros((n_internal, 3))
-    # Structured mesh: x-dir faces then y-dir faces
-    n_x_faces = (nx - 1) * ny  # 4032
-    n_y_faces = nx * (ny - 1)  # 4032
-    # total internal = 8064 for 64x64
-    sf_int[:n_x_faces, 0] = dy * dz
-    sf_int[n_x_faces:, 1] = dx * dz
+    # Derive face area vectors from actual owner-neighbour geometry
+    internal_owners = owners[:n_internal]
+    owner_centres = cell_centres[internal_owners]
+    neighbour_centres = cell_centres[neighbours]
+    deltas = neighbour_centres - owner_centres
+
+    sf_int = np.zeros((n_internal, 3), dtype=np.float64)
+    x_faces = np.abs(deltas[:, 0]) > np.abs(deltas[:, 1])
+    y_faces = ~x_faces
+    sf_int[x_faces, 0] = np.sign(deltas[x_faces, 0]) * dy * dz
+    sf_int[y_faces, 1] = np.sign(deltas[y_faces, 1]) * dx * dz
+
+    # Verify cell ordering matches polyMesh connectivity
+    owner_grid = cell_to_grid[internal_owners]
+    neighbour_grid = cell_to_grid[neighbours]
+    grid_distance = np.abs(neighbour_grid - owner_grid).sum(axis=1)
+    if not np.all(grid_distance == 1):
+        bad = np.flatnonzero(grid_distance != 1)[:10]
+        raise RuntimeError(
+            "The assumed 64x64 cell ordering does not match "
+            f"polyMesh connectivity; first bad faces: {bad.tolist()}")
 
     owner_weights = np.full(n_internal, 0.5)
 

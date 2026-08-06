@@ -106,7 +106,7 @@ def main() -> int:
     ap.add_argument("--dataset", required=True)
     ap.add_argument("--supervised-ckpt", required=True)
     ap.add_argument("--physics-ckpt", required=True)
-    ap.add_argument("--output", default="outputs/comparison")
+    ap.add_argument("--split", default="test", choices=["train", "test"])
     args = ap.parse_args()
 
     import torch
@@ -128,9 +128,19 @@ def main() -> int:
     if not dataset_dir.is_absolute():
         dataset_dir = Path(PROJECT_ROOT) / dataset_dir
 
-    # Find all topology directories
-    topo_dirs = sorted([d for d in dataset_dir.iterdir()
-                       if d.is_dir() and d.name.startswith("topology_")])
+    # Find all topology directories, filtered by split
+    splits_path = dataset_dir / "splits.json"
+    if splits_path.exists():
+        import json
+        with open(splits_path) as f:
+            splits = json.load(f)
+        valid_ids = set(splits.get(args.split, []))
+        topo_dirs = sorted([d for d in dataset_dir.iterdir()
+                           if d.is_dir() and d.name.startswith("topology_")
+                           and d.name in valid_ids])
+    else:
+        topo_dirs = sorted([d for d in dataset_dir.iterdir()
+                           if d.is_dir() and d.name.startswith("topology_")])
 
     all_metrics = []
     for topo_dir in topo_dirs:

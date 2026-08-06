@@ -116,3 +116,12 @@ class StateLayout:
 def build_state_layout(kind: str = "thermal") -> StateLayout:
     registered = REGISTERED if kind == "thermal" else REGISTERED_ISO
     return layout_from_registration(registered)
+
+
+def build_isothermal_layout(n_cells: int, n_faces: int) -> StateLayout:
+    """Dynamic layout for arbitrary isothermal mesh sizes."""
+    return layout_from_registration([
+        ("U", "volVectorState", 3 * n_cells),
+        ("p", "volScalarState", n_cells),
+        ("phi", "surfaceScalarState", n_faces),
+    ])

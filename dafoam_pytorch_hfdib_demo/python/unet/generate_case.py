@@ -38,9 +38,15 @@ DESIGN_BOUNDS = (0.0, DOMAIN_W, 0.0, DOMAIN_H)
 
 
 def generate_blockmesh_dict(case_dir: str):
-    """Generate blockMeshDict for 64x64x1 four-port case."""
+    """Generate blockMeshDict for 64x64x1 four-port case with separate port patches."""
     path = os.path.join(case_dir, "system", "blockMeshDict")
     os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    # Port y-bands on the 64-cell grid: rows 8-15 (lower) and 48-55 (upper)
+    y_lo_start = 8 * DY    # 0.016
+    y_lo_end = 16 * DY      # 0.032
+    y_hi_start = 48 * DY    # 0.096
+    y_hi_end = 56 * DY       # 0.112
 
     content = f"""FoamFile
 {{
@@ -54,40 +60,91 @@ scale   1;
 
 vertices
 (
-    (0           0           0)
-    ({DOMAIN_W}  0           0)
-    ({DOMAIN_W}  {DOMAIN_H}  0)
-    (0           {DOMAIN_H}  0)
-    (0           0           {DOMAIN_D})
-    ({DOMAIN_W}  0           {DOMAIN_D})
-    ({DOMAIN_W}  {DOMAIN_H}  {DOMAIN_D})
-    (0           {DOMAIN_H}  {DOMAIN_D})
+    // Bottom-left
+    (0              0              0)
+    ({DOMAIN_W}    0              0)
+    ({DOMAIN_W}    {y_lo_start}   0)
+    (0              {y_lo_start}   0)
+    // Lower port to mid
+    (0              {y_lo_end}     0)
+    ({DOMAIN_W}    {y_lo_end}     0)
+    ({DOMAIN_W}    {y_hi_start}   0)
+    (0              {y_hi_start}   0)
+    // Upper port to top
+    (0              {y_hi_end}     0)
+    ({DOMAIN_W}    {y_hi_end}     0)
+    ({DOMAIN_W}    {DOMAIN_H}     0)
+    (0              {DOMAIN_H}     0)
+    // z=0.002 copies (indices 12-23)
+    (0              0              {DOMAIN_D})
+    ({DOMAIN_W}    0              {DOMAIN_D})
+    ({DOMAIN_W}    {y_lo_start}   {DOMAIN_D})
+    (0              {y_lo_start}   {DOMAIN_D})
+    (0              {y_lo_end}     {DOMAIN_D})
+    ({DOMAIN_W}    {y_lo_end}     {DOMAIN_D})
+    ({DOMAIN_W}    {y_hi_start}   {DOMAIN_D})
+    (0              {y_hi_start}   {DOMAIN_D})
+    (0              {y_hi_end}     {DOMAIN_D})
+    ({DOMAIN_W}    {y_hi_end}     {DOMAIN_D})
+    ({DOMAIN_W}    {DOMAIN_H}     {DOMAIN_D})
+    (0              {DOMAIN_H}     {DOMAIN_D})
 );
 
 blocks
 (
-    hex (0 1 2 3 4 5 6 7) ({NX} {NY} 1) simpleGrading (1 1 1)
+    // Bottom strip (below lower port)
+    hex (0 1 2 3 12 13 14 15) ({NX} 8 1) simpleGrading (1 1 1)
+    // Lower port
+    hex (3 2 4 5 15 14 16 17) ({NX} 8 1) simpleGrading (1 1 1)
+    // Middle section
+    hex (5 4 6 7 17 16 18 19) ({NX} 32 1) simpleGrading (1 1 1)
+    // Upper port
+    hex (7 6 8 9 19 18 20 21) ({NX} 8 1) simpleGrading (1 1 1)
+    // Top strip (above upper port)
+    hex (9 8 10 11 21 20 22 23) ({NX} 8 1) simpleGrading (1 1 1)
 );
 
 boundary
 (
-    inlet
+    inletLower
     {{
         type patch;
-        faces ((0 4 7 3));
+        faces ((0 12 15 3));
     }}
-    outlet
+    inletUpper
     {{
         type patch;
-        faces ((1 2 6 5));
+        faces ((5 17 20 9));
     }}
-    walls
+    outletLower
+    {{
+        type patch;
+        faces ((1 2 14 13));
+    }}
+    outletUpper
+    {{
+        type patch;
+        faces ((8 10 23 21));
+    }}
+    sideWalls
     {{
         type wall;
         faces
         (
-            (3 7 6 2)
-            (0 1 5 4)
+            (3 15 17 5)
+            (5 17 19 7)
+            (7 19 21 9)
+            (0 1 13 12)
+            (11 23 22 10)
+        );
+    }}
+    topBottomWalls
+    {{
+        type wall;
+        faces
+        (
+            (0 3 15 12)
+            (9 11 23 20)
         );
     }}
     frontAndBack
@@ -95,8 +152,16 @@ boundary
         type symmetry;
         faces
         (
-            (0 3 2 1)
-            (4 5 6 7)
+            (0 1 2 3)
+            (3 2 4 5)
+            (5 4 6 7)
+            (7 6 8 9)
+            (9 8 10 11)
+            (12 15 14 13)
+            (15 17 16 14)
+            (17 19 18 16)
+            (19 21 20 18)
+            (21 23 22 20)
         );
     }}
 );
@@ -110,110 +175,60 @@ def generate_field_files(case_dir: str):
     zero_dir = os.path.join(case_dir, "0")
     os.makedirs(zero_dir, exist_ok=True)
 
-    # U
+    patch_names = ["inletLower", "inletUpper", "outletLower", "outletUpper",
+                  "sideWalls", "topBottomWalls", "frontAndBack"]
+
+    # U: inlet patches = fixedValue (0.1,0,0), outlet = zeroGradient, walls = fixedValue 0
+    inlet_patches = ["inletLower", "inletUpper"]
+    outlet_patches = ["outletLower", "outletUpper"]
+    wall_patches = ["sideWalls", "topBottomWalls"]
+
     with open(os.path.join(zero_dir, "U"), "w") as f:
-        f.write(f"""FoamFile
-{{
-    version     2.0;
-    format      ascii;
-    class       volVectorField;
-    object      U;
-}}
+        f.write("FoamFile\n{\n    version     2.0;\n    format      ascii;\n")
+        f.write("    class       volVectorField;\n    object      U;\n}\n\n")
+        f.write("dimensions      [0 1 -1 0 0 0 0];\n")
+        f.write("internalField   uniform (0 0 0);\n\nboundaryField\n{\n")
+        for p in inlet_patches:
+            f.write("    " + p + "\n    {\n        type            fixedValue;\n")
+            f.write("        value           uniform (0.1 0 0);\n    }\n")
+        for p in outlet_patches:
+            f.write("    " + p + "\n    {\n        type            zeroGradient;\n    }\n")
+        for p in wall_patches:
+            f.write("    " + p + "\n    {\n        type            fixedValue;\n")
+            f.write("        value           uniform (0 0 0);\n    }\n")
+        f.write("    frontAndBack\n    {\n        type            symmetry;\n    }\n}\n")
 
-dimensions      [0 1 -1 0 0 0 0];
-internalField   uniform (0 0 0);
-boundaryField
-{{
-    inlet
-    {{
-        type            fixedValue;
-        value           uniform (0.1 0 0);
-    }}
-    outlet
-    {{
-        type            zeroGradient;
-    }}
-    walls
-    {{
-        type            fixedValue;
-        value           uniform (0 0 0);
-    }}
-    frontAndBack
-    {{
-        type            symmetry;
-    }}
-}}
-""")
-
-    # p
+    # p: inlet = zeroGradient, outlet = fixedValue 0, walls = zeroGradient
     with open(os.path.join(zero_dir, "p"), "w") as f:
-        f.write(f"""FoamFile
-{{
-    version     2.0;
-    format      ascii;
-    class       volScalarField;
-    object      p;
-}}
+        f.write("FoamFile\n{\n    version     2.0;\n    format      ascii;\n")
+        f.write("    class       volScalarField;\n    object      p;\n}\n\n")
+        f.write("dimensions      [0 2 -2 0 0 0 0];\n")
+        f.write("internalField   uniform 0;\n\nboundaryField\n{\n")
+        for p in inlet_patches:
+            f.write("    " + p + "\n    {\n        type            zeroGradient;\n    }\n")
+        for p in outlet_patches:
+            f.write("    " + p + "\n    {\n        type            fixedValue;\n")
+            f.write("        value           uniform 0;\n    }\n")
+        for p in wall_patches:
+            f.write("    " + p + "\n    {\n        type            zeroGradient;\n    }\n")
+        f.write("    frontAndBack\n    {\n        type            symmetry;\n    }\n}\n")
 
-dimensions      [0 2 -2 0 0 0 0];
-internalField   uniform 0;
-boundaryField
-{{
-    inlet
-    {{
-        type            zeroGradient;
-    }}
-    outlet
-    {{
-        type            fixedValue;
-        value           uniform 0;
-    }}
-    walls
-    {{
-        type            zeroGradient;
-    }}
-    frontAndBack
-    {{
-        type            symmetry;
-    }}
-}}
-""")
-
-    # nut
+    # nut, nuTilda: calculated at inlet, zeroGradient outlet, fixedValue 0 walls
     for fname in ["nut", "nuTilda"]:
         with open(os.path.join(zero_dir, fname), "w") as f:
-            f.write(f"""FoamFile
-{{
-    version     2.0;
-    format      ascii;
-    class       volScalarField;
-    object      {fname};
-}}
-
-dimensions      [0 2 -1 0 0 0 0];
-internalField   uniform 0;
-boundaryField
-{{
-    inlet
-    {{
-        type            calculated;
-        value           uniform 0;
-    }}
-    outlet
-    {{
-        type            zeroGradient;
-    }}
-    walls
-    {{
-        type            fixedValue;
-        value           uniform 0;
-    }}
-    frontAndBack
-    {{
-        type            symmetry;
-    }}
-}}
-""")
+            f.write("FoamFile\n{\n    version     2.0;\n    format      ascii;\n")
+            f.write("    class       volScalarField;\n    object      " + fname + ";\n}\n\n")
+            f.write("dimensions      [0 2 -1 0 0 0 0];\n")
+            f.write("internalField   uniform 0;\n\nboundaryField\n{\n")
+            for p in inlet_patches:
+                f.write("    " + p + "\n    {\n        type            calculated;\n")
+                f.write("        value           uniform 0;\n    }\n")
+            for p in outlet_patches:
+                f.write("    " + p + "\n    {\n        type            zeroGradient;\n    }\n")
+            for p in wall_patches:
+                f.write("    " + p + "\n    {\n        type            fixedValue;\n")
+                f.write("        value           uniform 0;\n    }\n")
+            f.write("    frontAndBack\n    {\n        type            symmetry;\n    }\n}\n")
 
 
 def generate_control_dict(case_dir: str):
@@ -391,20 +406,24 @@ def mask_to_signed_distance_64(mask: np.ndarray) -> np.ndarray:
 
 
 def write_signed_distance_file(case_dir: str, psi: np.ndarray):
-    """Write signed-distance as OpenFOAM scalarList."""
+    """Write signed-distance as OpenFOAM scalarList (flattened to cell order)."""
     sd_dir = os.path.join(case_dir, "constant", "hfdibGeometry")
     os.makedirs(sd_dir, exist_ok=True)
     path = os.path.join(sd_dir, "signedDistance")
+
+    psi_flat = np.asarray(psi, dtype=np.float64).reshape(-1, order="C")
+    assert psi_flat.size == 4096, f"Expected 4096 values, got {psi_flat.size}"
+
     with open(path, "w") as f:
         f.write("FoamFile\n{\n")
         f.write("    version     2.0;\n")
         f.write("    format      ascii;\n")
         f.write("    class       scalarList;\n")
-        f.write("    location    \"constant/hfdibGeometry\";\n")
+        f.write('    location    "constant/hfdibGeometry";\n')
         f.write("    object      signedDistance;\n")
         f.write("}\n\n")
-        f.write(f"{len(psi)}\n(\n")
-        for v in psi:
+        f.write(f"{psi_flat.size}\n(\n")
+        for v in psi_flat:
             f.write(f"{v:.16e}\n")
         f.write(")\n")
 

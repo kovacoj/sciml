@@ -32,20 +32,31 @@ from dafoam_residual_function import dafoam_residual  # noqa: E402
 from pinn.flux_assembly import FluxAssembler  # noqa: E402
 from pinn.state_assembly import StateAssembler  # noqa: E402
 from pinn.losses import ResidualLossConfig, weighted_residual_loss_torch, weighted_residual_loss_numpy  # noqa: E402
-from state_layout import build_state_layout  # noqa: E402
+from state_layout import build_isothermal_layout  # noqa: E402
 from unet.factory import build_model  # noqa: E402
 from unet.boundary import BoundaryEnforcer  # noqa: E402
 
 
-def load_dataset_samples(dataset_dir: str, mode: str):
-    """Load topology samples from prepared dataset."""
+def load_dataset_samples(dataset_dir: str, mode: str, split: str = "train"):
+    """Load topology samples from prepared dataset, respecting train/test split."""
     dataset_dir = Path(dataset_dir)
     if not dataset_dir.is_absolute():
         dataset_dir = Path(PROJECT_ROOT) / dataset_dir
 
+    # Load splits
+    splits_path = dataset_dir / "splits.json"
+    if splits_path.exists():
+        with open(splits_path) as f:
+            splits = json.load(f)
+        valid_ids = set(splits.get(split, []))
+    else:
+        valid_ids = None  # load all
+
     samples = []
     for topo_dir in sorted(dataset_dir.iterdir()):
         if not topo_dir.is_dir() or not topo_dir.name.startswith("topology_"):
+            continue
+        if valid_ids is not None and topo_dir.name not in valid_ids:
             continue
         lam = np.load(topo_dir / "lambda.npy")
         sample = {
@@ -128,15 +139,17 @@ def train_physics(model, samples, optimizer, device, epochs, dataset_dir, worker
     loss_config = load_loss_config(dataset_dir)
 
     # Build per-topology context
+    from pinn.mesh_metadata import MeshMetadata
+    mesh_meta = MeshMetadata.load(
+        str(Path(args.dataset if os.path.isabs(args.dataset) else os.path.join(PROJECT_ROOT, args.dataset)) / "shared" / "mesh_metadata.npz"),
+        str(Path(args.dataset if os.path.isabs(args.dataset) else os.path.join(PROJECT_ROOT, args.dataset)) / "shared" / "mesh_metadata.json"),
+    )
+    layout = build_isothermal_layout(mesh_meta.n_cells, mesh_meta.n_faces)
+
     contexts = []
     for s in samples:
         case_dir = s["case_dir"]
         lam_tensor = torch.from_numpy(s["lambda"]).unsqueeze(0).unsqueeze(0).to(device)
-
-        # Build mesh metadata from the case
-        from pinn.mesh_metadata import build_from_polymesh
-        mesh_meta = build_from_polymesh(case_dir)
-        layout = build_state_layout("isothermal")
 
         flux_asm = FluxAssembler(
             owners=mesh_meta.owners,
@@ -165,11 +178,10 @@ def train_physics(model, samples, optimizer, device, epochs, dataset_dir, worker
     # Build PreparedTopology objects for the pool
     prepared = []
     for ctx in contexts:
-        layout = build_state_layout("isothermal")
         prepared.append(PreparedTopology(
             topology_id=ctx["topology_id"],
             case_dir=ctx["case_dir"],
-            features=ctx["lam"].squeeze(0),  # not used by pool
+            features=ctx["lam"].squeeze(0),
             warm_state=torch.from_numpy(base_state_np),
             loss_config=loss_config,
             state_assembler=ctx["state_asm"],
@@ -230,7 +242,7 @@ def main() -> int:
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--device", default="cpu")
-    ap.add_argument("--output", default=None)
+    ap.add_argument("--split", default="train", choices=["train", "test"])
     args = ap.parse_args()
 
     if args.device != "cpu":
@@ -242,7 +254,7 @@ def main() -> int:
     torch.manual_seed(42)
     torch.set_default_dtype(torch.float64)
 
-    samples = load_dataset_samples(args.dataset, args.mode)
+    samples = load_dataset_samples(args.dataset, args.mode, args.split)
     print(f"[train] {len(samples)} samples, mode={args.mode}, arch={args.architecture}")
 
     model_kwargs = {}

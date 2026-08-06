@@ -22,3 +22,11 @@ __pycache__/
 .venv/
 
 dafoam_pytorch_hfdib_demo/cases/*/constant/polyMesh/
+
+prepared_topologies/
+outputs/shared_hfdib/
+**/constant/polyMesh/
+**/constant/hfdibGeometry/
+**/warm_state_k8.npy
+**/features.npy
+**/checkpoint*.pt

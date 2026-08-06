@@ -76,6 +76,23 @@ def hfdib_options(case_dir: str) -> dict:
     return opts
 
 
+def hfdib_signed_distance_options(
+    case_dir: str,
+    geometry_file: str = "constant/hfdibGeometry/signedDistance",
+) -> dict:
+    """daOptions for topology-conditioned HFDIB using a signed-distance field."""
+    opts = isothermal_channel_options(case_dir)
+    opts["fvSource"] = {
+        "obstacle": {
+            "type": "hfdibSignedDistance",
+            "geometryFile": geometry_file,
+            "solidSign": -1,
+            "d1Factor": 1.5,
+        }
+    }
+    return opts
+
+
 def write_json(path: str, payload) -> None:
     with open(path, "w") as f:
         json.dump(payload, f, indent=2, default=str)

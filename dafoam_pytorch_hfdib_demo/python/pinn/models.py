@@ -24,17 +24,16 @@ class CoordinateMLP(NeuralFieldModel):
         layers = [nn.Linear(input_size, width), nn.Tanh()]
         for _ in range(hidden_layers - 1):
             layers.extend([nn.Linear(width, width), nn.Tanh()])
-        layers.append(nn.Linear(width, 3))
+        self.output_layer = nn.Linear(width, 3)
+        layers.append(self.output_layer)
         self.net = nn.Sequential(*layers)
         self._zero_init_output()
 
     def _zero_init_output(self):
-        last = self.net[-1]
-        nn.init.zeros_(last.weight)
-        nn.init.zeros_(last.bias)
+        nn.init.zeros_(self.output_layer.weight)
+        nn.init.zeros_(self.output_layer.bias)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        # features: [n_cells, input_size]
         return self.net(features)
 
 
@@ -54,27 +53,25 @@ class CompactDilatedCNN(NeuralFieldModel):
         layers = []
         prev_ch = in_channels
         for d in dilations:
-            padding = d  # for kernel_size=3, padding=dilation maintains size
+            padding = d
             layers.extend([
                 nn.Conv2d(prev_ch, width, kernel_size=3, padding=padding, dilation=d),
                 nn.Tanh(),
             ])
             prev_ch = width
-        layers.append(nn.Conv2d(width, 3, kernel_size=1))
+        self.output_layer = nn.Conv2d(width, 3, kernel_size=1)
+        layers.append(self.output_layer)
         self.net = nn.Sequential(*layers)
         self._zero_init_output()
 
     def _zero_init_output(self):
-        last = self.net[-1]
-        nn.init.zeros_(last.weight)
-        nn.init.zeros_(last.bias)
+        nn.init.zeros_(self.output_layer.weight)
+        nn.init.zeros_(self.output_layer.bias)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        # features: [batch, C, H, W] or [C, H, W]
         if features.dim() == 3:
             features = features.unsqueeze(0)
-        out = self.net(features)  # [batch, 3, H, W]
-        # reshape to [n_cells, 3] (batch=1 case)
+        out = self.net(features)
         b, c, h, w = out.shape
         return out.permute(0, 2, 3, 1).reshape(-1, 3) if b == 1 \
             else out.permute(0, 2, 3, 1).reshape(b, -1, 3)

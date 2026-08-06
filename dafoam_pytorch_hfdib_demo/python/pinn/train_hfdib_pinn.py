@@ -46,7 +46,7 @@ from pinn.losses import (  # noqa: E402
     ResidualLossConfig, weighted_residual_loss_torch,
     weighted_residual_loss_numpy, compute_initial_weights,
 )
-from pinn.gradient_check import gradient_check  # noqa: E402
+from pinn.gradient_check import gradient_check, create_probe_model, verify_hidden_gradients  # noqa: E402
 
 
 def main() -> int:
@@ -206,12 +206,19 @@ def main() -> int:
 
     print("[pinn] running parameter gradient check (Check B: probe model)...",
           flush=True)
-    # clone model and perturb final layer
-    import copy
-    probe_model = copy.deepcopy(model)
-    last_param = list(probe_model.parameters())[-1]
-    with torch.no_grad():
-        last_param.add_(torch.randn_like(last_param) * 1e-4)
+    # clone model and perturb output-layer WEIGHT (not just bias)
+    probe_model = create_probe_model(model, scale=1e-4)
+
+    # verify hidden gradients are activated
+    probe_info = verify_hidden_gradients(
+        probe_model, features, bridge, state_asm,
+        u_ids_t, p_ids_t, phi_ids_t, config)
+    print(f"[pinn] probe: hidden_grad_norm={probe_info['hidden_grad_norm']:.2e} "
+          f"output_grad_norm={probe_info['output_grad_norm']:.2e} "
+          f"activated={probe_info['hidden_activated']}")
+    if not probe_info["hidden_activated"]:
+        raise RuntimeError("Probe model did not activate hidden-parameter gradients")
+
     gc_b = gradient_check(
         probe_model, features, bridge, state_asm,
         u_ids_t, p_ids_t, phi_ids_t, config,

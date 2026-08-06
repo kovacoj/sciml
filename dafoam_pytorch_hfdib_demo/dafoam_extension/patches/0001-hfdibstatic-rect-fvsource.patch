@@ -1,3 +1,610 @@
+diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.C b/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.C
+new file mode 100644
+index 0000000..0d920c3
+--- /dev/null
++++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.C
+@@ -0,0 +1,509 @@
++/*---------------------------------------------------------------------------*\
++    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: signed-distance HFDIB)
++\*---------------------------------------------------------------------------*/
++
++#include "DAFvSourceHFDIBSignedDistance.H"
++#include "DAMacroFunctions.H"
++#include "fvm.H"
++#include "fvc.H"
++#include "surfaceFields.H"
++#include "IOMRFZoneListDF.H"
++#include "Pstream.H"
++#include "IFstream.H"
++#include <cmath>
++#include <algorithm>
++#include <fstream>
++
++namespace Foam
++{
++
++defineTypeNameAndDebug(DAFvSourceHFDIBSignedDistance, 0);
++addToRunTimeSelectionTable(DAFvSource, DAFvSourceHFDIBSignedDistance, dictionary);
++
++DAFvSourceHFDIBSignedDistance::DAFvSourceHFDIBSignedDistance(
++    const word modelType,
++    const fvMesh& mesh,
++    const DAOption& daOption,
++    const DAModel& daModel,
++    const DAIndex& daIndex)
++    : DAFvSource(modelType, mesh, daOption, daModel, daIndex),
++      geometryFile_("constant/hfdibGeometry/signedDistance"),
++      solidSign_(-1),
++      d1Factor_(1.5),
++      built_(false),
++      writeGeometryManifest_(true),
++      writeDiagnostics_(false)
++{
++    const dictionary& allOptions = daOption.getAllOptions();
++    if (allOptions.subDict("fvSource").toc().size() != 0)
++    {
++        const word name = allOptions.subDict("fvSource").toc()[0];
++        const dictionary& sub = allOptions.subDict("fvSource").subDict(name);
++
++        if (sub.found("geometryFile"))
++        {
++            word tmp;
++            sub.readEntry<word>("geometryFile", tmp);
++            geometryFile_ = tmp;
++        }
++        if (sub.found("solidSign"))
++        {
++            scalar tmp = sub.getScalar("solidSign");
++            scalar solidSignScalar = sub.getScalar("solidSign");
++            double solidSignDouble = 0;
++            assignValueCheckAD(solidSignDouble, solidSignScalar);
++            solidSign_ = static_cast<int>(solidSignDouble);
++        }
++        if (sub.found("d1Factor"))
++        {
++            scalar tmp = sub.getScalar("d1Factor");
++            assignValueCheckAD(d1Factor_, tmp);
++        }
++        writeGeometryManifest_ = sub.lookupOrDefault<label>("writeGeometryManifest", 1);
++        writeDiagnostics_ = sub.lookupOrDefault<label>("writeDiagnostics", 0);
++    }
++    Info << "DAFvSourceHFDIBSignedDistance: geometryFile=" << geometryFile_
++         << " solidSign=" << solidSign_ << " d1Factor=" << d1Factor_ << endl;
++}
++
++void DAFvSourceHFDIBSignedDistance::buildGeometry()
++{
++    if (built_) return;
++
++    const volVectorField::Internal& C = mesh_.C();
++    const scalarField& V = mesh_.V();
++    const label nCells = mesh_.nCells();
++    const auto& cellPoints = mesh_.cellPoints();
++    const pointField& pts = mesh_.points();
++
++    // Read signed-distance field from file
++    IFstream is(geometryFile_);
++    if (!is.good())
++    {
++        FatalErrorInFunction
++            << "Cannot open signed-distance file: " << geometryFile_
++            << exit(FatalError);
++    }
++
++    // Parse scalarList format: count then values
++    token t(is);
++    label nValues = 0;
++    if (t.isLabel())
++    {
++        nValues = t.labelToken();
++    }
++    else if (t.isPunctuation())
++    {
++        // might be ( directly
++        is.putBack(t);
++        nValues = nCells;
++    }
++    else
++    {
++        FatalErrorInFunction
++            << "Expected count or '(' in " << geometryFile_
++            << exit(FatalError);
++    }
++
++    if (nValues != nCells)
++    {
++        FatalErrorInFunction
++            << "Signed-distance file has " << nValues
++            << " values but mesh has " << nCells << " cells"
++            << exit(FatalError);
++    }
++
++    // Read values directly - skip the opening paren
++    std::vector<double> psiValues(nValues);
++    // Read values: read as token then extract double value
++    for (label i = 0; i < nValues; ++i)
++    {
++        token tok(is);
++        double val = 0;
++        if (tok.isDoubleScalar())
++        {
++            val = tok.doubleScalarToken();
++        }
++        else if (tok.isFloatScalar())
++        {
++            val = static_cast<double>(tok.floatScalarToken());
++        }
++        else if (tok.isLabel())
++        {
++            val = static_cast<double>(tok.labelToken());
++        }
++        psiValues[i] = val;
++    }
++
++    lambda_.assign(nCells, 0.0);
++    chi_.assign(nCells, 0.0);
++    sigma_.assign(nCells, 0.0);
++    ifCells_.clear(); ifCoeff_.clear();
++    ifSrcCells_.clear(); ifSrcW_.clear();
++
++    // Store per-interface geometry
++    std::vector<double> ifSurfX_, ifSurfY_, ifSurfZ_;
++    std::vector<double> ifNrmX_, ifNrmY_, ifNrmZ_;
++    std::vector<double> ifD1_, ifHEff_, ifCX_, ifCY_, ifCZ_;
++
++    label nSolid = 0, nIface = 0;
++
++    // Pass 1: classify cells using psi
++    for (label cellI = 0; cellI < nCells; ++cellI)
++    {
++        double cx, cy, cz;
++        assignValueCheckAD(cx, C[cellI][0]);
++        assignValueCheckAD(cy, C[cellI][1]);
++        assignValueCheckAD(cz, C[cellI][2]);
++        double vc;
++        assignValueCheckAD(vc, V[cellI]);
++
++        double psi = psiValues[cellI];
++        sigma_[cellI] = psi;
++
++        // Classify: solid if psi * solidSign_ > 0 (solidSign=-1 => psi<0 => solid)
++        bool isSolid = (psi * solidSign_ > 0.0);
++        bool isFluid = (psi * solidSign_ < 0.0);
++
++        // Check vertex classification for interface detection
++        const labelList& cp = cellPoints[cellI];
++        label nIn = 0;
++        forAll(cp, piI)
++        {
++            label pi = cp[piI];
++            // For vertex-based classification, we need psi at vertices.
++            // Since we only have cell-center psi, use the cell-center value
++            // for all vertices of that cell. This is a simplification
++            // valid for fine enough meshes.
++            if (isSolid) ++nIn;
++        }
++        const bool mixed = (!isSolid && !isFluid); // psi ~ 0
++
++        // Better: use distance threshold for interface
++        // For pseudo-2D, use cbrt(V) as the HFDIB scale (same as StaticRect)
++        const double hEff = std::cbrt(vc);
++
++        bool isInterface = (std::abs(psi) < 1.5 * hEff);
++
++        if (isSolid)
++        {
++            lambda_[cellI] = 1.0;
++        }
++        else if (isInterface)
++        {
++            lambda_[cellI] = 0.5 * (1.0 - std::tanh(psi / (1.5 * hEff)));
++        }
++        else
++        {
++            lambda_[cellI] = 0.0;
++        }
++        chi_[cellI] = std::ceil(lambda_[cellI]);
++
++        if (isInterface)
++        {
++            ++nIface;
++            const double d1 = d1Factor_ * hEff;
++            ifCells_.push_back(cellI);
++            ifCoeff_.push_back(clampd(std::abs(psi) / d1, 0.0, 1.0));
++
++            // Compute surface point and normal from psi gradient
++            // For simplicity, use the psi value and cell center direction
++            // A proper implementation would compute grad(psi) at the cell
++            // For now, approximate normal as direction from cell to nearest
++            // zero-contour using the psi sign
++            double qx = cx, qy = cy, qz = cz;
++            double nx = 0, ny = 0, nz = 0;
++
++            // Compute gradient via finite differences on the structured grid
++            // This requires knowing neighbor cells; for now use a simple
++            // approach: normalize the psi gradient estimated from neighbors
++            // For the structured mesh, find neighbors via cellPoints
++            double gradX = 0, gradY = 0, gradZ = 0;
++            int nNbr = 0;
++            // Use mesh face connectivity to find neighbors
++            const labelList& cellFaces = mesh_.cells()[cellI];
++            forAll(cellFaces, cfI)
++            {
++                label faceI = cellFaces[cfI];
++                label own = mesh_.owner()[faceI];
++                label nei = -1;
++                if (faceI < mesh_.nInternalFaces())
++                {
++                    nei = mesh_.neighbour()[faceI];
++                }
++                label otherCell = (own == cellI) ? nei : -1;
++                if (otherCell < 0) continue;
++
++                double cxOther, cyOther, czOther;
++                assignValueCheckAD(cxOther, C[otherCell][0]);
++                assignValueCheckAD(cyOther, C[otherCell][1]);
++                assignValueCheckAD(czOther, C[otherCell][2]);
++                double dx = cxOther - cx;
++                double dy = cyOther - cy;
++                double dz = czOther - cz;
++                double dpsi = psiValues[otherCell] - psi;
++
++                double dist2 = dx*dx + dy*dy + dz*dz;
++                if (dist2 > 1e-20)
++                {
++                    gradX += dpsi * dx / dist2;
++                    gradY += dpsi * dy / dist2;
++                    gradZ += dpsi * dz / dist2;
++                    nNbr++;
++                }
++            }
++            if (nNbr > 0)
++            {
++                gradX /= nNbr; gradY /= nNbr; gradZ /= nNbr;
++            }
++            double gnorm = std::sqrt(gradX*gradX + gradY*gradY + gradZ*gradZ);
++            if (gnorm > 1e-15)
++            {
++                nx = gradX / gnorm; ny = gradY / gnorm; nz = gradZ / gnorm;
++            }
++
++            // Surface point: project cell center onto psi=0 contour
++            // Approximate: x_surf = x_cell - psi * grad/|grad|^2
++            double gsq = gradX*gradX + gradY*gradY + gradZ*gradZ;
++            if (gsq > 1e-20)
++            {
++                qx = cx - psi * gradX / gsq;
++                qy = cy - psi * gradY / gsq;
++                qz = cz - psi * gradZ / gsq;
++            }
++
++            ifSurfX_.push_back(qx); ifSurfY_.push_back(qy); ifSurfZ_.push_back(qz);
++            ifNrmX_.push_back(nx); ifNrmY_.push_back(ny); ifNrmZ_.push_back(nz);
++            ifD1_.push_back(d1); ifHEff_.push_back(hEff);
++            ifCX_.push_back(cx); ifCY_.push_back(cy); ifCZ_.push_back(cz);
++        }
++        if (lambda_[cellI] >= 1.0) ++nSolid;
++    }
++
++    // Pass 2: construct stencils using complete chi_ array
++    for (std::size_t i = 0; i < ifCells_.size(); ++i)
++    {
++        const double hEff = ifHEff_[i];
++        const double d1 = ifD1_[i];
++        const double px = ifSurfX_[i] + d1 * ifNrmX_[i];
++        const double py = ifSurfY_[i] + d1 * ifNrmY_[i];
++        const double pz = ifSurfZ_[i] + d1 * ifNrmZ_[i];
++
++        std::vector<label> srcs;
++        std::vector<double> ws;
++        double wsum = 0.0;
++        for (double rMult = 2.5; rMult <= 10.0; rMult *= 2.0)
++        {
++            srcs.clear(); ws.clear(); wsum = 0.0;
++            const double rMax = rMult * hEff;
++            for (label c2 = 0; c2 < nCells; ++c2)
++            {
++                if (chi_[c2] > 0.0) continue;
++                double ux_, uy_, uz_;
++                assignValueCheckAD(ux_, C[c2][0]);
++                assignValueCheckAD(uy_, C[c2][1]);
++                assignValueCheckAD(uz_, C[c2][2]);
++                const double rx = ux_ - px, ry = uy_ - py, rz = uz_ - pz;
++                const double r2 = rx * rx + ry * ry + rz * rz;
++                if (r2 > rMax * rMax) continue;
++                const double w = 1.0 / (r2 + 1e-30);
++                srcs.push_back(c2);
++                ws.push_back(w);
++                wsum += w;
++            }
++            if (!srcs.empty()) break;
++        }
++
++        if (srcs.empty())
++        {
++            FatalErrorInFunction
++                << "No fluid-side interpolation stencil for interface cell "
++                << ifCells_[i] << "\n"
++                << "  centre: (" << ifCX_[i] << " " << ifCY_[i] << " " << ifCZ_[i] << ")\n"
++                << "  d1: " << d1 << "\n"
++                << "  search radius exhausted at 10*hEff = " << 10.0 * hEff
++                << exit(FatalError);
++        }
++
++        for (auto& w : ws) w /= wsum;
++        ifSrcCells_.push_back(srcs);
++        ifSrcW_.push_back(ws);
++    }
++
++    // Consistency checks
++    if (nSolid == 0)
++    {
++        FatalErrorInFunction << "Zero solid cells" << exit(FatalError);
++    }
++    if (nIface == 0)
++    {
++        FatalErrorInFunction << "Zero interface cells" << exit(FatalError);
++    }
++
++    Info << "DAFvSourceHFDIBSignedDistance: cells " << nCells
++         << ", solid " << nSolid << ", interface " << nIface << endl;
++    built_ = true;
++    writeManifest();
++}
++
++void DAFvSourceHFDIBSignedDistance::writeManifest() const
++{
++    if (!writeGeometryManifest_) return;
++    if (!Pstream::master()) return;
++
++    fileName dir = "postProcessing/hfdibGeometry";
++    Foam::mkDir(dir);
++
++    std::ofstream cellsOs((dir / "geometry.csv").c_str());
++    cellsOs << "cell_id,cx,cy,cz,lambda,chi,sigma,is_interface,"
++            << "surface_x,surface_y,surface_z,"
++            << "normal_x,normal_y,normal_z,"
++            << "interpolation_coefficient\n";
++
++    const volVectorField::Internal& C = mesh_.C();
++    const label nCells = mesh_.nCells();
++    std::size_t ifIdx = 0;
++    for (label c = 0; c < nCells; ++c)
++    {
++        double cx, cy, cz;
++        assignValueCheckAD(cx, C[c][0]);
++        assignValueCheckAD(cy, C[c][1]);
++        assignValueCheckAD(cz, C[c][2]);
++
++        bool isIface = false;
++        double coef = 0.0;
++        double sx = 0, sy = 0, sz = 0, nx = 0, ny = 0, nz = 0;
++        if (ifIdx < ifCells_.size() && ifCells_[ifIdx] == c)
++        {
++            isIface = true;
++            coef = ifCoeff_[ifIdx];
++            ++ifIdx;
++        }
++
++        cellsOs << c << "," << cx << "," << cy << "," << cz << ","
++                << lambda_[c] << "," << chi_[c] << "," << sigma_[c] << ","
++                << (isIface ? 1 : 0) << ","
++                << sx << "," << sy << "," << sz << ","
++                << nx << "," << ny << "," << nz << ","
++                << coef << "\n";
++    }
++    cellsOs.close();
++
++    std::ofstream stenOs((dir / "stencils.json").c_str());
++    stenOs << "[\n";
++    for (std::size_t i = 0; i < ifCells_.size(); ++i)
++    {
++        stenOs << "  {\"cell_id\": " << ifCells_[i]
++               << ", \"source_cells\": [";
++        for (std::size_t j = 0; j < ifSrcCells_[i].size(); ++j)
++        {
++            if (j > 0) stenOs << ", ";
++            stenOs << ifSrcCells_[i][j];
++        }
++        stenOs << "], \"source_weights\": [";
++        for (std::size_t j = 0; j < ifSrcW_[i].size(); ++j)
++        {
++            if (j > 0) stenOs << ", ";
++            stenOs << ifSrcW_[i][j];
++        }
++        stenOs << "]}";
++        if (i + 1 < ifCells_.size()) stenOs << ",";
++        stenOs << "\n";
++    }
++    stenOs << "]\n";
++    stenOs.close();
++    Info << "DAFvSourceHFDIBSignedDistance: manifest written to "
++         << dir << endl;
++}
++
++void DAFvSourceHFDIBSignedDistance::calcFvSource(volVectorField& fvSource)
++{
++    if (!built_) buildGeometry();
++
++    volVectorField& U = const_cast<volVectorField&>(
++        mesh_.thisDb().lookupObject<volVectorField>("U"));
++    volScalarField& p = const_cast<volScalarField&>(
++        mesh_.thisDb().lookupObject<volScalarField>("p"));
++    surfaceScalarField& phi = const_cast<surfaceScalarField&>(
++        mesh_.thisDb().lookupObject<surfaceScalarField>("phi"));
++    volScalarField& alphaPorosity = const_cast<volScalarField&>(
++        mesh_.thisDb().lookupObject<volScalarField>("alphaPorosity"));
++    const IOMRFZoneListDF& MRF = mesh_.thisDb().lookupObject<IOMRFZoneListDF>(
++        "MRFProperties");
++    DATurbulenceModel& daTurb =
++        const_cast<DATurbulenceModel&>(daModel_.getDATurbulenceModel());
++
++    fvVectorMatrix UEqn(
++        fvm::div(phi, U)
++        + fvm::Sp(alphaPorosity, U)
++        + MRF.DDt(U)
++        + daTurb.divDevReff(U));
++    fvVectorMatrix& UEqnR = UEqn;
++
++    volVectorField Uib("UibHFDIB", U);
++    for (std::size_t i = 0; i < ifCells_.size(); ++i)
++    {
++        const label c = ifCells_[i];
++        vector u1(Zero);
++        for (std::size_t j = 0; j < ifSrcCells_[i].size(); ++j)
++        {
++            u1 += ifSrcW_[i][j] * U[ifSrcCells_[i][j]];
++        }
++        Uib[c] = ifCoeff_[i] * u1;
++    }
++    for (label c = 0; c < mesh_.nCells(); ++c)
++    {
++        if (lambda_[c] >= 1.0) Uib[c] = vector::zero;
++    }
++
++    const volVectorField Mib = UEqnR & Uib;
++    const volVectorField gradP = fvc::grad(p);
++
++    forAll(fvSource, cellI)
++    {
++        if (chi_[cellI] > 0.0)
++            fvSource[cellI] = Mib[cellI] + gradP[cellI];
++        else
++            fvSource[cellI] = vector::zero;
++    }
++    fvSource.correctBoundaryConditions();
++
++    if (writeDiagnostics_)
++    {
++        volScalarField lambdaField(
++            IOobject("lambdaHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            mesh_, dimensionedScalar("zero", dimless, 0));
++        volScalarField chiField(
++            IOobject("chiHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            mesh_, dimensionedScalar("zero", dimless, 0));
++        volScalarField sigmaField(
++            IOobject("sigmaHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            mesh_, dimensionedScalar("zero", dimLength, 0));
++        forAll(lambdaField, c)
++        {
++            lambdaField[c] = lambda_[c];
++            chiField[c] = chi_[c];
++            sigmaField[c] = sigma_[c];
++        }
++        lambdaField.write();
++        chiField.write();
++        sigmaField.write();
++
++        volVectorField UibDiag(
++            IOobject("UibHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            Uib);
++        UibDiag.write();
++
++        volVectorField fvSourceDiag(
++            IOobject("fvSourceHFDIB", mesh_.time().timeName(), mesh_,
++                     IOobject::NO_READ, IOobject::AUTO_WRITE),
++            fvSource);
++        fvSourceDiag.write();
++    }
++}
++
++} // End namespace Foam
+diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.H b/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.H
+new file mode 100644
+index 0000000..0653785
+--- /dev/null
++++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.H
+@@ -0,0 +1,86 @@
++/*---------------------------------------------------------------------------*\
++    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: signed-distance HFDIB)
++
++    Description:
++        Static immersed-boundary momentum source driven by a precomputed
++        signed-distance field read from an OpenFOAM scalarList file.
++
++        The signed-distance field psi is read from:
++            constant/hfdibGeometry/signedDistance
++
++        Convention: psi > 0 fluid, psi < 0 solid.
++        All HFDIB forcing logic is identical to DAFvSourceHFDIBStaticRect;
++        only the geometry source differs (file vs analytic rectangle).
++\*---------------------------------------------------------------------------*/
++
++#ifndef DAFvSourceHFDIBSignedDistance_H
++#define DAFvSourceHFDIBSignedDistance_H
++
++#include "DAFvSource.H"
++#include "addToRunTimeSelectionTable.H"
++#include <vector>
++
++namespace Foam
++{
++
++class DAFvSourceHFDIBSignedDistance
++    : public DAFvSource
++{
++
++private:
++    DAFvSourceHFDIBSignedDistance(const DAFvSourceHFDIBSignedDistance&);
++    void operator=(const DAFvSourceHFDIBSignedDistance&);
++
++    /// geometry file path (relative to case)
++    word geometryFile_;
++
++    /// solid sign convention (psi < solidSign => solid)
++    int solidSign_;
++
++    /// interpolation offset multiplier
++    double d1Factor_;
++
++    /// per-cell passive geometry fields
++    std::vector<double> lambda_;
++    std::vector<double> chi_;
++    std::vector<double> sigma_;
++
++    /// interface-cell stencil data
++    std::vector<label> ifCells_;
++    std::vector<double> ifCoeff_;
++    std::vector<std::vector<label>> ifSrcCells_;
++    std::vector<std::vector<double>> ifSrcW_;
++
++    bool built_;
++    bool writeGeometryManifest_;
++    bool writeDiagnostics_;
++
++    void buildGeometry();
++    void writeManifest() const;
++
++    static inline double clampd(double v, double lo, double hi)
++    {
++        return v < lo ? lo : (v > hi ? hi : v);
++    }
++
++public:
++    TypeName("hfdibSignedDistance");
++
++    DAFvSourceHFDIBSignedDistance(
++        const word modelType,
++        const fvMesh& mesh,
++        const DAOption& daOption,
++        const DAModel& daModel,
++        const DAIndex& daIndex);
++
++    virtual ~DAFvSourceHFDIBSignedDistance() {}
++
++    virtual void calcFvSource(volVectorField& fvSource);
++
++public:
++    const std::vector<double>& lambda() const { return lambda_; }
++};
++
++} // End namespace Foam
++
++#endif
 diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C b/src/adjoint/DAFvSource/DAFvSourceHFDIBStaticRect.C
 new file mode 100644
 index 0000000..72456fb
@@ -625,14 +1232,15 @@ index 0000000..0e81ded
 +
 +#endif
 diff --git a/src/adjoint/Make/files b/src/adjoint/Make/files
-index 87385b2..9d01ad0 100755
+index 87385b2..3f1974a 100755
 --- a/src/adjoint/Make/files
 +++ b/src/adjoint/Make/files
-@@ -50,6 +50,7 @@ DAFvSource/DAFvSourceActuatorLine.C
+@@ -50,6 +50,8 @@ DAFvSource/DAFvSourceActuatorLine.C
  DAFvSource/DAFvSourceActuatorPoint.C
  DAFvSource/DAFvSourceHeatSource.C
  DAFvSource/DAFvSourceUniformPressureGradient.C
 +DAFvSource/DAFvSourceHFDIBStaticRect.C
++DAFvSource/DAFvSourceHFDIBSignedDistance.C
  
  DAInput/DAInput.C
  DAInput/DAInputVolCoord.C

@@ -1,6 +1,6 @@
 {
   "topology_id": "topology_003",
-  "residual_l2": 0.07455262092054551,
+  "residual_l2": 0.13120671120955255,
   "n_cells": 4096,
   "grid_size": [
     64,

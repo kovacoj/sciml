@@ -439,6 +439,79 @@ def write_signed_distance_file(case_dir: str, psi: np.ndarray):
         f.write(")\n")
 
 
+def _fluid_components(mask: np.ndarray) -> tuple:
+    """Label 4-connected fluid components. Returns (labels, n_components)."""
+    from scipy.ndimage import label
+    fluid = (mask == 0)
+    structure = np.array([[0,1,0],[1,1,1],[0,1,0]])
+    labels, n = label(fluid, structure=structure)
+    return labels, n
+
+
+def _ports_connected(mask: np.ndarray) -> bool:
+    """Check that all four port cells are in the same fluid component."""
+    ports = [(1, 0), (6, 0), (1, 7), (6, 7)]
+    for r, c in ports:
+        if mask[r, c] != 0:
+            return False
+    labels, n = _fluid_components(mask)
+    port_labels = set(labels[r, c] for r, c in ports)
+    return len(port_labels) == 1 and port_labels != {0}
+
+
+def _fluid_fraction(mask: np.ndarray) -> float:
+    return float(np.sum(mask == 0)) / mask.size
+
+
+def validate_topologies(topologies: dict):
+    """Run all programmatic checks on topology masks."""
+    for tid, mask in topologies.items():
+        assert mask.shape == (8, 8), f"{tid}: shape {mask.shape}"
+        assert _ports_connected(mask), \
+            f"{tid}: port cells not in same connected fluid component"
+        ff = _fluid_fraction(mask)
+        assert 0.15 <= ff <= 0.45, \
+            f"{tid}: fluid fraction {ff:.3f} outside [0.15, 0.45]"
+        assert not any(np.all(mask[row, :] == 0) for row in range(8)), \
+            f"{tid}: row is entirely fluid (straight bypass)"
+        labels, n = _fluid_components(mask)
+        assert n == 1, \
+            f"{tid}: {n} fluid components (expected 1)"
+        print(f"[gen] {tid}: fluid_fraction={ff:.3f}, connected=True, "
+              f"ports_ok=True")
+
+
+def generate_topology_preview(topologies: dict, topo_dir: Path):
+    """Save a figure showing all masks (8x8) and their lambda fields (64x64)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    n = len(topologies)
+    fig, axes = plt.subplots(2, n, figsize=(3 * n, 7))
+
+    for col, (tid, mask) in enumerate(topologies.items()):
+        axes[0, col].imshow(mask, cmap="gray_r", vmin=0, vmax=1)
+        axes[0, col].set_title(tid, fontsize=10)
+        axes[0, col].axis("off")
+
+        psi = mask_to_signed_distance_64(mask)
+        h = np.sqrt(DX * DY)
+        lam = 0.5 * (1.0 - np.tanh(psi / (1.5 * h)))
+        axes[1, col].imshow(lam, cmap="gray_r", vmin=0, vmax=1)
+        axes[1, col].set_title(f"{tid} lambda", fontsize=9)
+        axes[1, col].axis("off")
+
+    axes[0, 0].set_ylabel("Mask (8x8)", fontsize=11)
+    axes[1, 0].set_ylabel("Lambda (64x64)", fontsize=11)
+
+    plt.tight_layout()
+    out = topo_dir / "topology_preview.png"
+    plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"[gen] Preview saved to {out}")
+
+
 def main():
     """Generate the four-port case template and topology dataset."""
     project_root = Path(__file__).resolve().parents[2]
@@ -450,52 +523,78 @@ def main():
     print(f"[gen] Case created at {case_dir}")
     print(f"[gen] Run blockMesh + checkMesh to verify")
 
-    # Also generate a few topology masks
+    # Also generate topology masks — article-like channel networks
     topo_dir = project_root / "topologies" / "four_port_64"
     topo_dir.mkdir(parents=True, exist_ok=True)
 
+    # Convention: 1=solid, 0=fluid. Row 0 = bottom, Row 7 = top.
+    # Ports: (1,0), (6,0) = inlets; (1,7), (6,7) = outlets. All must be 0.
+    # All fluid cells must form a single connected component (4-connectivity).
+    # Fluid fraction must be 15-45%. No row may be entirely fluid.
     topologies = {
         "topology_000": np.array([
-            [1,1,1,0,0,1,1,1],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [1,1,1,1,1,1,1,0],
-            [0,1,1,1,1,1,1,1],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [1,1,1,0,0,1,1,1],
+            [1,1,1,1,1,1,1,1],
+            [0,0,0,1,1,0,0,0],
+            [1,1,0,0,1,1,0,1],
+            [1,1,1,0,0,0,0,1],
+            [1,0,0,0,0,1,1,1],
+            [1,0,1,1,0,1,1,1],
+            [0,0,1,1,0,0,0,0],
+            [1,1,1,1,1,1,1,1],
         ]),
         "topology_001": np.array([
-            [1,1,1,0,0,1,1,1],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,1,1,0,0,0],
-            [1,1,0,1,1,0,1,1],
-            [1,1,0,1,1,0,1,1],
-            [0,0,0,1,1,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [1,1,1,0,0,1,1,1],
+            [1,1,1,1,1,1,1,1],
+            [0,0,0,1,1,1,0,0],
+            [1,1,0,0,1,1,0,1],
+            [1,1,1,0,0,0,0,1],
+            [1,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,1],
+            [0,0,1,1,1,1,0,0],
+            [1,1,1,1,1,1,1,1],
         ]),
         "topology_002": np.array([
-            [1,1,1,0,0,1,1,1],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [1,1,0,0,0,0,1,1],
-            [1,1,0,0,0,0,1,1],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [1,1,1,0,0,1,1,1],
+            [1,1,1,1,1,1,1,1],
+            [0,0,1,1,1,1,0,0],
+            [1,0,0,1,1,1,0,1],
+            [1,1,0,0,0,0,0,1],
+            [1,1,1,0,0,0,1,1],
+            [1,0,0,0,1,0,0,1],
+            [0,0,1,0,1,1,0,0],
+            [1,1,1,1,1,1,1,1],
         ]),
         "topology_003": np.array([
-            [1,1,1,0,0,1,1,1],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,1,1,0,0],
-            [1,1,0,0,1,1,0,0],
-            [1,1,0,0,0,0,1,1],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [1,1,1,0,0,1,1,1],
+            [1,1,1,1,1,1,1,1],
+            [0,0,1,1,1,0,0,0],
+            [1,0,0,1,0,0,0,1],
+            [1,1,0,0,0,1,0,1],
+            [1,1,0,0,0,1,0,1],
+            [1,0,0,1,0,0,1,1],
+            [0,0,1,1,1,0,0,0],
+            [1,1,1,1,1,1,1,1],
+        ]),
+        "topology_004": np.array([
+            [1,1,1,1,1,1,1,1],
+            [0,0,0,1,1,1,0,0],
+            [1,1,0,0,0,1,0,1],
+            [1,1,1,1,0,0,0,1],
+            [1,1,0,0,0,1,0,1],
+            [1,0,0,1,0,1,0,1],
+            [0,0,1,1,0,1,0,0],
+            [1,1,1,1,1,1,1,1],
+        ]),
+        "topology_005": np.array([
+            [1,1,1,1,1,1,1,1],
+            [0,0,1,1,0,0,0,0],
+            [1,0,0,1,0,1,1,1],
+            [1,1,0,0,0,1,1,1],
+            [1,1,1,0,0,0,0,1],
+            [1,0,0,0,1,1,0,1],
+            [0,0,1,0,0,1,0,0],
+            [1,1,1,1,1,1,1,1],
         ]),
     }
+
+    validate_topologies(topologies)
 
     for tid, mask in topologies.items():
         td = topo_dir / tid
@@ -514,6 +613,8 @@ def main():
         }, f, indent=2)
 
     print(f"[gen] {len(topologies)} topologies written to {topo_dir}")
+
+    generate_topology_preview(topologies, topo_dir)
 
 
 if __name__ == "__main__":

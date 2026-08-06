@@ -1,9 +1,9 @@
 diff --git a/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.C b/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.C
 new file mode 100644
-index 0000000..0d920c3
+index 0000000..45390c0
 --- /dev/null
 +++ b/src/adjoint/DAFvSource/DAFvSourceHFDIBSignedDistance.C
-@@ -0,0 +1,509 @@
+@@ -0,0 +1,516 @@
 +/*---------------------------------------------------------------------------*\
 +    DAFoam  : Discrete Adjoint with OpenFOAM  (extension: signed-distance HFDIB)
 +\*---------------------------------------------------------------------------*/
@@ -16,9 +16,12 @@ index 0000000..0d920c3
 +#include "IOMRFZoneListDF.H"
 +#include "Pstream.H"
 +#include "IFstream.H"
++#include "IOList.H"
++#include "boundBox.H"
 +#include <cmath>
 +#include <algorithm>
 +#include <fstream>
++#include <array>
 +
 +namespace Foam
 +{
@@ -82,35 +85,23 @@ index 0000000..0d920c3
 +    const auto& cellPoints = mesh_.cellPoints();
 +    const pointField& pts = mesh_.points();
 +
-+    // Read signed-distance field from file
-+    IFstream is(geometryFile_);
-+    if (!is.good())
-+    {
-+        FatalErrorInFunction
-+            << "Cannot open signed-distance file: " << geometryFile_
-+            << exit(FatalError);
-+    }
++    // Read signed-distance field using OpenFOAM-native IOList<scalar>
++    // NOTE: assignValueCheckAD does not parenthesize its second argument.
++    // Never pass arithmetic expressions directly; extract AD values first.
++    IOList<scalar> signedDistanceField
++    (
++        IOobject
++        (
++            geometryFile_,
++            mesh_.time().constant(),
++            mesh_,
++            IOobject::MUST_READ,
++            IOobject::NO_WRITE,
++            false
++        )
++    );
 +
-+    // Parse scalarList format: count then values
-+    token t(is);
-+    label nValues = 0;
-+    if (t.isLabel())
-+    {
-+        nValues = t.labelToken();
-+    }
-+    else if (t.isPunctuation())
-+    {
-+        // might be ( directly
-+        is.putBack(t);
-+        nValues = nCells;
-+    }
-+    else
-+    {
-+        FatalErrorInFunction
-+            << "Expected count or '(' in " << geometryFile_
-+            << exit(FatalError);
-+    }
-+
++    const label nValues = signedDistanceField.size();
 +    if (nValues != nCells)
 +    {
 +        FatalErrorInFunction
@@ -119,25 +110,11 @@ index 0000000..0d920c3
 +            << exit(FatalError);
 +    }
 +
-+    // Read values directly - skip the opening paren
 +    std::vector<double> psiValues(nValues);
-+    // Read values: read as token then extract double value
 +    for (label i = 0; i < nValues; ++i)
 +    {
-+        token tok(is);
 +        double val = 0;
-+        if (tok.isDoubleScalar())
-+        {
-+            val = tok.doubleScalarToken();
-+        }
-+        else if (tok.isFloatScalar())
-+        {
-+            val = static_cast<double>(tok.floatScalarToken());
-+        }
-+        else if (tok.isLabel())
-+        {
-+            val = static_cast<double>(tok.labelToken());
-+        }
++        assignValueCheckAD(val, signedDistanceField[i]);
 +        psiValues[i] = val;
 +    }
 +
@@ -186,8 +163,27 @@ index 0000000..0d920c3
 +        const bool mixed = (!isSolid && !isFluid); // psi ~ 0
 +
 +        // Better: use distance threshold for interface
-+        // For pseudo-2D, use cbrt(V) as the HFDIB scale (same as StaticRect)
-+        const double hEff = std::cbrt(vc);
++        // For pseudo-2D, use sqrt(dx*dy) as the in-plane HFDIB scale
++        // (NOT V^(1/3), which depends on the artificial z extrusion)
++        // Estimate dx/dy from cell bounding box
++        const cell& thisCell = mesh_.cells()[cellI];
++        pointField cellPts = thisCell.points(mesh_.faces(), pts);
++        boundBox cellBb(cellPts, false);
++        const vector& bbMin = cellBb.min();
++        const vector& bbMax = cellBb.max();
++        double bbMinX, bbMinY, bbMinZ, bbMaxX, bbMaxY, bbMaxZ;
++        assignValueCheckAD(bbMinX, bbMin.x());
++        assignValueCheckAD(bbMinY, bbMin.y());
++        assignValueCheckAD(bbMinZ, bbMin.z());
++        assignValueCheckAD(bbMaxX, bbMax.x());
++        assignValueCheckAD(bbMaxY, bbMax.y());
++        assignValueCheckAD(bbMaxZ, bbMax.z());
++        double dx = bbMaxX - bbMinX;
++        double dy = bbMaxY - bbMinY;
++        double dz = bbMaxZ - bbMinZ;
++        std::array<double, 3> extents = {dx, dy, dz};
++        std::sort(extents.begin(), extents.end());
++        const double hEff = std::sqrt(extents[1] * extents[2]);
 +
 +        bool isInterface = (std::abs(psi) < 1.5 * hEff);
 +
@@ -237,7 +233,18 @@ index 0000000..0d920c3
 +                {
 +                    nei = mesh_.neighbour()[faceI];
 +                }
-+                label otherCell = (own == cellI) ? nei : -1;
++                label otherCell = -1;
++                if (faceI < mesh_.nInternalFaces())
++                {
++                    if (own == cellI)
++                    {
++                        otherCell = nei;
++                    }
++                    else if (nei == cellI)
++                    {
++                        otherCell = own;
++                    }
++                }
 +                if (otherCell < 0) continue;
 +
 +                double cxOther, cyOther, czOther;

@@ -47,10 +47,15 @@ def mask_to_signed_distance(
             mi = min(int(i * mask_nx / cfd_nx), mask_nx - 1)
             solid_grid[j_start + j, i_start + i] = (mask[mj, mi] == 1)
 
-    # Compute signed distance using EDT
-    dist_to_solid = distance_transform_edt(~solid_grid, sampling=(dy, dx))
-    dist_to_fluid = distance_transform_edt(solid_grid, sampling=(dy, dx))
-    psi_grid = dist_to_solid - dist_to_fluid
+    # Initialize psi to a large positive value (deep fluid) everywhere,
+    # so cells outside the design region are classified as pure fluid.
+    h_inplane = np.sqrt(dx * dy)
+    # Compute signed distance only within the design region
+    # (psi_grid already initialized to large positive value outside)
+    des_slice = (slice(j_start, j_end), slice(i_start, i_end))
+    dist_to_solid = distance_transform_edt(~solid_grid[des_slice], sampling=(dy, dx))
+    dist_to_fluid = distance_transform_edt(solid_grid[des_slice], sampling=(dy, dx))
+    psi_grid[des_slice] = dist_to_solid - dist_to_fluid
 
     # Flatten to OpenFOAM cell ordering
     n_cells = cell_to_grid.shape[0]

@@ -78,7 +78,7 @@ def hfdib_options(case_dir: str) -> dict:
 
 def hfdib_signed_distance_options(
     case_dir: str,
-    geometry_file: str = "constant/hfdibGeometry/signedDistance",
+    geometry_file: str = "hfdibGeometry/signedDistance",
 ) -> dict:
     """daOptions for topology-conditioned HFDIB using a signed-distance field."""
     opts = isothermal_channel_options(case_dir)

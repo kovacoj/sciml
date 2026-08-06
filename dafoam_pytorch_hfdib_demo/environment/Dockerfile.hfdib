@@ -20,6 +20,7 @@ RUN source $HOME/dafoam/loadDAFoam.sh && \
     strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so | grep -q hfdibStaticRect && \
     source $HOME/venvs/dafoam-torch/bin/activate && \
     python -c "import torch, dafoam, mpi4py; print('imports OK')" && \
+    pip install "scipy>=1.11,<2" && \
     sed -i 's/export WM_AD_MODE=ADR/# export WM_AD_MODE=ADR/' $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc && \
     echo "BUILD_OK"
 

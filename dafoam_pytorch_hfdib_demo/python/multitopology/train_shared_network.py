@@ -44,6 +44,11 @@ def main() -> int:
     ap.add_argument("--resume", default=None)
     args = ap.parse_args()
 
+    if args.device != "cpu":
+        raise ValueError(
+            "Local multi-topology HFDIB training currently supports --device cpu only."
+        )
+
     torch.manual_seed(args.seed)
     torch.set_default_dtype(torch.float64)
 
@@ -57,26 +62,10 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load shared mesh metadata
-    mesh_meta_path = dataset_dir / "shared_mesh" / "mesh_metadata.npz"
-    mesh_data = np.load(mesh_meta_path)
-    mesh_meta = build_mesh_meta(str(dataset_dir / "shared_mesh"))
-    # Actually load from saved data
     from pinn.mesh_metadata import MeshMetadata
-    mesh_meta = MeshMetadata(
-        n_cells=int(mesh_data["n_cells"]),
-        n_internal_faces=int(mesh_data["n_internal_faces"]),
-        n_faces=int(mesh_data["n_faces"]),
-        owners=mesh_data["owners"],
-        neighbours=mesh_data["neighbours"],
-        face_area_vectors=mesh_data["face_area_vectors"],
-        owner_weights=mesh_data["owner_weights"],
-        cell_centres=mesh_data["cell_centres"],
-        cell_volumes=mesh_data["cell_volumes"],
-        cell_to_grid=mesh_data["cell_to_grid"],
-        patch_names=tuple(open(dataset_dir / "shared_mesh" / "mesh_metadata.json").read().split('"patch_names": [')[1].split("]")[0].replace('"', '').replace(",", '').strip().split("\n")),
-        patch_start_faces=mesh_data["patch_start_faces"],
-        patch_face_counts=mesh_data["patch_face_counts"],
-        mesh_hash=str(mesh_data["mesh_hash"]),
+    mesh_meta = MeshMetadata.load(
+        str(dataset_dir / "shared_mesh" / "mesh_metadata.npz"),
+        str(dataset_dir / "shared_mesh" / "mesh_metadata.json"),
     )
 
     layout = build_state_layout("isothermal")

@@ -1,12 +1,16 @@
-"""Prepare topology cases: copy, mesh, signed distance, warm start."""
+#!/usr/bin/env python3
+"""Prepare topology cases: copy, mesh, signed distance, warm start.
+
+Each topology's DAFoam warm-start runs in an isolated subprocess.
+"""
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
-import time
 from pathlib import Path
 
 import numpy as np
@@ -14,37 +18,12 @@ import numpy as np
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PYTHON_ROOT))
 
-from common import (isothermal_channel_options, hfdib_signed_distance_options,  # noqa: E402
-                     write_json, PROJECT_ROOT)
-from dafoam_bridge import DAFoamResidualBridge  # noqa: E402
-from state_layout import build_state_layout  # noqa: E402
-from pinn.mesh_metadata import build_from_polymesh as build_structured_duct_40x16_metadata  # noqa: E402
-from pinn.flux_assembly import FluxAssembler  # noqa: E402
-from pinn.state_assembly import StateAssembler  # noqa: E402
+from common import write_json, PROJECT_ROOT  # noqa: E402
+from pinn.mesh_metadata import build_from_polymesh as build_mesh_meta  # noqa: E402
 from topology.specification import load_dataset  # noqa: E402
 from topology.signed_distance import (mask_to_signed_distance,  # noqa: E402
     compute_geometry_fields, write_openfoam_scalar_list)
 from topology.features import build_features  # noqa: E402
-
-
-def run_partial_primal(bridge, k, case_dir):
-    """Run exactly k primal iterations using endTime control."""
-    import re
-    cd_path = os.path.join(case_dir, "system", "controlDict")
-    with open(cd_path) as f:
-        s = f.read()
-    s = re.sub(r"(?m)^endTime\s+\S+;", f"endTime         {max(k, 1)};", s)
-    with open(cd_path, "w") as f:
-        f.write(s)
-
-    opts = bridge.solver.getOption("")
-    bridge.solver.solverAD.calcPrimalResidualStatistics("calc")
-    if k > 0:
-        bridge.solver()
-    w = np.ascontiguousarray(
-        bridge.solver.getStates().copy(), dtype=np.float64)
-    r = bridge.residual(w)
-    return w, r
 
 
 def main() -> int:
@@ -78,7 +57,6 @@ def main() -> int:
     domain_bounds = (0.0, 1.0, 0.0, 0.1)
     u_ref = 0.2
     p_ref = max(u_ref ** 2, 1e-8)
-    layout = build_state_layout("isothermal")
 
     for idx, spec in enumerate(specs):
         topo_id = spec.topology_id
@@ -86,28 +64,26 @@ def main() -> int:
         case_dir = topo_dir / "case"
         print(f"\n[prepare] {topo_id} ({idx+1}/{len(specs)})")
 
-        # Copy case template
+        # 1. Copy case template
         shutil.rmtree(topo_dir, ignore_errors=True)
         shutil.copytree(case_template, case_dir)
-        # Clean generated dirs (keep 0/)
         for d in os.listdir(case_dir):
             if d[0].isdigit() and d != "0":
                 shutil.rmtree(os.path.join(case_dir, d), ignore_errors=True)
         shutil.rmtree(os.path.join(case_dir, "constant", "polyMesh"), ignore_errors=True)
         shutil.rmtree(os.path.join(case_dir, "postProcessing"), ignore_errors=True)
 
-        # Run blockMesh
-        import subprocess
+        # 2. Run blockMesh
         subprocess.run(["blockMesh", "-case", case_dir], check=True,
                        capture_output=True)
 
-        # Build mesh metadata (shared across topologies)
-        mesh_meta = build_structured_duct_40x16_metadata(case_dir)
+        # 3. Build mesh metadata (shared)
+        mesh_meta = build_mesh_meta(case_dir)
         if idx == 0:
             mesh_meta.save(str(shared_mesh_dir / "mesh_metadata.npz"),
                            str(shared_mesh_dir / "mesh_metadata.json"))
 
-        # Compute signed distance
+        # 4. Compute signed distance
         psi = mask_to_signed_distance(
             mask=spec.mask,
             cell_to_grid=mesh_meta.cell_to_grid,
@@ -124,7 +100,7 @@ def main() -> int:
 
         geo = compute_geometry_fields(psi, h)
 
-        # Write signed-distance file
+        # 5. Write signed-distance file
         sd_path = os.path.join(case_dir, "constant", "hfdibGeometry", "signedDistance")
         write_openfoam_scalar_list(Path(sd_path), psi)
 
@@ -134,31 +110,29 @@ def main() -> int:
         np.save(topo_dir / "solid_mask.npy", geo["chi"])
         np.save(topo_dir / "interface_mask.npy", geo["interface"])
 
-        # Initialize DAFoam with hfdibSignedDistance
-        os.chdir(case_dir)
-        bridge = DAFoamResidualBridge(
-            case_dir, hfdib_signed_distance_options(case_dir))
+        # 6. Launch prepare_worker subprocess for warm start
+        warm_path = topo_dir / f"warm_state_k{args.k}.npy"
+        res_path = topo_dir / f"residual_k{args.k}.npy"
+        loss_path = topo_dir / "loss_config.json"
 
-        # Run partial primal
-        w_k, r_k = run_partial_primal(bridge, args.k, case_dir)
-        np.save(topo_dir / f"warm_state_k{args.k}.npy", w_k)
+        subprocess.run(
+            [
+                sys.executable, "-m", "topology.prepare_worker",
+                "--case", str(case_dir),
+                "--k", str(args.k),
+                "--warm-state", str(warm_path),
+                "--residual", str(res_path),
+                "--loss-config", str(loss_path),
+            ],
+            check=True,
+            cwd=str(PYTHON_ROOT),
+        )
 
-        # Compute loss weights
-        u_ids = layout.indices("U")
-        p_ids = layout.indices("p")
-        phi_ids = layout.indices("phi")
-        lu = 0.5 * float((r_k[u_ids] * r_k[u_ids]).sum())
-        lp = 0.5 * float((r_k[p_ids] * r_k[p_ids]).sum())
-        lphi = 0.5 * float((r_k[phi_ids] * r_k[phi_ids]).sum())
-        loss_config = {
-            "gamma_u": 1.0 / (lu + 1e-30),
-            "gamma_p": 1.0 / (lp + 1e-30),
-            "gamma_phi": 1.0 / (lphi + 1e-30),
-        }
-        with open(topo_dir / "loss_config.json", "w") as f:
-            json.dump(loss_config, f, indent=2)
+        # 7. Load warm state + residual
+        w_k = np.load(warm_path)
+        r_k = np.load(res_path)
 
-        # Build CNN features
+        # 8. Build CNN features
         features = build_features(
             cell_centres=mesh_meta.cell_centres,
             cell_to_grid=mesh_meta.cell_to_grid,
@@ -174,7 +148,7 @@ def main() -> int:
         )
         np.save(topo_dir / "features.npy", features)
 
-        # Save preparation metadata
+        # 9. Save preparation metadata
         write_json(topo_dir / "preparation.json", {
             "topology_id": topo_id,
             "k": args.k,

@@ -47,10 +47,26 @@ class TopologyWorkerPool:
             )
             p.daemon = False
             p.start()
-            # Wait for ready signal
+
+            # Wait for ready signal with timeout + deadlock prevention
+            if not parent_conn.poll(self.timeout):
+                if not p.is_alive():
+                    raise RuntimeError(
+                        f"Worker {tid} exited during initialization "
+                        f"with code {p.exitcode}")
+                p.terminate()
+                p.join(timeout=5)
+                raise TimeoutError(
+                    f"Worker {tid} did not initialize within "
+                    f"{self.timeout} seconds")
+
             msg = parent_conn.recv()
             if msg["status"] != "ready":
-                raise RuntimeError(f"Worker {tid} failed to start: {msg}")
+                raise RuntimeError(
+                    f"Worker {tid} initialization failed:\n"
+                    f"{msg.get('error', '')}\n"
+                    f"{msg.get('traceback', '')}")
+
             self._workers[tid] = _WorkerEntry(tid, p, parent_conn)
             print(f"[pool] worker {tid} ready (pid={p.pid})")
 

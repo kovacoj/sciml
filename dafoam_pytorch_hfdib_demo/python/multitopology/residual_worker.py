@@ -32,16 +32,29 @@ def worker_main(case_dir: str, topology_id: str,
     from common import hfdib_signed_distance_options
     from dafoam_bridge import DAFoamResidualBridge
 
-    # Initialize bridge with MPI.COMM_SELF
-    os.chdir(case_dir)
-    bridge = DAFoamResidualBridge(
-        case_dir,
-        hfdib_signed_distance_options(case_dir),
-        comm=MPI.COMM_SELF,
-    )
+    # Initialize bridge with MPI.COMM_SELF — wrap in try/except to prevent
+    # the parent from blocking forever on child init failure
+    try:
+        from mpi4py import MPI
+        from common import hfdib_signed_distance_options
+        from dafoam_bridge import DAFoamResidualBridge
 
-    # Signal ready
-    parent_pipe.send({"status": "ready", "topology_id": topology_id})
+        os.chdir(case_dir)
+        bridge = DAFoamResidualBridge(
+            case_dir,
+            hfdib_signed_distance_options(case_dir),
+            comm=MPI.COMM_SELF,
+        )
+
+        parent_pipe.send({"status": "ready", "topology_id": topology_id})
+    except Exception as exc:
+        parent_pipe.send({
+            "status": "error",
+            "topology_id": topology_id,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        })
+        return
 
     while True:
         try:

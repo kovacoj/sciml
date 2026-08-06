@@ -35,6 +35,28 @@ class MeshMetadata:
 
     mesh_hash: str
 
+    @classmethod
+    def load(cls, path_npz: str, path_json: str) -> "MeshMetadata":
+        with open(path_json) as handle:
+            metadata = json.load(handle)
+        arrays = np.load(path_npz)
+        return cls(
+            n_cells=int(metadata["n_cells"]),
+            n_internal_faces=int(metadata["n_internal_faces"]),
+            n_faces=int(metadata["n_faces"]),
+            owners=arrays["owners"],
+            neighbours=arrays["neighbours"],
+            face_area_vectors=arrays["face_area_vectors"],
+            owner_weights=arrays["owner_weights"],
+            cell_centres=arrays["cell_centres"],
+            cell_volumes=arrays["cell_volumes"],
+            cell_to_grid=arrays["cell_to_grid"],
+            patch_names=tuple(metadata["patch_names"]),
+            patch_start_faces=arrays["patch_start_faces"],
+            patch_face_counts=arrays["patch_face_counts"],
+            mesh_hash=str(metadata["mesh_hash"]),
+        )
+
     def save(self, path_npz: str, path_json: str):
         np.savez(path_npz,
                  owners=self.owners, neighbours=self.neighbours,

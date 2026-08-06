@@ -50,6 +50,8 @@ def mask_to_signed_distance(
     # Initialize psi to a large positive value (deep fluid) everywhere,
     # so cells outside the design region are classified as pure fluid.
     h_inplane = np.sqrt(dx * dy)
+    psi_grid = np.full(grid_shape, 10.0 * h_inplane, dtype=np.float64)
+
     # Compute signed distance only within the design region
     # (psi_grid already initialized to large positive value outside)
     des_slice = (slice(j_start, j_end), slice(i_start, i_end))

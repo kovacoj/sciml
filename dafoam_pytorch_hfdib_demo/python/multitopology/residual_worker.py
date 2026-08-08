@@ -17,7 +17,8 @@ def worker_main(case_dir: str, topology_id: str,
                 u_ids, p_ids, phi_ids,
                 gamma_u: float, gamma_p: float, gamma_phi: float,
                 parent_pipe,
-                inlet_patches=None, outlet_patches=None):
+                inlet_patches=None, outlet_patches=None,
+                result_queue=None):
     """Main loop for a DAFoam residual worker."""
     # Set thread limits before importing MPI/DAFoam
     os.environ["OMP_NUM_THREADS"] = "1"
@@ -76,8 +77,10 @@ def worker_main(case_dir: str, topology_id: str,
             continue
         elif msg["command"] == "evaluate":
             try:
-                state = msg["state"]
+                state_path = msg["state_path"]
                 request_id = msg["request_id"]
+
+                state = np.load(state_path)
 
                 residual = bridge.residual(state)
 
@@ -96,7 +99,14 @@ def worker_main(case_dir: str, topology_id: str,
                 loss_phi = 0.5 * gamma_phi * float(np.dot(residual[phi_ids], residual[phi_ids]))
                 loss = loss_u + loss_p + loss_phi
 
-                parent_pipe.send({
+                # Write grad_state to temp file to avoid pipe buffer deadlock
+                import tempfile
+                grad_path = state_path.replace(".npy", "_grad.npy")
+                np.save(grad_path, grad_state)
+
+                print(f"[worker {topology_id}] sending result "
+                      f"(loss={loss:.4e})", flush=True)
+                result_queue.put({
                     "status": "ok",
                     "request_id": request_id,
                     "topology_id": topology_id,
@@ -105,10 +115,10 @@ def worker_main(case_dir: str, topology_id: str,
                     "loss_p": loss_p,
                     "loss_phi": loss_phi,
                     "residual_norm": float(np.linalg.norm(residual)),
-                    "grad_state": grad_state,
+                    "grad_path": grad_path,
                 })
             except Exception as e:
-                parent_pipe.send({
+                result_queue.put({
                     "status": "error",
                     "request_id": msg.get("request_id", -1),
                     "topology_id": topology_id,

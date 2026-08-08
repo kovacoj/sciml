@@ -131,14 +131,29 @@ def train_supervised(model, samples, optimizer, device, epochs, tv_beta=0.1):
     return history
 
 
-def train_physics(model, samples, optimizer, device, epochs, dataset_dir, worker_count=4):
-    """Physics: HFDIB residual loss, no labels, persistent workers."""
+def train_physics(model, samples, optimizer, device, steps, dataset_dir,
+                  worker_count=4, topology_batch_size=4, log_every=50,
+                  checkpoint_dir=None, save_every=25, eval_every=100,
+                  start_step=0, prev_history=None):
+    """Physics: HFDIB residual loss, no labels, mini-batch SGD.
+
+    One network, one optimizer.  Each optimizer step evaluates a random
+    batch of ``topology_batch_size`` topologies (not all 16).  Workers
+    are transient: started for each batch, closed after evaluation, to
+    bound RAM.  Gradient is averaged over the batch.
+
+    Every ``eval_every`` steps, evaluates the full dataset (no gradient)
+    and logs the mean loss for comparison.
+
+    If ``checkpoint_dir`` is set, saves model+optimizer+history every
+    ``save_every`` steps so training can resume after a crash.
+    """
     model.train()
 
+    n_train = len(samples)
     base_state_np = load_shared_base_state(dataset_dir)
     loss_config = load_loss_config(dataset_dir)
 
-    # Build per-topology context
     from pinn.mesh_metadata import MeshMetadata
     ds_dir = Path(dataset_dir)
     if not ds_dir.is_absolute():
@@ -174,11 +189,9 @@ def train_physics(model, samples, optimizer, device, epochs, dataset_dir, worker
             "state_asm": state_asm,
         })
 
-    # Start worker pool
     from multitopology.context import PreparedTopology
     from multitopology.worker_pool import TopologyWorkerPool
 
-    # Build PreparedTopology objects for the pool
     prepared = []
     for ctx in contexts:
         prepared.append(PreparedTopology(
@@ -195,47 +208,145 @@ def train_physics(model, samples, optimizer, device, epochs, dataset_dir, worker
             outlet_patches=["outletLower", "outletUpper"],
         ))
 
-    pool = TopologyWorkerPool(prepared)
-    topo_ids = [c["topology_id"] for c in contexts]
-    pool.start(topo_ids)
+    pool = TopologyWorkerPool(prepared, max_concurrent=worker_count)
 
-    history = []
-    try:
-        for epoch in range(epochs):
-            optimizer.zero_grad()
+    n_passes = (steps * topology_batch_size + n_train - 1) // n_train
+    print(f"[phys] {n_train} topologies, batch_size={topology_batch_size}, "
+          f"workers={worker_count}, steps={steps}, "
+          f"~{n_passes} dataset passes", flush=True)
 
-            states = []
-            for ctx in contexts:
+    history = list(prev_history) if prev_history else []
+    t0 = time.time()
+
+    for step in range(start_step, steps):
+        optimizer.zero_grad(set_to_none=True)
+
+        batch_indices = torch.randperm(n_train)[:topology_batch_size].tolist()
+        batch_ctxs = [contexts[i] for i in batch_indices]
+        batch_tids = [c["topology_id"] for c in batch_ctxs]
+        batch_prepared = [prepared[i] for i in batch_indices]
+
+        pool.topologies = {p.topology_id: p for p in batch_prepared}
+        pool.start_wave(batch_tids)
+
+        try:
+            batch_states = []
+            for ctx in batch_ctxs:
                 pred = model(ctx["lam"])
                 pred = project_solid_velocity(pred, ctx["lam"])
                 corrections = pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
                 state = ctx["state_asm"].assemble(corrections)
-                states.append(state)
+                batch_states.append(state)
 
-            results = pool.evaluate(
-                topo_ids,
-                [s.detach().to(torch.float64).cpu().numpy().copy() for s in states],
+            batch_results = pool.evaluate_wave(
+                batch_tids,
+                [s.detach().to(torch.float64).cpu().numpy().copy()
+                 for s in batch_states],
             )
 
-            grad_states = []
-            for state, result in zip(states, results):
-                gs = torch.from_numpy(result["grad_state"]).to(device, dtype=state.dtype)
-                grad_states.append(gs / len(states))
+            for state, result in zip(batch_states, batch_results):
+                gs = torch.from_numpy(result["grad_state"]).to(
+                    device=device, dtype=state.dtype)
+                state.backward(gs / topology_batch_size)
 
-            torch.autograd.backward(states, grad_states)
-            optimizer.step()
+            batch_losses = [(r["loss"], r["loss_u"], r["loss_p"], r["loss_phi"])
+                            for r in batch_results]
+        finally:
+            pool.close_wave()
 
-            mean_loss = np.mean([r["loss"] for r in results])
-            if epoch % 5 == 0 or epoch == epochs - 1:
-                print(f"[phys] e{epoch:3d} loss={mean_loss:.4e} "
-                      f"U={np.mean([r['loss_u'] for r in results]):.2e} "
-                      f"p={np.mean([r['loss_p'] for r in results]):.2e} "
-                      f"phi={np.mean([r['loss_phi'] for r in results]):.2e}")
-                history.append({"epoch": epoch, "loss": mean_loss})
-    finally:
-        pool.close()
+        optimizer.step()
+
+        mean_loss = np.mean([l[0] for l in batch_losses])
+        mean_u = np.mean([l[1] for l in batch_losses])
+        mean_p = np.mean([l[2] for l in batch_losses])
+        mean_phi = np.mean([l[3] for l in batch_losses])
+
+        elapsed = time.time() - t0
+        n_evals = (step - start_step + 1) * topology_batch_size
+
+        if step % log_every == 0 or step == steps - 1:
+            print(f"[phys] s{step:4d} loss={mean_loss:.4e} "
+                  f"U={mean_u:.2e} p={mean_p:.2e} "
+                  f"phi={mean_phi:.2e} "
+                  f"evals={n_evals} t={elapsed:.0f}s",
+                  flush=True)
+            history.append({
+                "step": step,
+                "loss": mean_loss,
+                "loss_u": mean_u,
+                "loss_p": mean_p,
+                "loss_phi": mean_phi,
+                "n_evals": n_evals,
+                "elapsed_s": elapsed,
+            })
+
+        if checkpoint_dir is not None and (step + 1) % save_every == 0:
+            ckpt_path = Path(checkpoint_dir) / f"checkpoint_s{step + 1}.pt"
+            torch.save({
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "architecture": "simple",
+                "model_kwargs": {},
+                "mode": "physics",
+                "step": step + 1,
+                "history": history,
+            }, ckpt_path)
+            print(f"[phys] checkpoint: {ckpt_path.name} "
+                  f"(step {step + 1}, t={elapsed:.0f}s)", flush=True)
+            write_json(Path(checkpoint_dir) / "history.json", history)
+
+        if eval_every > 0 and (step + 1) % eval_every == 0:
+            full_loss = _eval_full_dataset(
+                model, contexts, prepared, pool, worker_count, device)
+            print(f"[phys] FULL s{step:4d} loss={full_loss:.4e}", flush=True)
+            history.append({
+                "step": step,
+                "full_loss": full_loss,
+                "elapsed_s": elapsed,
+            })
 
     return history
+
+
+def _eval_full_dataset(model, contexts, prepared, pool, worker_count, device):
+    """Evaluate mean loss on all training topologies (no gradient)."""
+    import numpy as np
+    n = len(contexts)
+    n_batches = (n + worker_count - 1) // worker_count
+    all_losses = []
+
+    model.eval()
+    with torch.no_grad():
+        for bi in range(n_batches):
+            start = bi * worker_count
+            end = min(start + worker_count, n)
+            batch_ctxs = contexts[start:end]
+            batch_tids = [c["topology_id"] for c in batch_ctxs]
+            batch_prepared = prepared[start:end]
+
+            pool.topologies = {p.topology_id: p for p in batch_prepared}
+            pool.start_wave(batch_tids)
+
+            try:
+                batch_states = []
+                for ctx in batch_ctxs:
+                    pred = model(ctx["lam"])
+                    pred = project_solid_velocity(pred, ctx["lam"])
+                    corrections = pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
+                    state = ctx["state_asm"].assemble(corrections)
+                    batch_states.append(state)
+
+                batch_results = pool.evaluate_wave(
+                    batch_tids,
+                    [s.detach().to(torch.float64).cpu().numpy().copy()
+                     for s in batch_states],
+                )
+                all_losses.extend([r["loss"] for r in batch_results])
+            finally:
+                pool.close_wave()
+
+    model.train()
+    return float(np.mean(all_losses))
 
 
 def main() -> int:
@@ -243,12 +354,22 @@ def main() -> int:
     ap.add_argument("--mode", required=True, choices=["supervised", "physics"])
     ap.add_argument("--architecture", default=None, choices=["simple", "unet"])
     ap.add_argument("--dataset", required=True)
-    ap.add_argument("--epochs", type=int, default=20)
+    ap.add_argument("--epochs", type=int, default=20,
+                    help="Supervised: number of epochs")
+    ap.add_argument("--steps", type=int, default=1000,
+                    help="Physics: number of optimizer steps")
+    ap.add_argument("--topology-batch-size", type=int, default=4,
+                    help="Physics: topologies per optimizer step")
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--split", default="train", choices=["train", "test"])
     ap.add_argument("--output", default=None)
+    ap.add_argument("--resume", default=None,
+                    help="Path to checkpoint to resume from")
+    ap.add_argument("--save-every", type=int, default=25)
+    ap.add_argument("--eval-every", type=int, default=100,
+                    help="Evaluate full dataset loss every N steps")
     args = ap.parse_args()
 
     if args.device != "cpu":
@@ -278,11 +399,29 @@ def main() -> int:
         Path(PROJECT_ROOT) / "outputs" / f"unet_{args.mode}_{args.architecture}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    start_step = 0
+    prev_history = None
+    if args.resume:
+        ckpt = torch.load(args.resume, map_location="cpu", weights_only=False)
+        model.load_state_dict(ckpt["model_state_dict"])
+        if "optimizer_state_dict" in ckpt:
+            optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        start_step = ckpt.get("step", ckpt.get("epoch", 0))
+        prev_history = ckpt.get("history", [])
+        print(f"[train] resumed from {args.resume} at step {start_step}")
+
     if args.mode == "supervised":
         history = train_supervised(model, samples, optimizer, args.device, args.epochs)
     else:
-        history = train_physics(model, samples, optimizer, args.device, args.epochs,
-                                 args.dataset, args.workers)
+        history = train_physics(
+            model, samples, optimizer, args.device, args.steps,
+            args.dataset, args.workers,
+            topology_batch_size=args.topology_batch_size,
+            checkpoint_dir=str(output_dir),
+            save_every=args.save_every,
+            eval_every=args.eval_every,
+            start_step=start_step,
+            prev_history=prev_history)
 
     torch.save({
         "model_state_dict": model.state_dict(),
@@ -295,7 +434,8 @@ def main() -> int:
     write_json(output_dir / "config.json", {
         "mode": args.mode,
         "architecture": args.architecture,
-        "epochs": args.epochs,
+        "steps": args.steps if args.mode == "physics" else args.epochs,
+        "topology_batch_size": args.topology_batch_size if args.mode == "physics" else None,
         "lr": args.lr,
         "n_params": n_params,
         "uses_flow_labels": args.mode == "supervised",

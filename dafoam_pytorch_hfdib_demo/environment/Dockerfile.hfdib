@@ -1,16 +1,20 @@
 FROM sciml-dafoam-torch:v5.0.0
 
 COPY dafoam_pytorch_hfdib_demo/dafoam_extension/patches/0001-hfdibstatic-rect-fvsource.patch /tmp/hfdib.patch
+COPY dafoam_pytorch_hfdib_demo/dafoam_extension/patches/0002-simple-one-step.patch /tmp/simple_step.patch
 
 SHELL ["/bin/bash", "-lc"]
 
-# Apply patch + build normal + ADR
+# Apply patches + build normal + ADR
 RUN source $HOME/dafoam/loadDAFoam.sh && \
     cd $HOME/dafoam/repos/dafoam && \
     [ "$(git rev-parse HEAD)" = "31433b41d1d59638b459d24f02c7f89a756848c2" ] && \
     (git apply --check /tmp/hfdib.patch 2>/dev/null && git apply /tmp/hfdib.patch || \
-     git apply --reverse --check /tmp/hfdib.patch 2>/dev/null && echo "already applied" || \
-     { echo "patch conflict"; exit 1; }) && \
+     git apply --reverse --check /tmp/hfdib.patch 2>/dev/null && echo "hfdib already applied" || \
+     { echo "hfdib patch conflict"; exit 1; }) && \
+    (git apply --check /tmp/simple_step.patch 2>/dev/null && git apply /tmp/simple_step.patch || \
+     git apply --reverse --check /tmp/simple_step.patch 2>/dev/null && echo "simple_step already applied" || \
+     { echo "simple_step patch conflict"; exit 1; }) && \
     wmakeLnInclude src/adjoint && \
     cd src/adjoint && wmake -j 6 && cd - && \
     sed -i "s/export WM_AD_MODE=.*/export WM_AD_MODE=ADR/" $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc && \
@@ -18,6 +22,15 @@ RUN source $HOME/dafoam/loadDAFoam.sh && \
     cd src/adjoint && wmake -j 6 && cd - && \
     strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so | grep -q hfdibStaticRect && \
     strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so | grep -q hfdibStaticRect && \
+    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolver.so | grep -q solvePrimalOneStep && \
+    strings $HOME/dafoam/OpenFOAM/sharedLibs/libDASolverADR.so | grep -q solvePrimalOneStep && \
+    cd src/pyDASolvers && ./Allclean && ./Allmake && cd - && \
+    sed -i 's/export WM_AD_MODE=ADR/# export WM_AD_MODE=ADR/' $DAFOAM_ROOT_PATH/OpenFOAM/OpenFOAM-AD/etc/bashrc && \
+    source $HOME/dafoam/loadDAFoam.sh && \
+    cd src/pyDASolvers && ./Allclean && ./Allmake && cd - && \
+    cp -f dafoam/libs/ADR/pyDASolvers*.so $HOME/dafoam/packages/miniconda3/lib/python3.10/site-packages/dafoam/libs/ADR/ && \
+    cp -f dafoam/libs/ADF/pyDASolvers*.so $HOME/dafoam/packages/miniconda3/lib/python3.10/site-packages/dafoam/libs/ADF/ && \
+    cp -f dafoam/libs/pyDASolvers*.so $HOME/dafoam/packages/miniconda3/lib/python3.10/site-packages/dafoam/libs/ && \
     source $HOME/venvs/dafoam-torch/bin/activate && \
     python -c "import torch, dafoam, mpi4py; print('imports OK')" && \
     pip install "scipy>=1.11,<2" && \

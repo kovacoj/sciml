@@ -488,28 +488,151 @@ def generate_topology_preview(topologies: dict, topo_dir: Path):
     import matplotlib.pyplot as plt
 
     n = len(topologies)
-    fig, axes = plt.subplots(2, n, figsize=(3 * n, 7))
+    n_cols = min(n, 10)
+    n_rows = 2 * ((n + n_cols - 1) // n_cols)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(2.5 * n_cols, 2.5 * n_rows))
 
-    for col, (tid, mask) in enumerate(topologies.items()):
-        axes[0, col].imshow(mask, cmap="gray_r", vmin=0, vmax=1)
-        axes[0, col].set_title(tid, fontsize=10)
-        axes[0, col].axis("off")
+    axes = np.atleast_2d(axes)
+    items = list(topologies.items())
+
+    for idx, (tid, mask) in enumerate(items):
+        row_pair = idx // n_cols
+        col = idx % n_cols
+
+        ax_mask = axes[row_pair * 2, col]
+        ax_mask.imshow(mask, cmap="gray_r", vmin=0, vmax=1)
+        ax_mask.set_title(tid, fontsize=8)
+        ax_mask.axis("off")
 
         psi = mask_to_signed_distance_64(mask)
         h = np.sqrt(DX * DY)
         lam = 0.5 * (1.0 - np.tanh(psi / (1.5 * h)))
-        axes[1, col].imshow(lam, cmap="gray_r", vmin=0, vmax=1)
-        axes[1, col].set_title(f"{tid} lambda", fontsize=9)
-        axes[1, col].axis("off")
+        ax_lam = axes[row_pair * 2 + 1, col]
+        ax_lam.imshow(lam, cmap="gray_r", vmin=0, vmax=1)
+        ax_lam.set_title(f"{tid} $\\lambda$", fontsize=7)
+        ax_lam.axis("off")
 
-    axes[0, 0].set_ylabel("Mask (8x8)", fontsize=11)
-    axes[1, 0].set_ylabel("Lambda (64x64)", fontsize=11)
+    for idx in range(len(items), n_cols * (n_rows // 2)):
+        for dr in range(2):
+            ax = axes[idx // n_cols * 2 + dr, idx % n_cols]
+            ax.axis("off")
 
     plt.tight_layout()
     out = topo_dir / "topology_preview.png"
-    plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.savefig(out, dpi=120, bbox_inches="tight")
     plt.close()
     print(f"[gen] Preview saved to {out}")
+
+
+def _random_walk_between(mask: np.ndarray, r0: int, c0: int,
+                          r1: int, c1: int, rng: np.random.Generator,
+                          max_steps: int = 50) -> bool:
+    """Carve a random walk from (r0,c0) to (r1,c1), biased toward target."""
+    r, c = r0, c0
+    mask[r, c] = 0
+    for _ in range(max_steps):
+        if r == r1 and c == c1:
+            return True
+        moves = []
+        for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < 8 and 0 <= nc < 8:
+                moves.append((dr, dc))
+        if not moves:
+            return False
+        weights = []
+        for dr, dc in moves:
+            dist_after = abs(r + dr - r1) + abs(c + dc - c1)
+            dist_now = abs(r - r1) + abs(c - c1)
+            weights.append(5 if dist_after < dist_now else 1)
+        weights = np.array(weights, dtype=float)
+        weights /= weights.sum()
+        idx = rng.choice(len(moves), p=weights)
+        dr, dc = moves[idx]
+        r, c = r + dr, c + dc
+        mask[r, c] = 0
+    return r == r1 and c == c1
+
+
+def _carve_branch(mask: np.ndarray, rng: np.random.Generator,
+                   length: int):
+    """Carve a random dead-end branch from a random fluid cell."""
+    fluid = list(zip(*np.where(mask == 0)))
+    if not fluid:
+        return
+    r, c = fluid[rng.integers(len(fluid))]
+    for _ in range(length):
+        moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        valid = [(dr, dc) for dr, dc in moves
+                 if 0 <= r + dr < 8 and 0 <= c + dc < 8]
+        if not valid:
+            break
+        dr, dc = valid[rng.integers(len(valid))]
+        r, c = r + dr, c + dc
+        mask[r, c] = 0
+
+
+def generate_channel_topology(seed: int) -> np.ndarray | None:
+    """Generate one 8x8 channel-network topology.
+
+    Strategy:
+      1. Start all solid, set ports to fluid
+      2. Walk lower path: (1,0) -> (1,7)
+      3. Walk upper path: (6,0) -> (6,7)
+      4. Add 1-3 random cross-connections between rows
+      5. Add 1-3 random dead-end branches
+      6. Validate
+    """
+    rng = np.random.default_rng(seed)
+    mask = np.ones((8, 8), dtype=np.uint8)
+    for r, c in [(1, 0), (6, 0), (1, 7), (6, 7)]:
+        mask[r, c] = 0
+
+    if not _random_walk_between(mask, 1, 0, 1, 7, rng):
+        return None
+    if not _random_walk_between(mask, 6, 0, 6, 7, rng):
+        return None
+
+    n_cross = rng.integers(1, 4)
+    for _ in range(n_cross):
+        col = rng.integers(1, 7)
+        r_start = rng.choice([1, 6])
+        r_end = 6 if r_start == 1 else 1
+        _random_walk_between(mask, r_start, col, r_end, col, rng,
+                              max_steps=20)
+
+    n_branches = rng.integers(1, 4)
+    for _ in range(n_branches):
+        _carve_branch(mask, rng, rng.integers(2, 5))
+
+    if not _ports_connected(mask):
+        return None
+    ff = _fluid_fraction(mask)
+    if not (0.15 <= ff <= 0.45):
+        return None
+    if any(np.all(mask[row, :] == 0) for row in range(8)):
+        return None
+    labels, n = _fluid_components(mask)
+    if n != 1:
+        return None
+    return mask
+
+
+def generate_topology_set(n: int = 20, base_seed: int = 42) -> dict:
+    """Generate n valid, diverse channel-network topologies."""
+    topologies = {}
+    seed = base_seed
+    while len(topologies) < n:
+        mask = generate_channel_topology(seed)
+        if mask is not None:
+            tid = f"topology_{len(topologies):03d}"
+            is_dup = any(
+                np.array_equal(mask, existing)
+                for existing in topologies.values())
+            if not is_dup:
+                topologies[tid] = mask
+        seed += 1
+    return topologies
 
 
 def main():
@@ -523,76 +646,11 @@ def main():
     print(f"[gen] Case created at {case_dir}")
     print(f"[gen] Run blockMesh + checkMesh to verify")
 
-    # Also generate topology masks — article-like channel networks
+    # Generate topology masks — article-like channel networks
     topo_dir = project_root / "topologies" / "four_port_64"
     topo_dir.mkdir(parents=True, exist_ok=True)
 
-    # Convention: 1=solid, 0=fluid. Row 0 = bottom, Row 7 = top.
-    # Ports: (1,0), (6,0) = inlets; (1,7), (6,7) = outlets. All must be 0.
-    # All fluid cells must form a single connected component (4-connectivity).
-    # Fluid fraction must be 15-45%. No row may be entirely fluid.
-    topologies = {
-        "topology_000": np.array([
-            [1,1,1,1,1,1,1,1],
-            [0,0,0,1,1,0,0,0],
-            [1,1,0,0,1,1,0,1],
-            [1,1,1,0,0,0,0,1],
-            [1,0,0,0,0,1,1,1],
-            [1,0,1,1,0,1,1,1],
-            [0,0,1,1,0,0,0,0],
-            [1,1,1,1,1,1,1,1],
-        ]),
-        "topology_001": np.array([
-            [1,1,1,1,1,1,1,1],
-            [0,0,0,1,1,1,0,0],
-            [1,1,0,0,1,1,0,1],
-            [1,1,1,0,0,0,0,1],
-            [1,1,1,1,1,1,0,1],
-            [1,0,0,0,0,0,0,1],
-            [0,0,1,1,1,1,0,0],
-            [1,1,1,1,1,1,1,1],
-        ]),
-        "topology_002": np.array([
-            [1,1,1,1,1,1,1,1],
-            [0,0,1,1,1,1,0,0],
-            [1,0,0,1,1,1,0,1],
-            [1,1,0,0,0,0,0,1],
-            [1,1,1,0,0,0,1,1],
-            [1,0,0,0,1,0,0,1],
-            [0,0,1,0,1,1,0,0],
-            [1,1,1,1,1,1,1,1],
-        ]),
-        "topology_003": np.array([
-            [1,1,1,1,1,1,1,1],
-            [0,0,1,1,1,0,0,0],
-            [1,0,0,1,0,0,0,1],
-            [1,1,0,0,0,1,0,1],
-            [1,1,0,0,0,1,0,1],
-            [1,0,0,1,0,0,1,1],
-            [0,0,1,1,1,0,0,0],
-            [1,1,1,1,1,1,1,1],
-        ]),
-        "topology_004": np.array([
-            [1,1,1,1,1,1,1,1],
-            [0,0,0,1,1,1,0,0],
-            [1,1,0,0,0,1,0,1],
-            [1,1,1,1,0,0,0,1],
-            [1,1,0,0,0,1,0,1],
-            [1,0,0,1,0,1,0,1],
-            [0,0,1,1,0,1,0,0],
-            [1,1,1,1,1,1,1,1],
-        ]),
-        "topology_005": np.array([
-            [1,1,1,1,1,1,1,1],
-            [0,0,1,1,0,0,0,0],
-            [1,0,0,1,0,1,1,1],
-            [1,1,0,0,0,1,1,1],
-            [1,1,1,0,0,0,0,1],
-            [1,0,0,0,1,1,0,1],
-            [0,0,1,0,0,1,0,0],
-            [1,1,1,1,1,1,1,1],
-        ]),
-    }
+    topologies = generate_topology_set(n=20, base_seed=42)
 
     validate_topologies(topologies)
 

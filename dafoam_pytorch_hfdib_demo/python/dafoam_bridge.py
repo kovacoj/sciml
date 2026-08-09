@@ -62,6 +62,25 @@ class DAFoamResidualBridge:
         out = self.solver.getResiduals()
         return np.ascontiguousarray(out.copy(), dtype=np.float64)
 
+    def simple_step(self, state: np.ndarray) -> np.ndarray:
+        """Execute one SIMPLE iteration from the given state.
+
+        Sets the state, runs one momentum+pressure+flux correction
+        iteration, and returns the updated state.
+        """
+        state = np.ascontiguousarray(state, dtype=np.float64)
+        if state.shape != (self._n,):
+            raise ValueError(f"state shape {state.shape} != ({self._n},)")
+
+        self.solver.setStates(state)
+        # Run one SIMPLE iteration on the normal (non-AD) solver
+        # to avoid AD tape consistency issues
+        self.solver.solver.solvePrimalOneStep()
+        # Read back from the normal solver's fields
+        w_next = np.zeros(self._n, dtype=np.float64)
+        self.solver.solver.getOFFields(w_next)
+        return np.ascontiguousarray(w_next.copy(), dtype=np.float64)
+
     def residual_jacobian_transpose_vector(
         self, state: np.ndarray, seed: np.ndarray
     ) -> np.ndarray:

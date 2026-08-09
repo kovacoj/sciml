@@ -384,6 +384,293 @@ def _eval_full_dataset(model, contexts, prepared, pool, worker_count, device):
     return float(np.mean(all_losses))
 
 
+def train_fixed_point(model, samples, optimizer, device, steps, dataset_dir,
+                      worker_count=4, topology_batch_size=4, log_every=10,
+                      checkpoint_dir=None, save_every=25, eval_every=25,
+                      alpha_p=0.1, start_step=0, prev_history=None):
+    """Fixed-point training: use one SIMPLE step as a self-supervised target.
+
+    No residual JTV needed. The loss is a nondimensional state-space MSE
+    between the network's state and the (relaxed) SIMPLE-step output.
+
+    L = mean[(dU/0.1)^2 + (dp/0.01)^2 + (dphi/4e-7)^2] / 3
+
+    where dU, dp, dphi are differences between W_theta and the target.
+    The target is W + alpha * (T(W) - W), where T is one SIMPLE step.
+    """
+    model.train()
+
+    n_train = len(samples)
+    base_state_np = load_shared_base_state(dataset_dir)
+
+    U_SCALE = 0.1
+    P_SCALE = 0.01
+    PHI_SCALE = 4e-7
+
+    from pinn.mesh_metadata import MeshMetadata
+    ds_dir = Path(dataset_dir)
+    if not ds_dir.is_absolute():
+        ds_dir = Path(PROJECT_ROOT) / ds_dir
+    mesh_meta = MeshMetadata.load(
+        str(ds_dir / "shared" / "mesh_metadata.npz"),
+        str(ds_dir / "shared" / "mesh_metadata.json"),
+    )
+    layout = build_isothermal_layout(mesh_meta.n_cells, mesh_meta.n_faces)
+
+    n_cells = mesh_meta.n_cells
+    n_faces = mesh_meta.n_faces
+    n_internal = mesh_meta.n_internal_faces
+    n_u = 3 * n_cells
+    n_p = n_cells
+
+    u_ids = layout.indices("U")
+    p_ids = layout.indices("p")
+    phi_ids = layout.indices("phi")
+
+    # Trainable phi indices
+    patch_names = list(mesh_meta.patch_names)
+    phi_trainable = np.zeros(n_faces, dtype=bool)
+    phi_trainable[:n_internal] = True
+    for pname in ["outletLower", "outletUpper"]:
+        if pname in patch_names:
+            idx = patch_names.index(pname)
+            start = int(mesh_meta.patch_start_faces[idx])
+            count = int(mesh_meta.patch_face_counts[idx])
+            phi_trainable[start:start + count] = True
+    phi_trainable_indices = np.flatnonzero(phi_trainable)
+    phi_state_ids = n_u + n_p + phi_trainable_indices
+
+    contexts = []
+    for s in samples:
+        case_dir = s["case_dir"]
+        lam_tensor = torch.from_numpy(s["lambda"]).unsqueeze(0).unsqueeze(0).to(device)
+
+        flux_asm = FluxAssembler(
+            owners=mesh_meta.owners,
+            neighbours=mesh_meta.neighbours,
+            sf_vec=mesh_meta.face_area_vectors,
+            owner_weights=mesh_meta.owner_weights,
+            n_cells=n_cells,
+            n_faces=n_faces,
+        )
+
+        base_state = torch.from_numpy(base_state_np).to(device)
+        from pinn.state_assembly_independent_phi import IndependentPhiStateAssembler
+        state_asm = IndependentPhiStateAssembler(
+            base_state, layout, flux_asm, n_cells, n_faces,
+            phi_trainable_indices)
+
+        # Load HFDIB reference for diagnostic field errors
+        ref_ux = np.load(Path(s["case_dir"]).parent / "ux_hfdib.npy")
+        ref_uy = np.load(Path(s["case_dir"]).parent / "uy_hfdib.npy")
+        ref_p = np.load(Path(s["case_dir"]).parent / "pressure_hfdib.npy")
+
+        contexts.append({
+            "topology_id": s["topology_id"],
+            "lam": lam_tensor,
+            "case_dir": case_dir,
+            "state_asm": state_asm,
+            "ref_ux": ref_ux,
+            "ref_uy": ref_uy,
+            "ref_p": ref_p,
+        })
+
+    from multitopology.context import PreparedTopology
+    from multitopology.worker_pool import TopologyWorkerPool
+    from pinn.losses import ResidualLossConfig
+
+    loss_config = load_loss_config(dataset_dir)
+
+    prepared = []
+    for ctx in contexts:
+        prepared.append(PreparedTopology(
+            topology_id=ctx["topology_id"],
+            case_dir=ctx["case_dir"],
+            features=ctx["lam"].squeeze(0),
+            warm_state=torch.from_numpy(base_state_np),
+            loss_config=loss_config,
+            state_assembler=ctx["state_asm"],
+            u_ids=u_ids,
+            p_ids=p_ids,
+            phi_ids=phi_ids,
+            inlet_patches=["inletLower", "inletUpper"],
+            outlet_patches=["outletLower", "outletUpper"],
+        ))
+
+    pool = TopologyWorkerPool(prepared, max_concurrent=worker_count)
+
+    print(f"[fp] {n_train} topologies, batch={topology_batch_size}, "
+          f"workers={worker_count}, steps={steps}, alpha_p={alpha_p}",
+          flush=True)
+
+    history = list(prev_history) if prev_history else []
+    t0 = time.time()
+
+    for step in range(start_step, steps):
+        optimizer.zero_grad(set_to_none=True)
+
+        batch_indices = torch.randperm(n_train)[:topology_batch_size].tolist()
+        batch_ctxs = [contexts[i] for i in batch_indices]
+        batch_tids = [c["topology_id"] for c in batch_ctxs]
+        batch_prepared = [prepared[i] for i in batch_indices]
+
+        pool.topologies = {p.topology_id: p for p in batch_prepared}
+        pool.start_wave(batch_tids)
+
+        try:
+            # Forward: predict states
+            w_theta_list = []
+            cell_preds = []
+            phi_preds = []
+            for ctx in batch_ctxs:
+                cell_pred, phi_pred = model(ctx["lam"])
+                cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
+                corrections = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
+                phi_corr = phi_pred.squeeze(0)
+                w_theta = ctx["state_asm"].assemble(corrections, phi_corr)
+                w_theta_list.append(w_theta)
+                cell_preds.append(cell_pred.detach())
+                phi_preds.append(phi_pred.detach())
+
+            # SIMPLE step: get target states (detached, no grad)
+            w_np_list = [w.detach().to(torch.float64).cpu().numpy().copy()
+                         for w in w_theta_list]
+
+            w_simple_list = pool.simple_step_wave(batch_tids, w_np_list)
+
+            # Compute loss using network outputs directly (not assembled state)
+            # The target corrections are derived from the SIMPLE step
+            optimizer.zero_grad(set_to_none=True)
+            total_loss = torch.tensor(0.0, dtype=torch.float64, device=device)
+            batch_losses = []
+
+            for w_theta, w_simple_np, ctx, cell_pred, phi_pred in zip(
+                    w_theta_list, w_simple_list, batch_ctxs,
+                    cell_preds, phi_preds):
+
+                w_simple = torch.from_numpy(w_simple_np).to(device, dtype=torch.float64)
+
+                # Target: relaxed SIMPLE update
+                w_theta_detached = w_theta.detach()
+
+                target_ux = w_simple[0:n_u:3]
+                target_uy = w_simple[1:n_u:3]
+                target_p = w_theta_detached[n_u:n_u+n_p] + alpha_p * (
+                    w_simple[n_u:n_u+n_p] - w_theta_detached[n_u:n_u+n_p])
+
+                phi_start = n_u + n_p
+                phi_idx_long = torch.from_numpy(phi_trainable_indices.astype(np.int64)).to(device)
+                target_phi = w_simple[phi_start:][phi_idx_long]
+
+                pred_ux = w_theta[0:n_u:3]
+                pred_uy = w_theta[1:n_u:3]
+                pred_p = w_theta[n_u:n_u+n_p]
+                pred_phi = w_theta[phi_start:][phi_idx_long]
+
+                # Nondimensional loss
+                du = (pred_ux - target_ux) / U_SCALE
+                dv = (pred_uy - target_uy) / U_SCALE
+                dp = (pred_p - target_p) / P_SCALE
+                dphi = (pred_phi - target_phi) / PHI_SCALE
+
+                loss_u = torch.mean(du**2 + dv**2)
+                loss_p = torch.mean(dp**2)
+                loss_phi = torch.mean(dphi**2)
+                loss = (loss_u + loss_p + loss_phi) / 3.0
+
+                total_loss = total_loss + loss / topology_batch_size
+                batch_losses.append({
+                    "loss": loss.item(),
+                    "loss_u": loss_u.item(),
+                    "loss_p": loss_p.item(),
+                    "loss_phi": loss_phi.item(),
+                })
+
+            total_loss.backward()
+            optimizer.step()
+        finally:
+            pool.close_wave()
+
+        mean_loss = np.mean([b["loss"] for b in batch_losses])
+        mean_u = np.mean([b["loss_u"] for b in batch_losses])
+        mean_p = np.mean([b["loss_p"] for b in batch_losses])
+        mean_phi = np.mean([b["loss_phi"] for b in batch_losses])
+
+        elapsed = time.time() - t0
+        n_evals = (step - start_step + 1) * topology_batch_size
+
+        if step % log_every == 0 or step == steps - 1:
+            print(f"[fp] s{step:4d} loss={mean_loss:.4e} "
+                  f"U={mean_u:.2e} p={mean_p:.2e} "
+                  f"phi={mean_phi:.2e} "
+                  f"evals={n_evals} t={elapsed:.0f}s",
+                  flush=True)
+            history.append({
+                "step": step,
+                "loss": mean_loss,
+                "loss_u": mean_u,
+                "loss_p": mean_p,
+                "loss_phi": mean_phi,
+                "elapsed_s": elapsed,
+            })
+
+        if checkpoint_dir is not None and (step + 1) % save_every == 0:
+            ckpt_path = Path(checkpoint_dir) / f"checkpoint_s{step + 1}.pt"
+            torch.save({
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "architecture": "simple",
+                "model_kwargs": {},
+                "mode": "physics",
+                "physics_objective": "fixed-point",
+                "step": step + 1,
+                "history": history,
+            }, ckpt_path)
+            print(f"[fp] checkpoint: {ckpt_path.name}", flush=True)
+            write_json(Path(checkpoint_dir) / "history.json", history)
+
+        # Field error diagnostic (uses stored HFDIB refs, no gradient)
+        if eval_every > 0 and (step + 1) % eval_every == 0:
+            rel_us = []
+            rel_ps = []
+            model.eval()
+            with torch.no_grad():
+                for ctx in contexts[:8]:  # subset for speed
+                    cell_pred, phi_pred = model(ctx["lam"])
+                    cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
+                    corrections = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
+                    phi_corr = phi_pred.squeeze(0)
+                    w = ctx["state_asm"].assemble(corrections, phi_corr)
+
+                    u_pred = w[:n_u].reshape(n_cells, 3).cpu().numpy()
+                    p_pred = w[n_u:n_u+n_p].cpu().numpy()
+
+                    ref_ux = ctx["ref_ux"]
+                    ref_uy = ctx["ref_uy"]
+                    ref_p = ctx["ref_p"]
+
+                    rel_u = np.sqrt(np.mean((ref_ux - u_pred[:,0].reshape(64,64))**2 +
+                                           (ref_uy - u_pred[:,1].reshape(64,64))**2)) / \
+                            (np.sqrt(np.mean(ref_ux**2 + ref_uy**2)) + 1e-30)
+                    rel_p_err = np.sqrt(np.mean((ref_p - p_pred.reshape(64,64))**2)) / \
+                                (np.sqrt(np.mean(ref_p**2)) + 1e-30)
+                    rel_us.append(rel_u)
+                    rel_ps.append(rel_p_err)
+
+            model.train()
+            mean_rel_u = float(np.mean(rel_us))
+            mean_rel_p = float(np.mean(rel_ps))
+            print(f"[field] s{step:4d} train rel_U={mean_rel_u:.4e} "
+                  f"rel_p={mean_rel_p:.4e}", flush=True)
+            history.append({
+                "step": step,
+                "field_rel_u": mean_rel_u,
+                "field_rel_p": mean_rel_p,
+            })
+
+    return history
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", required=True, choices=["supervised", "physics"])
@@ -405,6 +692,11 @@ def main() -> int:
     ap.add_argument("--save-every", type=int, default=25)
     ap.add_argument("--eval-every", type=int, default=100,
                     help="Evaluate full dataset loss every N steps")
+    ap.add_argument("--physics-objective", default="residual",
+                    choices=["residual", "fixed-point"],
+                    help="Physics loss type: residual (JTV) or fixed-point (SIMPLE step)")
+    ap.add_argument("--alpha-p", type=float, default=0.1,
+                    help="Pressure relaxation for fixed-point target")
     args = ap.parse_args()
 
     if args.device != "cpu":
@@ -447,6 +739,17 @@ def main() -> int:
 
     if args.mode == "supervised":
         history = train_supervised(model, samples, optimizer, args.device, args.epochs)
+    elif args.mode == "physics" and args.physics_objective == "fixed-point":
+        history = train_fixed_point(
+            model, samples, optimizer, args.device, args.steps,
+            args.dataset, args.workers,
+            topology_batch_size=args.topology_batch_size,
+            checkpoint_dir=str(output_dir),
+            save_every=args.save_every,
+            eval_every=args.eval_every,
+            alpha_p=args.alpha_p,
+            start_step=start_step,
+            prev_history=prev_history)
     else:
         history = train_physics(
             model, samples, optimizer, args.device, args.steps,

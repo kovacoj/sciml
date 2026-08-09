@@ -159,8 +159,67 @@ class TopologyWorkerPool:
 
         return results
 
+    def simple_step_wave(self, topology_ids: List[str],
+                         states: List[np.ndarray]) -> List[np.ndarray]:
+        """Run one SIMPLE step for each topology in the wave.
+
+        Returns the updated states.
+        """
+        import os
+        import tempfile
+
+        n = len(topology_ids)
+        results = [None] * n
+        state_paths = []
+
+        for i, (tid, state) in enumerate(zip(topology_ids, states)):
+            tmpdir = tempfile.mkdtemp(prefix=f"simple_{tid}_")
+            state_path = os.path.join(tmpdir, "state.npy")
+            np.save(state_path, state)
+            state_paths.append(state_path)
+
+            self._workers[tid].pipe.send({
+                "command": "simple_step",
+                "request_id": i,
+                "state_path": state_path,
+            })
+
+        pending = {i: tid for i in range(n)}
+        deadline = time.time() + self.timeout
+
+        while pending:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Simple step wave timed out with {len(pending)} pending")
+
+            try:
+                msg = self._result_queue.get(timeout=0.5)
+            except Exception:
+                for rid, tid in list(pending.items()):
+                    entry = self._workers[tid]
+                    if not entry.process.is_alive():
+                        raise RuntimeError(
+                            f"Worker {tid} died (exitcode="
+                            f"{entry.process.exitcode})")
+                continue
+
+            if msg["status"] == "ok":
+                rid = msg["request_id"]
+                next_path = msg["next_path"]
+                results[rid] = np.load(next_path)
+                os.remove(next_path)
+                os.remove(state_paths[rid])
+                os.rmdir(os.path.dirname(next_path))
+                del pending[rid]
+            elif msg["status"] == "error":
+                raise RuntimeError(
+                    f"Worker error: {msg.get('error')}\n"
+                    f"{msg.get('traceback', '')}")
+
+        return results
+
     def close_wave(self):
-        """Shut down all workers in the current wave."""
         for tid, entry in self._workers.items():
             try:
                 entry.pipe.send({"command": "close"})

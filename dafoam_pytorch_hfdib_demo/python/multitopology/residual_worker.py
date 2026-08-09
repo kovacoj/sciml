@@ -75,6 +75,32 @@ def worker_main(case_dir: str, topology_id: str,
         elif msg["command"] == "ping":
             parent_pipe.send({"status": "pong", "topology_id": topology_id})
             continue
+        elif msg["command"] == "simple_step":
+            try:
+                state_path = msg["state_path"]
+                request_id = msg["request_id"]
+
+                state = np.load(state_path)
+                next_state = bridge.simple_step(state)
+
+                next_path = state_path.replace(".npy", "_simple.npy")
+                np.save(next_path, next_state)
+
+                print(f"[worker {topology_id}] simple_step done", flush=True)
+                result_queue.put({
+                    "status": "ok",
+                    "request_id": request_id,
+                    "topology_id": topology_id,
+                    "next_path": next_path,
+                })
+            except Exception as e:
+                result_queue.put({
+                    "status": "error",
+                    "request_id": msg.get("request_id", -1),
+                    "topology_id": topology_id,
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                })
         elif msg["command"] == "evaluate":
             try:
                 state_path = msg["state_path"]

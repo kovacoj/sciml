@@ -676,9 +676,204 @@ def train_fixed_point(model, samples, optimizer, device, steps, dataset_dir,
     return history
 
 
+def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir,
+                           batch_size=4, log_every=10,
+                           checkpoint_dir=None, save_every=25, eval_every=25,
+                           start_step=0, prev_history=None):
+    """Solver-distilled training: fixed K-step SIMPLE targets, pure PyTorch.
+
+    No DAFoam in the training loop. Targets are precomputed truncated-SIMPLE
+    states converted to network coordinates (q_cell, q_phi).
+
+    Loss = (L_U/E_U + L_p/E_p + L_phi/E_phi) / 3
+    where L_* are MSE between network output and target.
+    """
+    model.train()
+
+    n_train = len(samples)
+    ds_dir = Path(dataset_dir)
+    if not ds_dir.is_absolute():
+        ds_dir = Path(PROJECT_ROOT) / ds_dir
+
+    targets_dir = ds_dir / "solver_targets"
+
+    # Load normalization
+    import json as _json
+    norm_path = targets_dir / "target_normalization_k010.json"
+    with open(norm_path) as f:
+        norm = _json.load(f)
+    E_u = norm["E_u"]
+    E_p = norm["E_p"]
+    E_phi = norm["E_phi"]
+
+    print(f"[distill] E_u={E_u:.4e} E_p={E_p:.4e} E_phi={E_phi:.4e}")
+
+    # Load targets for each sample
+    from pinn.mesh_metadata import MeshMetadata
+    mesh_meta = MeshMetadata.load(
+        str(ds_dir / "shared" / "mesh_metadata.npz"),
+        str(ds_dir / "shared" / "mesh_metadata.json"),
+    )
+    n_cells = mesh_meta.n_cells
+
+    contexts = []
+    for s in samples:
+        tid = s["topology_id"]
+        tdir = targets_dir / tid
+        q_cell = np.load(tdir / "q_cell_k010.npy")  # [n_cells, 3]
+        q_phi = np.load(tdir / "q_phi_k010.npy")    # [n_phi_trainable]
+
+        lam_tensor = torch.from_numpy(s["lambda"]).unsqueeze(0).unsqueeze(0).to(device)
+        target_cell = torch.from_numpy(q_cell).to(device)
+        target_phi = torch.from_numpy(q_phi).to(device)
+
+        # Load HFDIB refs for diagnostics
+        ref_ux = np.load(Path(s["case_dir"]).parent / "ux_hfdib.npy")
+        ref_uy = np.load(Path(s["case_dir"]).parent / "uy_hfdib.npy")
+        ref_p = np.load(Path(s["case_dir"]).parent / "pressure_hfdib.npy")
+
+        contexts.append({
+            "topology_id": tid,
+            "lam": lam_tensor,
+            "target_cell": target_cell,
+            "target_phi": target_phi,
+            "ref_ux": ref_ux,
+            "ref_uy": ref_uy,
+            "ref_p": ref_p,
+        })
+
+    print(f"[distill] {n_train} samples, batch={batch_size}, "
+          f"steps={steps}, pure PyTorch (no DAFoam)", flush=True)
+
+    history = list(prev_history) if prev_history else []
+    t0 = time.time()
+
+    for step in range(start_step, steps):
+        optimizer.zero_grad(set_to_none=True)
+
+        batch_indices = torch.randperm(n_train)[:batch_size].tolist()
+        batch_ctxs = [contexts[i] for i in batch_indices]
+
+        total_loss_u = 0.0
+        total_loss_p = 0.0
+        total_loss_phi = 0.0
+
+        for ctx in batch_ctxs:
+            cell_pred, phi_pred = model(ctx["lam"])
+            cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
+
+            # Convert to [n_cells, 3]
+            pred_cell = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
+            pred_phi = phi_pred.squeeze(0)
+
+            # MSE per block
+            loss_u = torch.mean((pred_cell[:, :2] - ctx["target_cell"][:, :2])**2)
+            loss_p = torch.mean((pred_cell[:, 2] - ctx["target_cell"][:, 2])**2)
+            loss_phi = torch.mean((pred_phi - ctx["target_phi"])**2)
+
+            total_loss_u += loss_u / batch_size
+            total_loss_p += loss_p / batch_size
+            total_loss_phi += loss_phi / batch_size
+
+        # Normalized loss
+        loss = (total_loss_u / (E_u + 1e-30) +
+                total_loss_p / (E_p + 1e-30) +
+                total_loss_phi / (E_phi + 1e-30)) / 3.0
+
+        loss.backward()
+        optimizer.step()
+
+        elapsed = time.time() - t0
+
+        if step % log_every == 0 or step == steps - 1:
+            print(f"[distill] s{step:4d} loss={loss.item():.4e} "
+                  f"U={total_loss_u.item():.2e} "
+                  f"p={total_loss_p.item():.2e} "
+                  f"phi={total_loss_phi.item():.2e} "
+                  f"t={elapsed:.1f}s",
+                  flush=True)
+            history.append({
+                "step": step,
+                "loss": loss.item(),
+                "loss_u": total_loss_u.item(),
+                "loss_p": total_loss_p.item(),
+                "loss_phi": total_loss_phi.item(),
+                "elapsed_s": elapsed,
+            })
+
+        if checkpoint_dir is not None and (step + 1) % save_every == 0:
+            ckpt_path = Path(checkpoint_dir) / f"checkpoint_s{step + 1}.pt"
+            torch.save({
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "architecture": "simple",
+                "model_kwargs": {},
+                "mode": "solver-distilled",
+                "step": step + 1,
+                "history": history,
+            }, ckpt_path)
+            print(f"[distill] checkpoint: {ckpt_path.name}", flush=True)
+            write_json(Path(checkpoint_dir) / "history.json", history)
+
+        # Field diagnostic
+        if eval_every > 0 and (step + 1) % eval_every == 0:
+            rel_us = []
+            rel_ps = []
+            model.eval()
+            with torch.no_grad():
+                for ctx in contexts[:8]:
+                    cell_pred, phi_pred = model(ctx["lam"])
+                    cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
+                    pred_cell = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
+
+                    # Reconstruct physical state
+                    n_u = 3 * n_cells
+                    ux_phys = pred_cell[:, 0].cpu().numpy() * 0.1
+                    uy_phys = pred_cell[:, 1].cpu().numpy() * 0.1
+                    p_phys = pred_cell[:, 2].cpu().numpy() * 0.01
+
+                    ux_grid = ux_phys.reshape(64, 64)
+                    uy_grid = uy_phys.reshape(64, 64)
+                    p_grid = p_phys.reshape(64, 64)
+
+                    # Add base state
+                    w0 = np.load(ds_dir / "shared" / "base_state_k0.npy")
+                    u0 = w0[:n_u].reshape(n_cells, 3)
+                    p0 = w0[n_u:n_u + n_cells]
+
+                    ux_full = u0[:, 0].reshape(64, 64) + ux_grid
+                    uy_full = u0[:, 1].reshape(64, 64) + uy_grid
+                    p_full = p0.reshape(64, 64) + p_grid
+
+                    rel_u = np.sqrt(
+                        np.sum((ctx["ref_ux"] - ux_full)**2 +
+                               (ctx["ref_uy"] - uy_full)**2)
+                    ) / (np.sqrt(
+                        np.sum(ctx["ref_ux"]**2 + ctx["ref_uy"]**2)) + 1e-30)
+                    rel_p = np.sqrt(
+                        np.sum((ctx["ref_p"] - p_full)**2)
+                    ) / (np.sqrt(np.sum(ctx["ref_p"]**2)) + 1e-30)
+                    rel_us.append(rel_u)
+                    rel_ps.append(rel_p)
+
+            model.train()
+            mean_rel_u = float(np.mean(rel_us))
+            mean_rel_p = float(np.mean(rel_ps))
+            print(f"[field] s{step:4d} train rel_U={mean_rel_u:.4e} "
+                  f"rel_p={mean_rel_p:.4e}", flush=True)
+            history.append({
+                "step": step,
+                "field_rel_u": mean_rel_u,
+                "field_rel_p": mean_rel_p,
+            })
+
+    return history
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", required=True, choices=["supervised", "physics"])
+    ap.add_argument("--mode", required=True,
+                    choices=["supervised", "physics", "solver-distilled"])
     ap.add_argument("--architecture", default=None, choices=["simple", "unet"])
     ap.add_argument("--dataset", required=True)
     ap.add_argument("--epochs", type=int, default=20,
@@ -748,6 +943,15 @@ def main() -> int:
 
     if args.mode == "supervised":
         history = train_supervised(model, samples, optimizer, args.device, args.epochs)
+    elif args.mode == "solver-distilled":
+        history = train_solver_distilled(
+            model, samples, optimizer, args.device, args.steps,
+            args.dataset, args.topology_batch_size,
+            checkpoint_dir=str(output_dir),
+            save_every=args.save_every,
+            eval_every=args.eval_every,
+            start_step=start_step,
+            prev_history=prev_history)
     elif args.mode == "physics" and args.physics_objective == "fixed-point":
         history = train_fixed_point(
             model, samples, optimizer, args.device, args.steps,

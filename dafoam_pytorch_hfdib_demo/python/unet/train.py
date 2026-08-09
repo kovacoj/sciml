@@ -178,9 +178,25 @@ def train_physics(model, samples, optimizer, device, steps, dataset_dir,
             n_faces=mesh_meta.n_faces,
         )
 
+        # Determine trainable phi faces: internal + outlet patches
+        patch_names = list(mesh_meta.patch_names)
+        n_internal = mesh_meta.n_internal_faces
+        phi_trainable = np.zeros(mesh_meta.n_faces, dtype=bool)
+        phi_trainable[:n_internal] = True
+        for pname in ["outletLower", "outletUpper"]:
+            if pname in patch_names:
+                idx = patch_names.index(pname)
+                start = int(mesh_meta.patch_start_faces[idx])
+                count = int(mesh_meta.patch_face_counts[idx])
+                phi_trainable[start:start + count] = True
+        phi_trainable_indices = np.flatnonzero(phi_trainable)
+
         base_state = torch.from_numpy(base_state_np).to(device)
-        state_asm = StateAssembler(base_state, layout, flux_asm,
-                                    mesh_meta.n_cells, mesh_meta.n_faces)
+        from pinn.state_assembly_independent_phi import IndependentPhiStateAssembler
+        state_asm = IndependentPhiStateAssembler(
+            base_state, layout, flux_asm,
+            mesh_meta.n_cells, mesh_meta.n_faces,
+            phi_trainable_indices)
 
         contexts.append({
             "topology_id": s["topology_id"],
@@ -232,10 +248,11 @@ def train_physics(model, samples, optimizer, device, steps, dataset_dir,
         try:
             batch_states = []
             for ctx in batch_ctxs:
-                pred = model(ctx["lam"])
-                pred = project_solid_velocity(pred, ctx["lam"])
-                corrections = pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
-                state = ctx["state_asm"].assemble(corrections)
+                cell_pred, phi_pred = model(ctx["lam"])
+                cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
+                corrections = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
+                phi_corr = phi_pred.squeeze(0)
+                state = ctx["state_asm"].assemble(corrections, phi_corr)
                 batch_states.append(state)
 
             batch_results = pool.evaluate_wave(
@@ -330,10 +347,11 @@ def _eval_full_dataset(model, contexts, prepared, pool, worker_count, device):
             try:
                 batch_states = []
                 for ctx in batch_ctxs:
-                    pred = model(ctx["lam"])
-                    pred = project_solid_velocity(pred, ctx["lam"])
-                    corrections = pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
-                    state = ctx["state_asm"].assemble(corrections)
+                    cell_pred, phi_pred = model(ctx["lam"])
+                    cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
+                    corrections = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
+                    phi_corr = phi_pred.squeeze(0)
+                    state = ctx["state_asm"].assemble(corrections, phi_corr)
                     batch_states.append(state)
 
                 batch_results = pool.evaluate_wave(

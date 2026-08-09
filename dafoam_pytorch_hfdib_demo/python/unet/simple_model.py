@@ -1,9 +1,11 @@
 """Simple two-convolution physics network for HFDIB residual training.
 
 Input:  [B, 1, 64, 64] lambda field
-Output: [B, 3, 64, 64] corrections (dux, duy, dp)
+Output: (cell_corrections, phi_corrections)
+  cell_corrections: [B, 3, 64, 64] (dux, duy, dp) scaled to physical units
+  phi_corrections: [B, n_phi_trainable] independent flux corrections
 
-Only two convolutions + two linear layers. No pooling, skip, decoder, or normalization.
+Two convolutions + shared latent + two linear heads.
 Zero-initialized output so W_theta_0 = W_0 (shared base state).
 """
 from __future__ import annotations
@@ -20,6 +22,8 @@ class SimpleFlowNet(nn.Module):
         latent_dim: int = 128,
         velocity_scale: float = 0.1,
         pressure_scale: float = 0.01,
+        phi_scale: float = 4e-7,
+        n_phi_trainable: int = 8080,
     ):
         super().__init__()
         c1, c2 = conv_channels
@@ -33,19 +37,28 @@ class SimpleFlowNet(nn.Module):
 
         reduced = input_size // 4
         flat = c2 * reduced * reduced
-        self.regressor = nn.Sequential(
+        self.shared = nn.Sequential(
             nn.Flatten(),
             nn.Linear(flat, latent_dim),
             nn.SiLU(),
-            nn.Linear(latent_dim, 3 * input_size * input_size),
         )
 
+        # Cell head: 3 * 64 * 64 = 12288 outputs (dux, duy, dp)
+        self.cell_head = nn.Linear(latent_dim, 3 * input_size * input_size)
+
+        # Phi head: n_phi_trainable independent flux corrections
+        self.phi_head = nn.Linear(latent_dim, n_phi_trainable)
+
         self.input_size = input_size
+        self.n_phi_trainable = n_phi_trainable
+
         self.register_buffer(
-            "output_scales",
+            "cell_scales",
             torch.tensor([velocity_scale, velocity_scale, pressure_scale],
-                        dtype=torch.float64).view(1, 3, 1, 1),
+                         dtype=torch.float64).view(1, 3, 1, 1),
         )
+        self.phi_scale = phi_scale
+
         self._init()
 
     def _init(self):
@@ -54,13 +67,24 @@ class SimpleFlowNet(nn.Module):
                 nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-        nn.init.kaiming_normal_(self.regressor[1].weight, nonlinearity="relu")
-        nn.init.zeros_(self.regressor[1].bias)
-        nn.init.zeros_(self.regressor[3].weight)
-        nn.init.zeros_(self.regressor[3].bias)
+        nn.init.kaiming_normal_(self.shared[1].weight, nonlinearity="relu")
+        nn.init.zeros_(self.shared[1].bias)
+        # Zero-init both output heads so initial output = 0 => W = W0
+        nn.init.zeros_(self.cell_head.weight)
+        nn.init.zeros_(self.cell_head.bias)
+        nn.init.zeros_(self.phi_head.weight)
+        nn.init.zeros_(self.phi_head.bias)
         self.to(torch.float64)
 
-    def forward(self, lam: torch.Tensor) -> torch.Tensor:
+    def forward(self, lam: torch.Tensor):
+        """Returns (cell_corrections [B,3,H,W], phi_corrections [B,n_phi_trainable])."""
         enc = self.features(lam)
-        raw = self.regressor(enc).view(lam.shape[0], 3, self.input_size, self.input_size)
-        return raw * self.output_scales
+        latent = self.shared(enc)
+
+        cell_raw = self.cell_head(latent).view(
+            lam.shape[0], 3, self.input_size, self.input_size)
+        cell_out = cell_raw * self.cell_scales
+
+        phi_out = self.phi_scale * self.phi_head(latent)
+
+        return cell_out, phi_out

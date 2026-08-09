@@ -1,12 +1,14 @@
 """Simple two-convolution physics network for HFDIB residual training.
 
 Input:  [B, 1, 64, 64] lambda field
-Output: (cell_corrections, phi_corrections)
-  cell_corrections: [B, 3, 64, 64] (dux, duy, dp) scaled to physical units
-  phi_corrections: [B, n_phi_trainable] independent flux corrections
+Output: (cell_corrections, phi_corrections) — all DIMENSIONLESS
+  cell_corrections: [B, 3, 64, 64] raw (q_ux, q_uy, q_p)
+  phi_corrections: [B, n_phi_trainable] raw (q_phi)
+
+Physical scaling is applied exclusively in IndependentPhiStateAssembler.
 
 Two convolutions + shared latent + two linear heads.
-Zero-initialized output so W_theta_0 = W_0 (shared base state).
+Zero-initialized output heads so W_theta_0 = W_0 (shared base state).
 """
 from __future__ import annotations
 
@@ -20,9 +22,6 @@ class SimpleFlowNet(nn.Module):
         input_size: int = 64,
         conv_channels: tuple[int, int] = (8, 16),
         latent_dim: int = 128,
-        velocity_scale: float = 0.1,
-        pressure_scale: float = 0.01,
-        phi_scale: float = 4e-7,
         n_phi_trainable: int = 8080,
     ):
         super().__init__()
@@ -43,7 +42,7 @@ class SimpleFlowNet(nn.Module):
             nn.SiLU(),
         )
 
-        # Cell head: 3 * 64 * 64 = 12288 outputs (dux, duy, dp)
+        # Cell head: 3 * 64 * 64 = 12288 outputs (q_ux, q_uy, q_p)
         self.cell_head = nn.Linear(latent_dim, 3 * input_size * input_size)
 
         # Phi head: n_phi_trainable independent flux corrections
@@ -51,13 +50,6 @@ class SimpleFlowNet(nn.Module):
 
         self.input_size = input_size
         self.n_phi_trainable = n_phi_trainable
-
-        self.register_buffer(
-            "cell_scales",
-            torch.tensor([velocity_scale, velocity_scale, pressure_scale],
-                         dtype=torch.float64).view(1, 3, 1, 1),
-        )
-        self.phi_scale = phi_scale
 
         self._init()
 
@@ -77,14 +69,16 @@ class SimpleFlowNet(nn.Module):
         self.to(torch.float64)
 
     def forward(self, lam: torch.Tensor):
-        """Returns (cell_corrections [B,3,H,W], phi_corrections [B,n_phi_trainable])."""
+        """Returns (cell_corrections [B,3,H,W], phi_corrections [B,n_phi_trainable]).
+
+        All outputs are dimensionless. Physical scaling is done by
+        IndependentPhiStateAssembler.assemble().
+        """
         enc = self.features(lam)
         latent = self.shared(enc)
 
-        cell_raw = self.cell_head(latent).view(
+        cell_out = self.cell_head(latent).view(
             lam.shape[0], 3, self.input_size, self.input_size)
-        cell_out = cell_raw * self.cell_scales
-
-        phi_out = self.phi_scale * self.phi_head(latent)
+        phi_out = self.phi_head(latent)
 
         return cell_out, phi_out

@@ -247,6 +247,8 @@ def train_physics(model, samples, optimizer, device, steps, dataset_dir,
 
         try:
             batch_states = []
+            batch_cell_preds = []
+            batch_phi_preds = []
             for ctx in batch_ctxs:
                 cell_pred, phi_pred = model(ctx["lam"])
                 cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
@@ -254,6 +256,8 @@ def train_physics(model, samples, optimizer, device, steps, dataset_dir,
                 phi_corr = phi_pred.squeeze(0)
                 state = ctx["state_asm"].assemble(corrections, phi_corr)
                 batch_states.append(state)
+                batch_cell_preds.append(cell_pred.detach())
+                batch_phi_preds.append(phi_pred.detach())
 
             batch_results = pool.evaluate_wave(
                 batch_tids,
@@ -282,10 +286,23 @@ def train_physics(model, samples, optimizer, device, steps, dataset_dir,
         n_evals = (step - start_step + 1) * topology_batch_size
 
         if step % log_every == 0 or step == steps - 1:
+            # Compute RMS of dimensionless network outputs
+            rms_du = float(torch.sqrt(torch.mean(
+                torch.stack([p[:, :2] for p in batch_cell_preds])**2)))
+            rms_dp = float(torch.sqrt(torch.mean(
+                torch.stack([p[:, 2] for p in batch_cell_preds])**2)))
+            rms_dphi = float(torch.sqrt(torch.mean(
+                torch.stack([p for p in batch_phi_preds])**2)))
+
             print(f"[phys] s{step:4d} loss={mean_loss:.4e} "
                   f"U={mean_u:.2e} p={mean_p:.2e} "
                   f"phi={mean_phi:.2e} "
                   f"evals={n_evals} t={elapsed:.0f}s",
+                  flush=True)
+            print(f"        RMS q_U={rms_du:.2e} q_p={rms_dp:.2e} "
+                  f"q_phi={rms_dphi:.2e} "
+                  f"phys dU={0.1*rms_du:.2e} dp={0.01*rms_dp:.2e} "
+                  f"dphi={4e-7*rms_dphi:.2e}",
                   flush=True)
             history.append({
                 "step": step,

@@ -650,7 +650,7 @@ def main():
     topo_dir = project_root / "topologies" / "four_port_64"
     topo_dir.mkdir(parents=True, exist_ok=True)
 
-    topologies = generate_topology_set(n=20, base_seed=42)
+    topologies = generate_topology_set(n=144, base_seed=42)
 
     validate_topologies(topologies)
 

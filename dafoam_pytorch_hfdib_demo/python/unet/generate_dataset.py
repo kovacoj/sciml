@@ -149,8 +149,8 @@ def main() -> int:
     shared_dir.mkdir(exist_ok=True)
 
     # Write splits.json
-    train_ids = [d.name for d in topo_dirs[:16]]
-    test_ids = [d.name for d in topo_dirs[16:]]
+    train_ids = [d.name for d in topo_dirs[:128]]
+    test_ids = [d.name for d in topo_dirs[128:]]
     with open(output_dir / "splits.json", "w") as f:
         json.dump({"train": train_ids, "test": test_ids}, f, indent=2)
     print(f"[dataset] train: {train_ids}")

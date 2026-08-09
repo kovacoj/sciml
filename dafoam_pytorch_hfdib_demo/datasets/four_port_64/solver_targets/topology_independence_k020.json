@@ -1,0 +1,26 @@
+{
+  "k": 20,
+  "mean_target_test_results": [
+    {
+      "topology_id": "topology_016",
+      "mean_target_rel_u": 0.7702800473571244,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_017",
+      "mean_target_rel_u": 0.7521436041517746,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_018",
+      "mean_target_rel_u": 0.7752971884261325,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_019",
+      "mean_target_rel_u": 0.8001815601889546,
+      "w0_rel_u": 1.0
+    }
+  ],
+  "mean_test_rel_u_mean": 0.7744756000309966
+}

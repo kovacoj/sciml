@@ -679,6 +679,7 @@ def train_fixed_point(model, samples, optimizer, device, steps, dataset_dir,
 def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir,
                            batch_size=4, log_every=10,
                            checkpoint_dir=None, save_every=25, eval_every=25,
+                           target_k=10,
                            start_step=0, prev_history=None):
     """Solver-distilled training: fixed K-step SIMPLE targets, pure PyTorch.
 
@@ -699,14 +700,14 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
 
     # Load normalization
     import json as _json
-    norm_path = targets_dir / "target_normalization_k010.json"
+    norm_path = targets_dir / f"target_normalization_k{target_k:03d}.json"
     with open(norm_path) as f:
         norm = _json.load(f)
     E_u = norm["E_u"]
     E_p = norm["E_p"]
     E_phi = norm["E_phi"]
 
-    print(f"[distill] E_u={E_u:.4e} E_p={E_p:.4e} E_phi={E_phi:.4e}")
+    print(f"[distill] target_k={target_k} E_u={E_u:.4e} E_p={E_p:.4e} E_phi={E_phi:.4e}")
 
     # Load targets for each sample
     from pinn.mesh_metadata import MeshMetadata
@@ -720,8 +721,8 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
     for s in samples:
         tid = s["topology_id"]
         tdir = targets_dir / tid
-        q_cell = np.load(tdir / "q_cell_k010.npy")  # [n_cells, 3]
-        q_phi = np.load(tdir / "q_phi_k010.npy")    # [n_phi_trainable]
+        q_cell = np.load(tdir / f"q_cell_k{target_k:03d}.npy")  # [n_cells, 3]
+        q_phi = np.load(tdir / f"q_phi_k{target_k:03d}.npy")    # [n_phi_trainable]
 
         lam_tensor = torch.from_numpy(s["lambda"]).unsqueeze(0).unsqueeze(0).to(device)
         target_cell = torch.from_numpy(q_cell).to(device)
@@ -786,10 +787,13 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
         elapsed = time.time() - t0
 
         if step % log_every == 0 or step == steps - 1:
+            nU = total_loss_u.item() / (E_u + 1e-30)
+            nP = total_loss_p.item() / (E_p + 1e-30)
+            nPhi = total_loss_phi.item() / (E_phi + 1e-30)
             print(f"[distill] s{step:4d} loss={loss.item():.4e} "
-                  f"U={total_loss_u.item():.2e} "
-                  f"p={total_loss_p.item():.2e} "
-                  f"phi={total_loss_phi.item():.2e} "
+                  f"rawU={total_loss_u.item():.2e} rawP={total_loss_p.item():.2e} "
+                  f"rawPhi={total_loss_phi.item():.2e} "
+                  f"normU={nU:.4f} normP={nP:.4f} normPhi={nPhi:.4f} "
                   f"t={elapsed:.1f}s",
                   flush=True)
             history.append({
@@ -819,6 +823,8 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
         if eval_every > 0 and (step + 1) % eval_every == 0:
             rel_us = []
             rel_ps = []
+            teacher_rel_us = []
+            teacher_rel_ps = []
             model.eval()
             with torch.no_grad():
                 for ctx in contexts[:8]:
@@ -832,19 +838,16 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
                     uy_phys = pred_cell[:, 1].cpu().numpy() * 0.1
                     p_phys = pred_cell[:, 2].cpu().numpy() * 0.01
 
-                    ux_grid = ux_phys.reshape(64, 64)
-                    uy_grid = uy_phys.reshape(64, 64)
-                    p_grid = p_phys.reshape(64, 64)
-
                     # Add base state
-                    w0 = np.load(ds_dir / "shared" / "base_state_k0.npy")
-                    u0 = w0[:n_u].reshape(n_cells, 3)
-                    p0 = w0[n_u:n_u + n_cells]
+                    w0_np = np.load(ds_dir / "shared" / "base_state_k0.npy")
+                    u0 = w0_np[:n_u].reshape(n_cells, 3)
+                    p0 = w0_np[n_u:n_u + n_cells]
 
-                    ux_full = u0[:, 0].reshape(64, 64) + ux_grid
-                    uy_full = u0[:, 1].reshape(64, 64) + uy_grid
-                    p_full = p0.reshape(64, 64) + p_grid
+                    ux_full = u0[:, 0].reshape(64, 64) + ux_phys.reshape(64, 64)
+                    uy_full = u0[:, 1].reshape(64, 64) + uy_phys.reshape(64, 64)
+                    p_full = p0.reshape(64, 64) + p_phys.reshape(64, 64)
 
+                    # Error vs converged HFDIB
                     rel_u = np.sqrt(
                         np.sum((ctx["ref_ux"] - ux_full)**2 +
                                (ctx["ref_uy"] - uy_full)**2)
@@ -856,15 +859,34 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
                     rel_us.append(rel_u)
                     rel_ps.append(rel_p)
 
+                    # Error vs teacher target
+                    tgt = ctx["target_cell"].cpu().numpy()
+                    pred_np = pred_cell.cpu().numpy()
+                    tu_err = np.sqrt(np.sum(
+                        (tgt[:, 0] - pred_np[:, 0])**2 +
+                        (tgt[:, 1] - pred_np[:, 1])**2
+                    )) / (np.sqrt(np.sum(
+                        tgt[:, 0]**2 + tgt[:, 1]**2)) + 1e-30)
+                    tp_err = np.sqrt(np.sum(
+                        (tgt[:, 2] - pred_np[:, 2])**2
+                    )) / (np.sqrt(np.sum(tgt[:, 2]**2)) + 1e-30)
+                    teacher_rel_us.append(tu_err)
+                    teacher_rel_ps.append(tp_err)
+
             model.train()
             mean_rel_u = float(np.mean(rel_us))
             mean_rel_p = float(np.mean(rel_ps))
-            print(f"[field] s{step:4d} train rel_U={mean_rel_u:.4e} "
-                  f"rel_p={mean_rel_p:.4e}", flush=True)
+            mean_tu = float(np.mean(teacher_rel_us))
+            mean_tp = float(np.mean(teacher_rel_ps))
+            print(f"[field] s{step:4d} vs_HFDIB U={mean_rel_u:.4e} "
+                  f"p={mean_rel_p:.4e} | vs_teacher U={mean_tu:.4e} "
+                  f"p={mean_tp:.4e}", flush=True)
             history.append({
                 "step": step,
                 "field_rel_u": mean_rel_u,
                 "field_rel_p": mean_rel_p,
+                "teacher_rel_u": mean_tu,
+                "teacher_rel_p": mean_tp,
             })
 
     return history
@@ -901,6 +923,10 @@ def main() -> int:
                     help="Velocity relaxation for fixed-point target")
     ap.add_argument("--alpha-phi", type=float, default=0.1,
                     help="Flux relaxation for fixed-point target")
+    ap.add_argument("--target-k", type=int, default=10,
+                    help="SIMPLE target step for solver-distilled mode")
+    ap.add_argument("--init-from", default=None,
+                    help="Initialize model weights from this checkpoint (curriculum)")
     args = ap.parse_args()
 
     if args.device != "cpu":
@@ -941,6 +967,12 @@ def main() -> int:
         prev_history = ckpt.get("history", [])
         print(f"[train] resumed from {args.resume} at step {start_step}")
 
+    if args.init_from:
+        init_ckpt = torch.load(args.init_from, map_location="cpu", weights_only=False)
+        model.load_state_dict(init_ckpt["model_state_dict"])
+        print(f"[train] initialized model weights from {args.init_from}")
+        print(f"[train] (fresh optimizer — Adam state NOT restored)")
+
     if args.mode == "supervised":
         history = train_supervised(model, samples, optimizer, args.device, args.epochs)
     elif args.mode == "solver-distilled":
@@ -950,6 +982,7 @@ def main() -> int:
             checkpoint_dir=str(output_dir),
             save_every=args.save_every,
             eval_every=args.eval_every,
+            target_k=args.target_k,
             start_step=start_step,
             prev_history=prev_history)
     elif args.mode == "physics" and args.physics_objective == "fixed-point":

@@ -16,21 +16,19 @@
     "rel_phi_all": 0.128063268202437,
     "residual_norm": 26.118174667346537
   },
-  "network": {
-    "loss": 0.11798996919458189,
-    "loss_u": 0.011532554882192885,
-    "loss_p": 0.08404470297330709,
-    "loss_phi": 0.02241271133908192,
-    "rel_u": 0.9206180280600407,
-    "rel_p": 1.0005595923304553,
-    "rel_phi_internal": 0.9227344854898457,
-    "residual_norm": 250.64227748704263
-  },
   "base_state": {
     "loss": 3.0,
     "loss_u": 1.0,
     "loss_p": 1.0,
     "loss_phi": 1.0,
     "residual_norm": 2287.0555241090897
+  },
+  "direct_optimization": {
+    "initial_loss": 3.0,
+    "final_loss": 4447576.287057248,
+    "final_rel_u": 1.0563843761453902,
+    "final_rel_p": 0.9977961047667676,
+    "final_rel_phi": 26.545979246170216,
+    "n_steps": 11
   }
 }

@@ -153,7 +153,11 @@ def main() -> int:
 
         with torch.no_grad():
             sup_pred_raw = sup_model(lam).squeeze(0).numpy()
-            phys_pred_raw = phys_model(lam).squeeze(0).numpy()
+            phys_out = phys_model(lam)
+            if isinstance(phys_out, tuple):
+                phys_pred_raw = phys_out[0].squeeze(0).numpy()
+            else:
+                phys_pred_raw = phys_out.squeeze(0).numpy()
 
         sup_pred = {"ux": sup_pred_raw[0], "uy": sup_pred_raw[1], "p": sup_pred_raw[2]}
         phys_pred = {"ux": phys_pred_raw[0], "uy": phys_pred_raw[1], "p": phys_pred_raw[2]}

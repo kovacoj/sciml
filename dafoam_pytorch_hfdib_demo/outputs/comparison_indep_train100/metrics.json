@@ -1,0 +1,178 @@
+[
+  {
+    "topology_id": "topology_000",
+    "supervised": {
+      "rel_velocity_l2": 0.3382369439445292,
+      "rel_pressure_l2": 0.01602440173617985
+    },
+    "physics": {
+      "rel_velocity_l2": 1.371864885834853,
+      "rel_pressure_l2": 0.9997438276636277
+    }
+  },
+  {
+    "topology_id": "topology_001",
+    "supervised": {
+      "rel_velocity_l2": 0.31324230666008185,
+      "rel_pressure_l2": 0.01656681262927458
+    },
+    "physics": {
+      "rel_velocity_l2": 1.398352398762508,
+      "rel_pressure_l2": 0.9994166597910115
+    }
+  },
+  {
+    "topology_id": "topology_002",
+    "supervised": {
+      "rel_velocity_l2": 0.3764621023944845,
+      "rel_pressure_l2": 0.013994371325168077
+    },
+    "physics": {
+      "rel_velocity_l2": 1.361136767711556,
+      "rel_pressure_l2": 0.999758225262324
+    }
+  },
+  {
+    "topology_id": "topology_003",
+    "supervised": {
+      "rel_velocity_l2": 0.28112796288189257,
+      "rel_pressure_l2": 0.021728919418025128
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3906531291929236,
+      "rel_pressure_l2": 0.9996712557004176
+    }
+  },
+  {
+    "topology_id": "topology_004",
+    "supervised": {
+      "rel_velocity_l2": 0.26524744991955407,
+      "rel_pressure_l2": 0.02370975296768772
+    },
+    "physics": {
+      "rel_velocity_l2": 1.4064725246862915,
+      "rel_pressure_l2": 0.9996567752004489
+    }
+  },
+  {
+    "topology_id": "topology_005",
+    "supervised": {
+      "rel_velocity_l2": 0.30789013425003153,
+      "rel_pressure_l2": 0.013910072884511139
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3915840190954527,
+      "rel_pressure_l2": 0.9996426609151321
+    }
+  },
+  {
+    "topology_id": "topology_006",
+    "supervised": {
+      "rel_velocity_l2": 0.3373333218310705,
+      "rel_pressure_l2": 0.016874408865140227
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3841823888981275,
+      "rel_pressure_l2": 0.9996318982240524
+    }
+  },
+  {
+    "topology_id": "topology_007",
+    "supervised": {
+      "rel_velocity_l2": 0.3195529864099011,
+      "rel_pressure_l2": 0.015974227251967215
+    },
+    "physics": {
+      "rel_velocity_l2": 1.380623380997118,
+      "rel_pressure_l2": 0.9996167645448752
+    }
+  },
+  {
+    "topology_id": "topology_008",
+    "supervised": {
+      "rel_velocity_l2": 0.2912492135344807,
+      "rel_pressure_l2": 0.01988913626442386
+    },
+    "physics": {
+      "rel_velocity_l2": 1.4013404310628168,
+      "rel_pressure_l2": 0.9995453770988789
+    }
+  },
+  {
+    "topology_id": "topology_009",
+    "supervised": {
+      "rel_velocity_l2": 0.3232544723076614,
+      "rel_pressure_l2": 0.0169953096184394
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3537214995619258,
+      "rel_pressure_l2": 0.9996398327227893
+    }
+  },
+  {
+    "topology_id": "topology_010",
+    "supervised": {
+      "rel_velocity_l2": 0.34454822410296065,
+      "rel_pressure_l2": 0.0170816100681621
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3597320754415168,
+      "rel_pressure_l2": 0.9994575176218767
+    }
+  },
+  {
+    "topology_id": "topology_011",
+    "supervised": {
+      "rel_velocity_l2": 0.30818888850417436,
+      "rel_pressure_l2": 0.01724808482143547
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3693319258890058,
+      "rel_pressure_l2": 0.9995935723651312
+    }
+  },
+  {
+    "topology_id": "topology_012",
+    "supervised": {
+      "rel_velocity_l2": 0.32547543420652164,
+      "rel_pressure_l2": 0.015877403062641376
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3622405899414531,
+      "rel_pressure_l2": 0.9997459642367466
+    }
+  },
+  {
+    "topology_id": "topology_013",
+    "supervised": {
+      "rel_velocity_l2": 0.2955796603806574,
+      "rel_pressure_l2": 0.017745842761611338
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3872438707678703,
+      "rel_pressure_l2": 0.9995280607177326
+    }
+  },
+  {
+    "topology_id": "topology_014",
+    "supervised": {
+      "rel_velocity_l2": 0.3558083665616889,
+      "rel_pressure_l2": 0.019786570426715885
+    },
+    "physics": {
+      "rel_velocity_l2": 1.388442232876828,
+      "rel_pressure_l2": 0.9993972521711656
+    }
+  },
+  {
+    "topology_id": "topology_015",
+    "supervised": {
+      "rel_velocity_l2": 0.2943349285280849,
+      "rel_pressure_l2": 0.015867538930512907
+    },
+    "physics": {
+      "rel_velocity_l2": 1.3702030163885652,
+      "rel_pressure_l2": 0.9996311926625094
+    }
+  }
+]

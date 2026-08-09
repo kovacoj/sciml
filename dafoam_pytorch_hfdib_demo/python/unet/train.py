@@ -387,7 +387,8 @@ def _eval_full_dataset(model, contexts, prepared, pool, worker_count, device):
 def train_fixed_point(model, samples, optimizer, device, steps, dataset_dir,
                       worker_count=4, topology_batch_size=4, log_every=10,
                       checkpoint_dir=None, save_every=25, eval_every=25,
-                      alpha_p=0.1, start_step=0, prev_history=None):
+                      alpha_u=0.1, alpha_p=0.1, alpha_phi=0.1,
+                      start_step=0, prev_history=None):
     """Fixed-point training: use one SIMPLE step as a self-supervised target.
 
     No residual JTV needed. The loss is a nondimensional state-space MSE
@@ -500,7 +501,8 @@ def train_fixed_point(model, samples, optimizer, device, steps, dataset_dir,
     pool = TopologyWorkerPool(prepared, max_concurrent=worker_count)
 
     print(f"[fp] {n_train} topologies, batch={topology_batch_size}, "
-          f"workers={worker_count}, steps={steps}, alpha_p={alpha_p}",
+          f"workers={worker_count}, steps={steps}, "
+          f"alpha_u={alpha_u}, alpha_p={alpha_p}, alpha_phi={alpha_phi}",
           flush=True)
 
     history = list(prev_history) if prev_history else []
@@ -553,14 +555,17 @@ def train_fixed_point(model, samples, optimizer, device, steps, dataset_dir,
                 # Target: relaxed SIMPLE update
                 w_theta_detached = w_theta.detach()
 
-                target_ux = w_simple[0:n_u:3]
-                target_uy = w_simple[1:n_u:3]
+                target_ux = w_theta_detached[0:n_u:3] + alpha_u * (
+                    w_simple[0:n_u:3] - w_theta_detached[0:n_u:3])
+                target_uy = w_theta_detached[1:n_u:3] + alpha_u * (
+                    w_simple[1:n_u:3] - w_theta_detached[1:n_u:3])
                 target_p = w_theta_detached[n_u:n_u+n_p] + alpha_p * (
                     w_simple[n_u:n_u+n_p] - w_theta_detached[n_u:n_u+n_p])
 
                 phi_start = n_u + n_p
                 phi_idx_long = torch.from_numpy(phi_trainable_indices.astype(np.int64)).to(device)
-                target_phi = w_simple[phi_start:][phi_idx_long]
+                target_phi = w_theta_detached[phi_start:][phi_idx_long] + alpha_phi * (
+                    w_simple[phi_start:][phi_idx_long] - w_theta_detached[phi_start:][phi_idx_long])
 
                 pred_ux = w_theta[0:n_u:3]
                 pred_uy = w_theta[1:n_u:3]
@@ -697,6 +702,10 @@ def main() -> int:
                     help="Physics loss type: residual (JTV) or fixed-point (SIMPLE step)")
     ap.add_argument("--alpha-p", type=float, default=0.1,
                     help="Pressure relaxation for fixed-point target")
+    ap.add_argument("--alpha-u", type=float, default=0.1,
+                    help="Velocity relaxation for fixed-point target")
+    ap.add_argument("--alpha-phi", type=float, default=0.1,
+                    help="Flux relaxation for fixed-point target")
     args = ap.parse_args()
 
     if args.device != "cpu":
@@ -747,7 +756,9 @@ def main() -> int:
             checkpoint_dir=str(output_dir),
             save_every=args.save_every,
             eval_every=args.eval_every,
+            alpha_u=args.alpha_u,
             alpha_p=args.alpha_p,
+            alpha_phi=args.alpha_phi,
             start_step=start_step,
             prev_history=prev_history)
     else:

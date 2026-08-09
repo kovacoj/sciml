@@ -1,0 +1,74 @@
+[
+  {
+    "patch": "internal",
+    "n_faces": 8064,
+    "start_face": 0,
+    "phi_star_norm": 1.2843114054112036e-05,
+    "phi_projected_norm": 1.2839676447856407e-05,
+    "difference_norm": 2.1807318844205029e-07,
+    "relative_error": 0.016979775117096998
+  },
+  {
+    "patch": "inletLower",
+    "n_faces": 8,
+    "start_face": 8064,
+    "phi_star_norm": 1.1313708498984761e-06,
+    "phi_projected_norm": 1.1313708498984761e-06,
+    "difference_norm": 0.0,
+    "relative_error": 0.0
+  },
+  {
+    "patch": "inletUpper",
+    "n_faces": 8,
+    "start_face": 8072,
+    "phi_star_norm": 1.1313708498984761e-06,
+    "phi_projected_norm": 1.1313708498984761e-06,
+    "difference_norm": 0.0,
+    "relative_error": 0.0
+  },
+  {
+    "patch": "outletLower",
+    "n_faces": 8,
+    "start_face": 8080,
+    "phi_star_norm": 1.3302174352270127e-06,
+    "phi_projected_norm": 0.0,
+    "difference_norm": 1.3302174352270127e-06,
+    "relative_error": 1.0
+  },
+  {
+    "patch": "outletUpper",
+    "n_faces": 8,
+    "start_face": 8088,
+    "phi_star_norm": 9.874727528679292e-07,
+    "phi_projected_norm": 0.0,
+    "difference_norm": 9.874727528679292e-07,
+    "relative_error": 1.0
+  },
+  {
+    "patch": "sideWalls",
+    "n_faces": 96,
+    "start_face": 8096,
+    "phi_star_norm": 0.0,
+    "phi_projected_norm": 0.0,
+    "difference_norm": 0.0,
+    "relative_error": 0.0
+  },
+  {
+    "patch": "topBottomWalls",
+    "n_faces": 128,
+    "start_face": 8192,
+    "phi_star_norm": 0.0,
+    "phi_projected_norm": 0.0,
+    "difference_norm": 0.0,
+    "relative_error": 0.0
+  },
+  {
+    "patch": "frontAndBack",
+    "n_faces": 8192,
+    "start_face": 8320,
+    "phi_star_norm": 0.0,
+    "phi_projected_norm": 0.0,
+    "difference_norm": 0.0,
+    "relative_error": 0.0
+  }
+]

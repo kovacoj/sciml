@@ -1,0 +1,114 @@
+{
+  "topology_id": "topology_000",
+  "loss_config": {
+    "gamma_u": 3.848997416360487e-07,
+    "gamma_p": 5.8030498563557956e-05,
+    "gamma_phi": 1673.595957824319
+  },
+  "reference": {
+    "loss": 4.7420789574286864e-07,
+    "loss_u": 4.6890128928230996e-09,
+    "loss_p": 3.993456331993297e-10,
+    "loss_phi": 4.6911953721684623e-07,
+    "residual_norm": 0.15613653409942577
+  },
+  "old_projected": {
+    "loss": 146.58975496654887,
+    "residual_norm": 26.118174667346537
+  },
+  "independent_projected": {
+    "loss": 4.7420789574286864e-07,
+    "loss_u": 4.6890128928230996e-09,
+    "loss_p": 3.993456331993297e-10,
+    "loss_phi": 4.6911953721684623e-07,
+    "residual_norm": 0.15613653409942577,
+    "n_phi_trainable": 8080
+  },
+  "base_state": {
+    "loss": 3.0,
+    "residual_norm": 2287.0555241090897
+  },
+  "patch_errors": [
+    {
+      "patch": "internal",
+      "n_faces": 8064,
+      "start_face": 0,
+      "phi_star_norm": 1.2843114054112036e-05,
+      "phi_projected_norm": 1.2839676447856407e-05,
+      "difference_norm": 2.1807318844205029e-07,
+      "relative_error": 0.016979775117096998
+    },
+    {
+      "patch": "inletLower",
+      "n_faces": 8,
+      "start_face": 8064,
+      "phi_star_norm": 1.1313708498984761e-06,
+      "phi_projected_norm": 1.1313708498984761e-06,
+      "difference_norm": 0.0,
+      "relative_error": 0.0
+    },
+    {
+      "patch": "inletUpper",
+      "n_faces": 8,
+      "start_face": 8072,
+      "phi_star_norm": 1.1313708498984761e-06,
+      "phi_projected_norm": 1.1313708498984761e-06,
+      "difference_norm": 0.0,
+      "relative_error": 0.0
+    },
+    {
+      "patch": "outletLower",
+      "n_faces": 8,
+      "start_face": 8080,
+      "phi_star_norm": 1.3302174352270127e-06,
+      "phi_projected_norm": 0.0,
+      "difference_norm": 1.3302174352270127e-06,
+      "relative_error": 1.0
+    },
+    {
+      "patch": "outletUpper",
+      "n_faces": 8,
+      "start_face": 8088,
+      "phi_star_norm": 9.874727528679292e-07,
+      "phi_projected_norm": 0.0,
+      "difference_norm": 9.874727528679292e-07,
+      "relative_error": 1.0
+    },
+    {
+      "patch": "sideWalls",
+      "n_faces": 96,
+      "start_face": 8096,
+      "phi_star_norm": 0.0,
+      "phi_projected_norm": 0.0,
+      "difference_norm": 0.0,
+      "relative_error": 0.0
+    },
+    {
+      "patch": "topBottomWalls",
+      "n_faces": 128,
+      "start_face": 8192,
+      "phi_star_norm": 0.0,
+      "phi_projected_norm": 0.0,
+      "difference_norm": 0.0,
+      "relative_error": 0.0
+    },
+    {
+      "patch": "frontAndBack",
+      "n_faces": 8192,
+      "start_face": 8320,
+      "phi_star_norm": 0.0,
+      "phi_projected_norm": 0.0,
+      "difference_norm": 0.0,
+      "relative_error": 0.0
+    }
+  ],
+  "direct_optimization": {
+    "initial_loss": 3.0,
+    "final_loss": 1.5778509660181972,
+    "final_rel_u": 1.0011907192951837,
+    "final_rel_p": 0.9999979839279717,
+    "final_rel_phi": 1.000672710785087,
+    "n_steps": 21,
+    "lr": 0.001
+  }
+}

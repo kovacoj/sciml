@@ -1,0 +1,34 @@
+[
+  {
+    "threshold": 0.5,
+    "w0_median": 5.0,
+    "w0_mean": 5.3125,
+    "nn_median": 0.0,
+    "nn_mean": 0.0625,
+    "speedup": 85.0
+  },
+  {
+    "threshold": 0.2,
+    "w0_median": 20.0,
+    "w0_mean": 19.375,
+    "nn_median": 5.0,
+    "nn_mean": 7.3125,
+    "speedup": 2.6495726495726495
+  },
+  {
+    "threshold": 0.15,
+    "w0_median": 20.0,
+    "w0_mean": 20,
+    "nn_median": 10.0,
+    "nn_mean": 13.214285714285714,
+    "speedup": 1.5135135135135136
+  },
+  {
+    "threshold": 0.1,
+    "w0_median": 20,
+    "w0_mean": 20,
+    "nn_median": 20.0,
+    "nn_mean": 20,
+    "speedup": 1.0
+  }
+]

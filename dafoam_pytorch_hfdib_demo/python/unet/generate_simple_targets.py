@@ -34,8 +34,12 @@ from state_layout import build_isothermal_layout  # noqa: E402
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", default="datasets/four_port_64")
-    ap.add_argument("--k-max", type=int, default=20)
-    ap.add_argument("--k-primary", type=int, default=10)
+    ap.add_argument("--k-max", type=int, default=80,
+                    help="Maximum SIMPLE steps to run")
+    ap.add_argument("--k-primary", type=int, default=20,
+                    help="Primary target step (saves q_cell, q_phi, normalization)")
+    ap.add_argument("--save-ks", default="",
+                    help="Comma-separated extra K values to save (e.g. 5,10,20,40,80)")
     args = ap.parse_args()
 
     ds_dir = Path(args.dataset)
@@ -69,8 +73,14 @@ def main() -> int:
             phi_trainable[start:start + count] = True
     phi_trainable_indices = np.flatnonzero(phi_trainable)
 
-    # Save indices
-    save_ks = sorted(set([0, 1, 3, 5, args.k_primary, args.k_max]))
+    # Save indices — always include 0, primary, max; add extra requested Ks
+    save_ks = {0, args.k_primary, args.k_max}
+    if args.save_ks:
+        for s in args.save_ks.split(","):
+            s = s.strip()
+            if s:
+                save_ks.add(int(s))
+    save_ks = sorted(save_ks)
 
     # Output directory
     targets_dir = ds_dir / "solver_targets"
@@ -103,8 +113,8 @@ def main() -> int:
     print(f"[targets] Saving at k={save_ks}")
 
     t0 = time.time()
-    all_q_cell = {args.k_primary: [], args.k_max: []}
-    all_q_phi = {args.k_primary: [], args.k_max: []}
+    all_q_cell = {k: [] for k in k_targets_to_convert}
+    all_q_phi = {k: [] for k in k_targets_to_convert}
     all_metrics = []
 
     for ti, tid in enumerate(train_topologies):
@@ -137,38 +147,41 @@ def main() -> int:
                 states[k] = w.copy()
                 np.save(out_dir / f"state_k{k:03d}.npy", w)
 
-        # Convert primary and max to network coordinates
-        for k_target in [args.k_primary, args.k_max]:
-            w_k = states[k_target]
+    # Convert all saved K values to network coordinates
+    k_targets_to_convert = sorted(set([args.k_primary, args.k_max] +
+        [k for k in save_ks if k > 0]))
 
-            # q_cell: [n_cells, 3] = (dUx/U_S, dUy/U_S, dp/P_S)
-            u_k = w_k[:n_u].reshape(n_cells, 3)
-            u0 = w0[:n_u].reshape(n_cells, 3)
-            p_k = w_k[n_u:n_u + n_p]
-            p0 = w0[n_u:n_u + n_p]
+    for k_target in k_targets_to_convert:
+        if k_target not in states:
+            continue
+        w_k = states[k_target]
 
-            q_ux = (u_k[:, 0] - u0[:, 0]) / U_SCALE
-            q_uy = (u_k[:, 1] - u0[:, 1]) / U_SCALE
-            q_p = (p_k - p0) / P_SCALE
-            q_cell = np.column_stack([q_ux, q_uy, q_p])
+        # q_cell: [n_cells, 3] = (dUx/U_S, dUy/U_S, dp/P_S)
+        u_k = w_k[:n_u].reshape(n_cells, 3)
+        u0 = w0[:n_u].reshape(n_cells, 3)
+        p_k = w_k[n_u:n_u + n_p]
+        p0 = w0[n_u:n_u + n_p]
 
-            # q_phi: independent correction on trainable faces
-            # phi_target = phi0 + A_phi*dU + PHI_SCALE*q_phi
-            # A_phi*dU is only on internal faces; outlet faces have no interpolation
-            phi_k = w_k[n_u + n_p:]
-            phi0 = w0[n_u + n_p:]
-            du = torch.from_numpy(u_k[:, :2] - u0[:, :2]).double()
-            a_phi_du_full = np.zeros(n_faces, dtype=np.float64)
-            a_phi_du_internal = flux_asm(du).numpy()
-            a_phi_du_full[:n_internal] = a_phi_du_internal
-            q_phi = (phi_k[phi_trainable_indices] - phi0[phi_trainable_indices]
-                     - a_phi_du_full[phi_trainable_indices]) / PHI_SCALE
+        q_ux = (u_k[:, 0] - u0[:, 0]) / U_SCALE
+        q_uy = (u_k[:, 1] - u0[:, 1]) / U_SCALE
+        q_p = (p_k - p0) / P_SCALE
+        q_cell = np.column_stack([q_ux, q_uy, q_p])
 
-            np.save(out_dir / f"q_cell_k{k_target:03d}.npy", q_cell)
-            np.save(out_dir / f"q_phi_k{k_target:03d}.npy", q_phi)
+        # q_phi: independent correction on trainable faces
+        phi_k = w_k[n_u + n_p:]
+        phi0 = w0[n_u + n_p:]
+        du = torch.from_numpy(u_k[:, :2] - u0[:, :2]).double()
+        a_phi_du_full = np.zeros(n_faces, dtype=np.float64)
+        a_phi_du_internal = flux_asm(du).numpy()
+        a_phi_du_full[:n_internal] = a_phi_du_internal
+        q_phi = (phi_k[phi_trainable_indices] - phi0[phi_trainable_indices]
+                 - a_phi_du_full[phi_trainable_indices]) / PHI_SCALE
 
-            all_q_cell[k_target].append(q_cell)
-            all_q_phi[k_target].append(q_phi)
+        np.save(out_dir / f"q_cell_k{k_target:03d}.npy", q_cell)
+        np.save(out_dir / f"q_phi_k{k_target:03d}.npy", q_phi)
+
+        all_q_cell[k_target].append(q_cell)
+        all_q_phi[k_target].append(q_phi)
 
         # Diagnostic: field errors vs converged HFDIB
         ref_ux = np.load(topo_dir / "ux_hfdib.npy")
@@ -236,31 +249,26 @@ def main() -> int:
     print(f"  rel_p   = {rel_p_r:.2e}")
     print(f"  rel_phi = {rel_phi_r:.2e}")
 
-    # ================================================================
-    # Compute block normalization
-    # ================================================================
-    print("\n[targets] Computing block normalization...")
+    # Compute and save block normalization for each K
+    for k_target in k_targets_to_convert:
+        if not all_q_cell[k_target]:
+            continue
+        q_cell_arr = np.stack(all_q_cell[k_target])
+        q_phi_arr = np.stack(all_q_phi[k_target])
 
-    q_cell_arr = np.stack(all_q_cell[args.k_primary])  # [n_topo, n_cells, 3]
-    q_phi_arr = np.stack(all_q_phi[args.k_primary])    # [n_topo, n_phi_trainable]
+        E_u = float(np.mean(q_cell_arr[:, :, :2] ** 2))
+        E_p = float(np.mean(q_cell_arr[:, :, 2] ** 2))
+        E_phi = float(np.mean(q_phi_arr ** 2))
 
-    E_u = float(np.mean(q_cell_arr[:, :, :2] ** 2))
-    E_p = float(np.mean(q_cell_arr[:, :, 2] ** 2))
-    E_phi = float(np.mean(q_phi_arr ** 2))
+        print(f"  K={k_target}: E_U={E_u:.6e} E_p={E_p:.6e} E_phi={E_phi:.6e}")
 
-    print(f"  E_U   = {E_u:.6e}")
-    print(f"  E_p   = {E_p:.6e}")
-    print(f"  E_phi = {E_phi:.6e}")
-
-    norm = {
-        "E_u": E_u,
-        "E_p": E_p,
-        "E_phi": E_phi,
-        "definition": "mean squared dimensionless displacement from W0",
-        "k": args.k_primary,
-    }
-    with open(targets_dir / f"target_normalization_k{args.k_primary:03d}.json", "w") as f:
-        json.dump(norm, f, indent=2)
+        norm = {
+            "E_u": E_u, "E_p": E_p, "E_phi": E_phi,
+            "definition": "mean squared dimensionless displacement from W0",
+            "k": k_target,
+        }
+        with open(targets_dir / f"target_normalization_k{k_target:03d}.json", "w") as f:
+            json.dump(norm, f, indent=2)
 
     # Global metadata
     metadata = {

@@ -927,6 +927,8 @@ def main() -> int:
                     help="SIMPLE target step for solver-distilled mode")
     ap.add_argument("--init-from", default=None,
                     help="Initialize model weights from this checkpoint (curriculum)")
+    ap.add_argument("--seed", type=int, default=42,
+                    help="Random seed for torch")
     args = ap.parse_args()
 
     if args.device != "cpu":
@@ -935,7 +937,7 @@ def main() -> int:
     if args.architecture is None:
         args.architecture = "unet" if args.mode == "supervised" else "simple"
 
-    torch.manual_seed(42)
+    torch.manual_seed(args.seed)
     torch.set_default_dtype(torch.float64)
 
     samples = load_dataset_samples(args.dataset, args.mode, args.split)

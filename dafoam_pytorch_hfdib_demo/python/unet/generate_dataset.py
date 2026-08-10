@@ -148,9 +148,10 @@ def main() -> int:
     shared_dir = output_dir / "shared"
     shared_dir.mkdir(exist_ok=True)
 
-    # Write splits.json
-    train_ids = [d.name for d in topo_dirs[:128]]
-    test_ids = [d.name for d in topo_dirs[128:]]
+    # Write splits.json — 496 train + 16 held-out test (128-143)
+    train_ids = [d.name for d in topo_dirs if d.name not in
+                 [f"topology_{i:03d}" for i in range(128, 144)]]
+    test_ids = [f"topology_{i:03d}" for i in range(128, 144)]
     with open(output_dir / "splits.json", "w") as f:
         json.dump({"train": train_ids, "test": test_ids}, f, indent=2)
     print(f"[dataset] train: {train_ids}")

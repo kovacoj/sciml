@@ -21,5 +21,5 @@ docker run \
         source $HOME/activate_dafoam_torch.sh
         export PYTHONPATH=$PWD/python:${PYTHONPATH:-}
         cd /home/dafoamuser/sciml/dafoam_pytorch_hfdib_demo
-        python -m diagnostics.diagnose_simple_trajectory "$@"
+        python -m diagnostics.evaluate_warm_start "$@"
     ' _ "$@"

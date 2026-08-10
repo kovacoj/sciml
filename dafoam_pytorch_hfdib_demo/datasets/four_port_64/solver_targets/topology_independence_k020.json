@@ -2,25 +2,85 @@
   "k": 20,
   "mean_target_test_results": [
     {
-      "topology_id": "topology_016",
-      "mean_target_rel_u": 0.7702800473571244,
+      "topology_id": "topology_128",
+      "mean_target_rel_u": 0.7501801057947285,
       "w0_rel_u": 1.0
     },
     {
-      "topology_id": "topology_017",
-      "mean_target_rel_u": 0.7521436041517746,
+      "topology_id": "topology_129",
+      "mean_target_rel_u": 0.6624342125060564,
       "w0_rel_u": 1.0
     },
     {
-      "topology_id": "topology_018",
-      "mean_target_rel_u": 0.7752971884261325,
+      "topology_id": "topology_130",
+      "mean_target_rel_u": 0.7451985016584021,
       "w0_rel_u": 1.0
     },
     {
-      "topology_id": "topology_019",
-      "mean_target_rel_u": 0.8001815601889546,
+      "topology_id": "topology_131",
+      "mean_target_rel_u": 0.6787753596457354,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_132",
+      "mean_target_rel_u": 0.7465093476853168,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_133",
+      "mean_target_rel_u": 0.8841725983631384,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_134",
+      "mean_target_rel_u": 0.7561962605023014,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_135",
+      "mean_target_rel_u": 0.7174842366335491,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_136",
+      "mean_target_rel_u": 0.6734053320306865,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_137",
+      "mean_target_rel_u": 0.8162964166114087,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_138",
+      "mean_target_rel_u": 0.7357010393214941,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_139",
+      "mean_target_rel_u": 0.7481729476891389,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_140",
+      "mean_target_rel_u": 0.6632709311013418,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_141",
+      "mean_target_rel_u": 0.7307803311101715,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_142",
+      "mean_target_rel_u": 0.7247315722851307,
+      "w0_rel_u": 1.0
+    },
+    {
+      "topology_id": "topology_143",
+      "mean_target_rel_u": 0.7113793552717109,
       "w0_rel_u": 1.0
     }
   ],
-  "mean_test_rel_u_mean": 0.7744756000309966
+  "mean_test_rel_u_mean": 0.7340430342631445
 }

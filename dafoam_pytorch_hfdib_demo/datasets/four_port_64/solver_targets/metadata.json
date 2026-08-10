@@ -14,9 +14,9 @@
     10,
     20
   ],
-  "n_training_topologies": 16,
-  "total_simple_calls": 320,
-  "generation_time_s": 36.33856797218323,
+  "n_training_topologies": 128,
+  "total_simple_calls": 2560,
+  "generation_time_s": 176.08116912841797,
   "representability": {
     "rel_full": 5.233566085799765e-17,
     "rel_u": 2.3276376708375446e-16,
@@ -24,7 +24,7 @@
     "rel_phi": 5.74670169102075e-17
   },
   "mean_teacher_quality": {
-    "rel_u_vs_converged": 0.21158576676728336,
-    "rel_p_vs_converged": 1.243141924454397
+    "rel_u_vs_converged": 0.22044142849035225,
+    "rel_p_vs_converged": 1.321283932103659
   }
 }

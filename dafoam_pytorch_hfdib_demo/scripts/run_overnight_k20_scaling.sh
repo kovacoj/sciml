@@ -86,15 +86,13 @@ for N in 16 32 64 128; do
         done
 
         # Create a temporary split file for this N
-        run_in_container "
-            import json
-            with open('datasets/four_port_64/splits.json') as f:
-                splits = json.load(f)
-            splits['train'] = [f'topology_{i:03d}' for i in range($N)]
-            splits['test'] = [f'topology_{i:03d}' for i in range(128,144)]
-            with open('datasets/four_port_64/splits.json','w') as f:
-                json.dump(splits, f, indent=2)
-        " 2>/dev/null || true
+        python3 -c "
+import json
+splits = {'train': [f'topology_{i:03d}' for i in range($N)],
+          'test': [f'topology_{i:03d}' for i in range(128,144)]}
+with open('$PROJECT/datasets/four_port_64/splits.json','w') as f:
+    json.dump(splits, f, indent=2)
+"
 
         OUTPUT="outputs/overnight_k20_scaling/n${N}_seed${SEED}"
 

@@ -728,10 +728,11 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
         target_cell = torch.from_numpy(q_cell).to(device)
         target_phi = torch.from_numpy(q_phi).to(device)
 
-        # Load HFDIB refs for diagnostics
-        ref_ux = np.load(Path(s["case_dir"]).parent / "ux_hfdib.npy")
-        ref_uy = np.load(Path(s["case_dir"]).parent / "uy_hfdib.npy")
-        ref_p = np.load(Path(s["case_dir"]).parent / "pressure_hfdib.npy")
+        # Load HFDIB refs for diagnostics (may not exist for training topologies)
+        ref_path = Path(s["case_dir"]).parent
+        ref_ux = np.load(ref_path / "ux_hfdib.npy") if (ref_path / "ux_hfdib.npy").exists() else None
+        ref_uy = np.load(ref_path / "uy_hfdib.npy") if (ref_path / "uy_hfdib.npy").exists() else None
+        ref_p = np.load(ref_path / "pressure_hfdib.npy") if (ref_path / "pressure_hfdib.npy").exists() else None
 
         contexts.append({
             "topology_id": tid,
@@ -828,6 +829,8 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
             model.eval()
             with torch.no_grad():
                 for ctx in contexts[:8]:
+                    if ctx["ref_ux"] is None:
+                        continue
                     cell_pred, phi_pred = model(ctx["lam"])
                     cell_pred = project_solid_velocity(cell_pred, ctx["lam"])
                     pred_cell = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)

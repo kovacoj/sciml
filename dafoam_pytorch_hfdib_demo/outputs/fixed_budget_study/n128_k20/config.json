@@ -1,0 +1,9 @@
+{
+  "mode": "solver-distilled",
+  "architecture": "simple",
+  "steps": 20,
+  "topology_batch_size": null,
+  "lr": 0.001,
+  "n_params": 3153264,
+  "uses_flow_labels": false
+}

@@ -112,6 +112,10 @@ def main() -> int:
     print(f"[targets] K_max={args.k_max}, K_primary={args.k_primary}")
     print(f"[targets] Saving at k={save_ks}")
 
+    # All K values that need network-coordinate targets + normalization
+    k_targets_to_convert = sorted(set([args.k_primary, args.k_max] +
+        [k for k in save_ks if k > 0]))
+
     t0 = time.time()
     all_q_cell = {k: [] for k in k_targets_to_convert}
     all_q_phi = {k: [] for k in k_targets_to_convert}
@@ -147,57 +151,59 @@ def main() -> int:
                 states[k] = w.copy()
                 np.save(out_dir / f"state_k{k:03d}.npy", w)
 
-    # Convert all saved K values to network coordinates
-    k_targets_to_convert = sorted(set([args.k_primary, args.k_max] +
-        [k for k in save_ks if k > 0]))
+        # Convert saved K values to network coordinates
+        for k_target in k_targets_to_convert:
+            if k_target not in states:
+                continue
+            w_k = states[k_target]
 
-    for k_target in k_targets_to_convert:
-        if k_target not in states:
-            continue
-        w_k = states[k_target]
+            # q_cell: [n_cells, 3] = (dUx/U_S, dUy/U_S, dp/P_S)
+            u_k = w_k[:n_u].reshape(n_cells, 3)
+            u0 = w0[:n_u].reshape(n_cells, 3)
+            p_k = w_k[n_u:n_u + n_p]
+            p0 = w0[n_u:n_u + n_p]
 
-        # q_cell: [n_cells, 3] = (dUx/U_S, dUy/U_S, dp/P_S)
-        u_k = w_k[:n_u].reshape(n_cells, 3)
-        u0 = w0[:n_u].reshape(n_cells, 3)
-        p_k = w_k[n_u:n_u + n_p]
-        p0 = w0[n_u:n_u + n_p]
+            q_ux = (u_k[:, 0] - u0[:, 0]) / U_SCALE
+            q_uy = (u_k[:, 1] - u0[:, 1]) / U_SCALE
+            q_p = (p_k - p0) / P_SCALE
+            q_cell = np.column_stack([q_ux, q_uy, q_p])
 
-        q_ux = (u_k[:, 0] - u0[:, 0]) / U_SCALE
-        q_uy = (u_k[:, 1] - u0[:, 1]) / U_SCALE
-        q_p = (p_k - p0) / P_SCALE
-        q_cell = np.column_stack([q_ux, q_uy, q_p])
+            # q_phi: independent correction on trainable faces
+            phi_k = w_k[n_u + n_p:]
+            phi0 = w0[n_u + n_p:]
+            du = torch.from_numpy(u_k[:, :2] - u0[:, :2]).double()
+            a_phi_du_full = np.zeros(n_faces, dtype=np.float64)
+            a_phi_du_internal = flux_asm(du).numpy()
+            a_phi_du_full[:n_internal] = a_phi_du_internal
+            q_phi = (phi_k[phi_trainable_indices] - phi0[phi_trainable_indices]
+                     - a_phi_du_full[phi_trainable_indices]) / PHI_SCALE
 
-        # q_phi: independent correction on trainable faces
-        phi_k = w_k[n_u + n_p:]
-        phi0 = w0[n_u + n_p:]
-        du = torch.from_numpy(u_k[:, :2] - u0[:, :2]).double()
-        a_phi_du_full = np.zeros(n_faces, dtype=np.float64)
-        a_phi_du_internal = flux_asm(du).numpy()
-        a_phi_du_full[:n_internal] = a_phi_du_internal
-        q_phi = (phi_k[phi_trainable_indices] - phi0[phi_trainable_indices]
-                 - a_phi_du_full[phi_trainable_indices]) / PHI_SCALE
+            np.save(out_dir / f"q_cell_k{k_target:03d}.npy", q_cell)
+            np.save(out_dir / f"q_phi_k{k_target:03d}.npy", q_phi)
 
-        np.save(out_dir / f"q_cell_k{k_target:03d}.npy", q_cell)
-        np.save(out_dir / f"q_phi_k{k_target:03d}.npy", q_phi)
+            all_q_cell[k_target].append(q_cell)
+            all_q_phi[k_target].append(q_phi)
 
-        all_q_cell[k_target].append(q_cell)
-        all_q_phi[k_target].append(q_phi)
+        # Diagnostic: teacher quality (only if HFDIB refs exist)
+        ref_path = topo_dir / "ux_hfdib.npy"
+        if ref_path.exists():
+            ref_ux = np.load(topo_dir / "ux_hfdib.npy")
+            ref_uy = np.load(topo_dir / "uy_hfdib.npy")
+            ref_p = np.load(topo_dir / "pressure_hfdib.npy")
 
-        # Diagnostic: field errors vs converged HFDIB
-        ref_ux = np.load(topo_dir / "ux_hfdib.npy")
-        ref_uy = np.load(topo_dir / "uy_hfdib.npy")
-        ref_p = np.load(topo_dir / "pressure_hfdib.npy")
+            u_k10 = states[args.k_primary][:n_u].reshape(n_cells, 3)
+            p_k10 = states[args.k_primary][n_u:n_u + n_p]
 
-        u_k10 = states[args.k_primary][:n_u].reshape(n_cells, 3)
-        p_k10 = states[args.k_primary][n_u:n_u + n_p]
+            rel_u_k = np.sqrt(np.sum((ref_ux - u_k10[:, 0].reshape(64, 64))**2 +
+                                      (ref_uy - u_k10[:, 1].reshape(64, 64))**2)) / \
+                       (np.sqrt(np.sum(ref_ux**2 + ref_uy**2)) + 1e-30)
+            rel_p_k = np.sqrt(np.sum((ref_p - p_k10.reshape(64, 64))**2)) / \
+                       (np.sqrt(np.sum(ref_p**2)) + 1e-30)
 
-        rel_u_k = np.sqrt(np.sum((ref_ux - u_k10[:, 0].reshape(64, 64))**2 +
-                                  (ref_uy - u_k10[:, 1].reshape(64, 64))**2)) / \
-                   (np.sqrt(np.sum(ref_ux**2 + ref_uy**2)) + 1e-30)
-        rel_p_k = np.sqrt(np.sum((ref_p - p_k10.reshape(64, 64))**2)) / \
-                   (np.sqrt(np.sum(ref_p**2)) + 1e-30)
-
-        print(f"  K={args.k_primary}: rel_U={rel_u_k:.4e}  rel_p={rel_p_k:.4e}")
+            print(f"  K={args.k_primary}: rel_U={rel_u_k:.4e}  rel_p={rel_p_k:.4e}")
+        else:
+            rel_u_k = -1.0
+            rel_p_k = -1.0
 
         metrics = {
             "topology_id": tid,
@@ -207,7 +213,6 @@ def main() -> int:
         }
         all_metrics.append(metrics)
 
-        # Save per-topology metrics
         with open(out_dir / "metrics.json", "w") as f:
             json.dump(metrics, f, indent=2)
 

@@ -30,3 +30,5 @@ outputs/shared_hfdib/
 **/warm_state_k8.npy
 **/features.npy
 **/checkpoint*.pt
+*.pt
+!*.json

@@ -1,0 +1,229 @@
+#include "Diagnostics.H"
+#include "EigenTraining.H"
+#include "OFstream.H"
+#include <cmath>
+#include <algorithm>
+#include <utility>
+
+using namespace Foam;
+
+Diagnostics::Diagnostics(const torch::Tensor& K, const torch::Tensor& M)
+:
+    K_(K),
+    M_(M)
+{
+}
+
+std::pair<std::vector<double>, std::vector<torch::Tensor>>
+Diagnostics::solveDirectFV(int numStates)
+{
+    // H = M^{-1/2} K M^{-1/2}:  M_ holds the diagonal mass vector [N]
+    auto invSqrtMass = M_.rsqrt();
+
+    auto H = invSqrtMass.unsqueeze(1) * K_ * invSqrtMass.unsqueeze(0);
+
+    auto result = torch::linalg_eigh(H);
+    auto eigenvalues = std::get<0>(result);
+    auto eigenvectorsY = std::get<1>(result);
+
+    std::vector<double> energies;
+    std::vector<torch::Tensor> eigenstates;
+
+    for (int i = 0; i < numStates && i < eigenvalues.size(0); i++)
+    {
+        double E = eigenvalues[i].item<double>();
+        energies.push_back(E);
+
+        auto y_i = eigenvectorsY.select(1, i);
+        auto psi_i = invSqrtMass * y_i;
+
+        // Explicit M-normalisation (redundant but harmless)
+        double normSq = (M_ * psi_i * psi_i).sum().item<double>();
+        psi_i = psi_i / std::sqrt(normSq);
+
+        eigenstates.push_back(psi_i.detach());
+    }
+
+    return {energies, eigenstates};
+}
+
+torch::Tensor Diagnostics::hermitePolynomial(int n, const torch::Tensor& x)
+{
+    if (n == 0)
+    {
+        return torch::ones_like(x);
+    }
+    else if (n == 1)
+    {
+        return 2.0 * x;
+    }
+
+    auto H_prev2 = torch::ones_like(x);
+    auto H_prev1 = 2.0 * x.clone();
+
+    for (int k = 1; k < n; k++)
+    {
+        auto H_curr = 2.0 * x * H_prev1 - 2.0 * k * H_prev2;
+        H_prev2 = H_prev1.clone();
+        H_prev1 = H_curr.clone();
+    }
+
+    return H_prev1;
+}
+
+torch::Tensor Diagnostics::analyticalEigenfunction(int n, const torch::Tensor& x)
+{
+    auto H_n = hermitePolynomial(n, x);
+
+    double normFactor =
+        std::pow(M_PI, 0.25) * std::sqrt(std::pow(2, n) * std::tgamma(n + 1));
+
+    auto expTerm = torch::exp(-x.square() / 2.0);
+    return H_n * expTerm / normFactor;
+}
+
+std::vector<double> Diagnostics::exactSpectrum(
+    int numStates,
+    int dimension,
+    double omegaY)
+{
+    if (dimension == 1)
+    {
+        std::vector<double> E(numStates);
+        for (int n = 0; n < numStates; n++) E[n] = n + 0.5;
+        return E;
+    }
+
+    // 2D anisotropic: generate pairs (nx, ny) and sort ascending.
+    std::vector<std::pair<double, int>> entries;
+    int maxN = 4 * numStates + 8;
+    for (int nx = 0; nx <= maxN; nx++)
+    {
+        for (int ny = 0; ny <= maxN; ny++)
+        {
+            double E = (nx + 0.5) + omegaY * (ny + 0.5);
+            int tot = nx + ny;
+            entries.emplace_back(E, tot);
+        }
+    }
+    std::sort(entries.begin(), entries.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    std::vector<double> E(numStates);
+    for (int i = 0; i < numStates && i < (int)entries.size(); i++)
+    {
+        E[i] = entries[i].first;
+    }
+    return E;
+}
+
+std::vector<double> Diagnostics::laplacianDiskSpectrum(int numStates)
+{
+    // Dirichlet eigenvalues of -Laplacian on the unit disk: squares of Bessel
+    // zeros j_{m,k}^2. m=0 modes are non-degenerate (mult 1), m>0 modes come
+    // as cos/sin doublets (mult 2). The returned list expands multiplicities
+    // so it aligns index-by-index with a numerically computed eigenvalue list.
+    static const struct { double lambda; int multiplicity; } diskEigs[] = {
+        {  5.783185962947, 1},   // j_{0,1}^2
+        { 14.681970642124, 2},   // j_{1,1}^2
+        { 26.374616427163, 2},   // j_{2,1}^2
+        { 30.471262343662, 1},   // j_{0,2}^2
+        { 40.706465818200, 2},   // j_{3,1}^2
+        { 49.218456321695, 2},   // j_{1,2}^2
+        { 57.582940903291, 2},   // j_{4,1}^2
+        { 70.849998919096, 2},   // j_{2,2}^2
+        { 74.887006790695, 1},   // j_{0,3}^2
+        { 76.938928333647, 2},   // j_{5,1}^2
+        { 95.277572544037, 2},   // j_{3,2}^2
+        { 98.726272477249, 2},   // j_{6,1}^2
+        {103.499453895137, 2},   // j_{1,3}^2
+        {122.427796064928, 2},   // j_{4,2}^2
+        {122.907600203616, 2},   // j_{7,1}^2
+        {135.020708865970, 2},   // j_{2,3}^2
+    };
+
+    std::vector<double> E;
+    for (const auto& de : diskEigs)
+    {
+        for (int r = 0; r < de.multiplicity && (int)E.size() < numStates; r++)
+        {
+            E.push_back(de.lambda);
+        }
+        if ((int)E.size() >= numStates) break;
+    }
+    return E;
+}
+
+double Diagnostics::computeOverlap
+(
+    const torch::Tensor& psi1,
+    const torch::Tensor& psi2
+)
+{
+    return (M_ * psi1 * psi2).sum().item<double>();
+}
+
+double Diagnostics::computeFieldError
+(
+    const torch::Tensor& psi1,
+    const torch::Tensor& psi2
+)
+{
+    // Eigenfunctions have arbitrary sign: align via M-overlap first
+    double overlap = computeOverlap(psi1, psi2);
+    auto diff = (overlap < 0) ? (psi1 + psi2) : (psi1 - psi2);
+    return std::sqrt((M_ * diff * diff).sum().item<double>());
+}
+
+double Diagnostics::computeResidual
+(
+    const torch::Tensor& Kpsi,
+    const torch::Tensor& Mpsi,
+    const torch::Tensor& psi,
+    double E
+)
+{
+    auto r = Kpsi.matmul(psi) - E * Mpsi * psi;
+    return r.norm().item<double>();
+}
+
+void Diagnostics::writeEigenvaluesCSV
+(
+    const Foam::fileName& path,
+    const std::vector<double>& energiesNN,
+    const std::vector<double>& energiesDirect,
+    const std::vector<double>& energiesExact,
+    int N
+)
+{
+    OFstream os(path);
+    os << "state,E_NN,E_directFV,E_exact,dE_NN_direct,dE_direct_exact,dE_NN_exact"
+       << endl;
+
+    // When the direct dense solve was skipped (computeDirectReference off),
+    // energiesDirect is empty and the corresponding columns are written as nan.
+    const bool haveDirect = !energiesDirect.empty();
+
+    for (size_t n = 0; n < energiesNN.size(); n++)
+    {
+        double E_exact = (n < energiesExact.size()) ? energiesExact[n] : (n + 0.5);
+        double dNN_Exact = std::abs(energiesNN[n] - E_exact);
+
+        os << n << ","
+           << energiesNN[n] << ",";
+
+        if (haveDirect)
+        {
+            os << energiesDirect[n] << ","
+               << E_exact << ","
+               << std::abs(energiesNN[n] - energiesDirect[n]) << ","
+               << std::abs(energiesDirect[n] - E_exact) << ",";
+        }
+        else
+        {
+            os << "nan," << E_exact << ",nan,nan,";
+        }
+
+        os << dNN_Exact << endl;
+    }
+}

@@ -1,0 +1,24 @@
+{
+  "case_template": "cases/four_port_64x64",
+  "design_bounds": [
+    0.0,
+    0.128,
+    0.0,
+    0.128
+  ],
+  "mask_convention": "1=solid,0=fluid",
+  "grid_size": [
+    64,
+    64
+  ],
+  "port_bands": [
+    [
+      8,
+      16
+    ],
+    [
+      48,
+      56
+    ]
+  ]
+}

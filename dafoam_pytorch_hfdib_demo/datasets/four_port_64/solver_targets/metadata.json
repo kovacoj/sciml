@@ -1,0 +1,26 @@
+{
+  "target_type": "truncated_SIMPLE",
+  "max_simple_steps": 20,
+  "primary_training_target": 20,
+  "uses_converged_flow_labels_for_training": false,
+  "initial_state": "shared/base_state_k0.npy",
+  "solver": "DASimpleFoam",
+  "hfdib": "signed-distance",
+  "save_ks": [
+    0,
+    20
+  ],
+  "n_training_topologies": 256,
+  "total_simple_calls": 5120,
+  "generation_time_s": 491.36867213249207,
+  "representability": {
+    "rel_full": 6.11516085215505e-17,
+    "rel_u": 1.0016709364990974e-16,
+    "rel_p": 6.11213314563899e-17,
+    "rel_phi": 5.5026374164938134e-17
+  },
+  "mean_teacher_quality": {
+    "rel_u_vs_converged": -1.0,
+    "rel_p_vs_converged": -1.0
+  }
+}

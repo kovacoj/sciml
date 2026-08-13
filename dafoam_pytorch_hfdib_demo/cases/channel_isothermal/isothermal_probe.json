@@ -1,0 +1,15 @@
+{
+  "state_size": 5176,
+  "expected": 5176,
+  "size_ok": true,
+  "repeat_inf": 0.0,
+  "roundtrip_err": 0.0,
+  "primal_seconds": 0.26,
+  "primal_residual_l2": 4.6462886076010355e-09,
+  "residual_linf": 6.428191312579653e-10,
+  "states_expected": [
+    "U",
+    "p",
+    "phi"
+  ]
+}

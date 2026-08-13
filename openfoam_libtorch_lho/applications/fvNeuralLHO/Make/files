@@ -1,0 +1,7 @@
+LhoFvOperator.C
+CoordinateMLP.C
+EigenTraining.C
+Diagnostics.C
+fvNeuralLHO.C
+
+EXE = $(FOAM_USER_APPBIN)/fvNeuralLHO

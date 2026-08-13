@@ -1,0 +1,34 @@
+# Generated results and large artifacts
+outputs/*
+!outputs/.gitkeep
+cases/*/processor*
+cases/*/postProcessing/
+cases/*/[0-9]*/
+cases/*/*.log
+cases/*/log.*
+*.foam
+*.bin
+*.tar
+
+# Docker scratch
+environment/docker_image_inspect.json
+environment/environment.txt
+environment/pip_freeze.txt
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+dafoam_pytorch_hfdib_demo/cases/*/constant/polyMesh/
+
+prepared_topologies/
+outputs/shared_hfdib/
+**/constant/polyMesh/
+**/constant/hfdibGeometry/
+**/warm_state_k8.npy
+**/features.npy
+**/checkpoint*.pt
+*.pt
+!*.json

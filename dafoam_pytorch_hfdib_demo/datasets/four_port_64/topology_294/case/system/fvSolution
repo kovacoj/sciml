@@ -1,0 +1,40 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+
+SIMPLE
+{
+    nNonOrthogonalCorrectors 0;
+    pRefCell 0;
+    pRefValue 0;
+}
+
+solvers
+{
+    p
+    {
+        solver          GAMG;
+        tolerance       1e-13;
+        relTol          0.001;
+        smoother        GaussSeidel;
+        nSweeps         2;
+    }
+    U
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-13;
+        relTol          0.001;
+        nSweeps         1;
+    }
+}
+
+relaxationFactors
+{
+    fields  { p 0.3; }
+    equations { U 0.7; }
+}

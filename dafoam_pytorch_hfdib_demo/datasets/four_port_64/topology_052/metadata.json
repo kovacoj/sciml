@@ -1,0 +1,10 @@
+{
+  "topology_id": "topology_052",
+  "residual_l2": 0.16488384872438694,
+  "n_cells": 4096,
+  "grid_size": [
+    64,
+    64
+  ],
+  "converged": true
+}

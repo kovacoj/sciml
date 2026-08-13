@@ -1,0 +1,55 @@
+{
+  "rows": [
+    {
+      "epsilon": 0.001,
+      "finite_difference_scalar": -483.7376074851807,
+      "jtv_scalar": -483.7134637232307,
+      "absolute_error": 0.024143761950028875,
+      "relative_error": 4.9910864023051004e-05
+    },
+    {
+      "epsilon": 0.0003,
+      "finite_difference_scalar": -483.74368667872557,
+      "jtv_scalar": -483.7134637232307,
+      "absolute_error": 0.03022295549487808,
+      "relative_error": 6.247720916500645e-05
+    },
+    {
+      "epsilon": 0.0001,
+      "finite_difference_scalar": -483.74382978189027,
+      "jtv_scalar": -483.7134637232307,
+      "absolute_error": 0.030366058659581086,
+      "relative_error": 6.277301495147233e-05
+    },
+    {
+      "epsilon": 3e-05,
+      "finite_difference_scalar": -483.74365614401637,
+      "jtv_scalar": -483.7134637232307,
+      "absolute_error": 0.030192420785681406,
+      "relative_error": 6.241409143501565e-05
+    },
+    {
+      "epsilon": 1e-05,
+      "finite_difference_scalar": -483.74360662627686,
+      "jtv_scalar": -483.7134637232307,
+      "absolute_error": 0.030142903046169067,
+      "relative_error": 6.231173421885946e-05
+    },
+    {
+      "epsilon": 3e-06,
+      "finite_difference_scalar": -483.7435886575436,
+      "jtv_scalar": -483.7134637232307,
+      "absolute_error": 0.030124934312937057,
+      "relative_error": 6.227459137295852e-05
+    },
+    {
+      "epsilon": 1e-06,
+      "finite_difference_scalar": -483.74358293457703,
+      "jtv_scalar": -483.7134637232307,
+      "absolute_error": 0.030119211346345764,
+      "relative_error": 6.226276153087323e-05
+    }
+  ],
+  "best_relative_error": 4.9910864023051004e-05,
+  "repeat_inf_err": 0.0
+}

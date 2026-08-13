@@ -1,0 +1,115 @@
+diff --git a/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.C b/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.C
+index 298c71f..a904d6e 100755
+--- a/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.C
++++ b/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.C
+@@ -184,6 +184,43 @@ label DASimpleFoam::solvePrimal()
+     return this->checkPrimalFailure();
+ }
+ 
++void DASimpleFoam::solvePrimalOneStep()
++{
++    /*
++    Description:
++        Execute exactly one outer SIMPLE iteration from the current
++        state (U, p, phi already set via updateOFFields).
++    */
++
++#include "createRefsSimple.H"
++#include "createFvOptions.H"
++
++    // Update intermediate variables (turbulence, etc.)
++    daTurbulenceModelPtr_->updateIntermediateVariables();
++
++    Info << "solvePrimalOneStep: ||U||=" << mag(gAverage(U))
++         << " ||p||=" << mag(gAverage(p))
++         << " ||phi||=" << mag(gAverage(phi)) << endl;
++
++    p.storePrevIter();
++
++    // --- Pressure-velocity SIMPLE corrector
++    {
++#include "UEqnSimple.H"
++#include "pEqnSimple.H"
++    }
++
++    laminarTransport.correct();
++    daTurbulenceModelPtr_->correct(false);
++
++    Info << "solvePrimalOneStep done: ||U||=" << mag(gAverage(U))
++         << " ||p||=" << mag(gAverage(p))
++         << " ||phi||=" << mag(gAverage(phi)) << endl;
++
++    // Update the residual statistics so the AD tape is consistent
++    this->calcPrimalResidualStatistics("calc");
++}
++
+ // ************ the following are functions for consistent fixed-point adjoint
+ 
+ label DASimpleFoam::runFPAdj(
+diff --git a/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.H b/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.H
+index 5c9c7fc..f11414f 100755
+--- a/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.H
++++ b/src/adjoint/DASolver/DASimpleFoam/DASimpleFoam.H
+@@ -154,6 +154,9 @@ public:
+     /// solve the primal equations
+     virtual label solvePrimal();
+ 
++    /// execute exactly one SIMPLE iteration from the current state
++    virtual void solvePrimalOneStep();
++
+     /// solve the adjoint equation using the fixed-point iteration method
+     virtual label runFPAdj(
+         Vec dFdW,
+diff --git a/src/adjoint/DASolver/DASolver.H b/src/adjoint/DASolver/DASolver.H
+index 1ce3eaa..b8649d1 100644
+--- a/src/adjoint/DASolver/DASolver.H
++++ b/src/adjoint/DASolver/DASolver.H
+@@ -223,6 +223,9 @@ public:
+     /// solve the primal equations
+     virtual label solvePrimal() = 0;
+ 
++    /// execute one SIMPLE iteration from current state (default: noop)
++    virtual void solvePrimalOneStep() {}
++
+     /// solve the adjoint equation using the fixed-point iteration method
+     virtual label runFPAdj(
+         Vec dFdW,
+diff --git a/src/pyDASolvers/DASolvers.H b/src/pyDASolvers/DASolvers.H
+index 9f7768f..89cb600 100755
+--- a/src/pyDASolvers/DASolvers.H
++++ b/src/pyDASolvers/DASolvers.H
+@@ -66,6 +66,12 @@ public:
+         return DASolverPtr_->solvePrimal();
+     }
+ 
++    /// execute one SIMPLE iteration from current state
++    void solvePrimalOneStep()
++    {
++        DASolverPtr_->solvePrimalOneStep();
++    }
++
+     /// return the residual arrays own by this processor
+     void getResiduals(double* residuals)
+     {
+diff --git a/src/pyDASolvers/pyDASolvers.pyx b/src/pyDASolvers/pyDASolvers.pyx
+index c1a1e7b..fab81c6 100755
+--- a/src/pyDASolvers/pyDASolvers.pyx
++++ b/src/pyDASolvers/pyDASolvers.pyx
+@@ -47,6 +47,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
+         DASolvers(char *, object) except +
+         void initSolver()
+         int solvePrimal()
++        void solvePrimalOneStep()
+         void runColoring()
+         void calcJacTVecProduct(char *, char *, double *, char *, char *, double *, double *)
+         void getResiduals(double *)
+@@ -156,6 +157,9 @@ cdef class pyDASolvers:
+ 
+     def solvePrimal(self):
+         return self._thisptr.solvePrimal()
++
++    def solvePrimalOneStep(self):
++        self._thisptr.solvePrimalOneStep()
+     
+     def runColoring(self):
+         self._thisptr.runColoring()

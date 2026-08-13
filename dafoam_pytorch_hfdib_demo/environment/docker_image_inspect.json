@@ -1,0 +1,47 @@
+[
+    {
+        "Id": "sha256:eb09024a281cf5e382838b715fb4c4bfb92556e4cbe09eb34e3813dd2a8ab9f8",
+        "RepoTags": [
+            "sciml-dafoam-torch:v5.0.0"
+        ],
+        "RepoDigests": [],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-08-04T15:57:26.246288893+02:00",
+        "Config": {
+            "User": "dafoamuser",
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "WorkingDir": "/home/dafoamuser/sciml/dafoam_pytorch_hfdib_demo",
+            "Shell": [
+                "/bin/bash",
+                "-lc"
+            ]
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 14842184638,
+        "GraphDriver": {
+            "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/udm88p2jm1j8vz9m9esxade7a/diff:/var/lib/docker/overlay2/3girri7dglm24ns3ctinwflf4/diff:/var/lib/docker/overlay2/yot1s4n9epml04jqkgje9ys79/diff:/var/lib/docker/overlay2/c52a3f976c3a953954ca97ff011e920b2c644e7f0aee26c5068982692fd0eb21/diff",
+                "MergedDir": "/var/lib/docker/overlay2/9xh5u9d6y947kbenv83w0i4fw/merged",
+                "UpperDir": "/var/lib/docker/overlay2/9xh5u9d6y947kbenv83w0i4fw/diff",
+                "WorkDir": "/var/lib/docker/overlay2/9xh5u9d6y947kbenv83w0i4fw/work"
+            },
+            "Name": "overlay2"
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:2f147cc05c1d81d73d80b10ed306e8c5d0aaaddc1d63862a6189c8a588b5cfcc",
+                "sha256:f3122d3dda78c05a6cfe5ad0f30410b3b632fd013c0254b210608563eb933069",
+                "sha256:7833b13039c1e5318a4a1509d005e66106c79353eece5fb8c5058e1c82dfe39c",
+                "sha256:b840e7b7e86191f5abe65bfbe01378f7c7b99ef68f90864ac10882509d740a9c",
+                "sha256:f0e9f394929cf9f91e5c13003232682a58767d5a13e3a5f3a23fb9132c41a73e"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-08-04T15:58:16.809835338+02:00"
+        }
+    }
+]

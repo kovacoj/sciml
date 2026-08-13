@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$ROOT/env.sh"
+
+echo "=== Cleaning OpenFOAM applications ==="
+
+wclean "$ROOT/applications/torchFoamSmoke"
+wclean "$ROOT/applications/fvNeuralLHO"
+
+echo "=== Clean complete ==="

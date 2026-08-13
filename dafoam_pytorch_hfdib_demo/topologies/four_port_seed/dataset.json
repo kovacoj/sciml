@@ -1,0 +1,11 @@
+{
+  "case_template": "cases/single_obstacle",
+  "design_bounds": [
+    0.2,
+    0.8,
+    0.01,
+    0.09
+  ],
+  "mask_convention": "1=solid,0=fluid",
+  "target_problem": "four-port immersed-boundary topology family"
+}

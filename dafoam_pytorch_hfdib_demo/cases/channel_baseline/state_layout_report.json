@@ -1,0 +1,15 @@
+{
+  "n_local_states": 2891,
+  "n_local_residuals": 2891,
+  "solver": "DASimpleFoam",
+  "case": "cases/channel_baseline",
+  "registered_fields": [
+    "p (cells)",
+    "U (cells)",
+    "phi (faces)",
+    "(model states if any)"
+  ],
+  "ordering_source": "opaque from getStates(); decode pending (see references/DAFOAM_API_NOTES.md)",
+  "n_mesh_cells_hint": "blockMeshDict (40,16,1) -> 640",
+  "elapsed_seconds": 1.77
+}

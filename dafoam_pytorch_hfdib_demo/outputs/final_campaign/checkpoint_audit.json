@@ -1,0 +1,323 @@
+{
+  "policy": "Only TRUSTED checkpoints may be used for final warm-start claims.",
+  "checkpoints": [
+    {
+      "status": "INCOMPLETE_PROVENANCE",
+      "reasons": [
+        "checkpoint lacks: seed, target_k, training_topology_ids, base_state_sha256, mesh_metadata_sha256, target_normalization_sha256, state_scales, phi_trainable_indices"
+      ],
+      "checkpoint": "outputs/n384_seeds/seed0/checkpoint_s10000.pt",
+      "checkpoint_sha256": "afad35fd6f35f6953db2b88dda9c2d4f2039147cd4fd520bf9415ed5e7a54967",
+      "git_head_at_audit": "3980bac97d930b10f48948a7b011ad214de9f454",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 10000,
+      "seed": null,
+      "target_k": null,
+      "n_training_samples": null,
+      "training_topology_ids_hash": null,
+      "current_dataset": {
+        "split_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "4664c09497bcf6ac19163ba3bc5e997c31e0e4a870482f10683ea7eb21afd1df",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    },
+    {
+      "status": "INCOMPLETE_PROVENANCE",
+      "reasons": [
+        "checkpoint lacks: seed, target_k, training_topology_ids, base_state_sha256, mesh_metadata_sha256, target_normalization_sha256, state_scales, phi_trainable_indices"
+      ],
+      "checkpoint": "outputs/n384_seeds/seed1/checkpoint_s10000.pt",
+      "checkpoint_sha256": "a6ebce2c0765403b9eada2d12bbcbcd82da3ac20cc2dee45aa4ae356c8609022",
+      "git_head_at_audit": "3980bac97d930b10f48948a7b011ad214de9f454",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 10000,
+      "seed": null,
+      "target_k": null,
+      "n_training_samples": null,
+      "training_topology_ids_hash": null,
+      "current_dataset": {
+        "split_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "4664c09497bcf6ac19163ba3bc5e997c31e0e4a870482f10683ea7eb21afd1df",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    },
+    {
+      "status": "INCOMPLETE_PROVENANCE",
+      "reasons": [
+        "checkpoint lacks: seed, target_k, training_topology_ids, base_state_sha256, mesh_metadata_sha256, target_normalization_sha256, state_scales, phi_trainable_indices"
+      ],
+      "checkpoint": "outputs/n384_seeds/seed2/checkpoint_s10000.pt",
+      "checkpoint_sha256": "318ebc714856ec1d69daef0e08c19519ad78f00ce3a84c522bfd7bcd425b7155",
+      "git_head_at_audit": "3980bac97d930b10f48948a7b011ad214de9f454",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 10000,
+      "seed": null,
+      "target_k": null,
+      "n_training_samples": null,
+      "training_topology_ids_hash": null,
+      "current_dataset": {
+        "split_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "4664c09497bcf6ac19163ba3bc5e997c31e0e4a870482f10683ea7eb21afd1df",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    },
+    {
+      "status": "INCOMPLETE_PROVENANCE",
+      "reasons": [
+        "checkpoint lacks: seed, target_k, training_topology_ids, base_state_sha256, mesh_metadata_sha256, target_normalization_sha256, state_scales, phi_trainable_indices"
+      ],
+      "checkpoint": "outputs/n512_seeds/seed0/checkpoint_s10000.pt",
+      "checkpoint_sha256": "0cfc0bbce2356e971939fa8f929d76e212c1ab75a8efe8fbb7a0d08236d0bf95",
+      "git_head_at_audit": "3980bac97d930b10f48948a7b011ad214de9f454",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 10000,
+      "seed": null,
+      "target_k": null,
+      "n_training_samples": null,
+      "training_topology_ids_hash": null,
+      "current_dataset": {
+        "split_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "4664c09497bcf6ac19163ba3bc5e997c31e0e4a870482f10683ea7eb21afd1df",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    },
+    {
+      "status": "INCOMPLETE_PROVENANCE",
+      "reasons": [
+        "checkpoint lacks: seed, target_k, training_topology_ids, base_state_sha256, mesh_metadata_sha256, target_normalization_sha256, state_scales, phi_trainable_indices"
+      ],
+      "checkpoint": "outputs/n512_seeds/seed1/checkpoint_s10000.pt",
+      "checkpoint_sha256": "2cb3a3c995e85d4d1c870d6b079376ce6c618a2d3877ddb2e9dab57d4bf104f6",
+      "git_head_at_audit": "3980bac97d930b10f48948a7b011ad214de9f454",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 10000,
+      "seed": null,
+      "target_k": null,
+      "n_training_samples": null,
+      "training_topology_ids_hash": null,
+      "current_dataset": {
+        "split_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "4664c09497bcf6ac19163ba3bc5e997c31e0e4a870482f10683ea7eb21afd1df",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    },
+    {
+      "status": "INCOMPLETE_PROVENANCE",
+      "reasons": [
+        "checkpoint lacks: seed, target_k, training_topology_ids, base_state_sha256, mesh_metadata_sha256, target_normalization_sha256, state_scales, phi_trainable_indices"
+      ],
+      "checkpoint": "outputs/n512_seeds/seed2/checkpoint_s10000.pt",
+      "checkpoint_sha256": "4777a82fec00700bc2f77c33ecce3e13c94aeff32670d18d790d4a15ce284789",
+      "git_head_at_audit": "3980bac97d930b10f48948a7b011ad214de9f454",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 10000,
+      "seed": null,
+      "target_k": null,
+      "n_training_samples": null,
+      "training_topology_ids_hash": null,
+      "current_dataset": {
+        "split_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "4664c09497bcf6ac19163ba3bc5e997c31e0e4a870482f10683ea7eb21afd1df",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    }
+  ]
+}

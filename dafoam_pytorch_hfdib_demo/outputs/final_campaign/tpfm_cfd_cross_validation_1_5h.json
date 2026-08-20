@@ -1,0 +1,52 @@
+{
+  "indices": [
+    0
+  ],
+  "geometry_reconstruction": "mask EDT plus 1.5*h*atanh(1-2lambda) in interface cells",
+  "results": [
+    {
+      "sample_index": 0,
+      "wall_time_s": 154.85055668299992,
+      "velocity_identity_rel_l2": 0.12957518913449348,
+      "velocity_best_orientation": {
+        "orientation": "identity",
+        "rel_u": 0.12957518913449348
+      },
+      "pressure_rel_l2_direct_gauge_centered": 0.3060173566775279,
+      "pressure_rel_l2_rho1000_gauge_centered": 896.8763187788476,
+      "local_velocity_max": 0.5299180688390356,
+      "reference_velocity_max": 0.541823957594767,
+      "local_pressure_range": 100.56977326965779,
+      "reference_pressure_range_pa": 63.9153794937,
+      "orientation_errors": [
+        {
+          "orientation": "identity",
+          "rel_u": 0.12957518913449348
+        },
+        {
+          "orientation": "transpose",
+          "rel_u": 1.3179357328989065
+        },
+        {
+          "orientation": "flip_x",
+          "rel_u": 1.0871175848692232
+        },
+        {
+          "orientation": "flip_y",
+          "rel_u": 1.4273028957599485
+        },
+        {
+          "orientation": "transpose_flip_x",
+          "rel_u": 1.3576500424213112
+        },
+        {
+          "orientation": "transpose_flip_y",
+          "rel_u": 1.3579634460443812
+        }
+      ]
+    }
+  ],
+  "mean_velocity_identity_rel_l2": 0.12957518913449348,
+  "passes_velocity_20_percent": true,
+  "decision": "PASS"
+}

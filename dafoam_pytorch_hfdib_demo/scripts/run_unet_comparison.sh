@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Train U-Net (supervised or physics) and generate comparison.
 set -euo pipefail
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT="$(cd "$HERE/.." && pwd)"
+HERE="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+PROJECT="$(realpath "$HERE/..")"
 
 IMG="${SCIML_HFDIB_IMAGE:-sciml-dafoam-torch-hfdib:latest}"
 

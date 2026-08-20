@@ -1,0 +1,40 @@
+{
+  "reference": {
+    "source": "Lédl et al., TPFM 2026, DOI 10.14311/TPFM.2026.019",
+    "uin": 0.1,
+    "nu": 0.01,
+    "pout": 0.0,
+    "roi_cells": [64, 64],
+    "roi_extent_m": [0.128, 0.128],
+    "full_domain_extent_m": null,
+    "upstream_extension_length_m": null,
+    "downstream_extension_length_m": null,
+    "boundary_placement": "Inlet/outlet are at ends of fixed port extensions outside the exported ROI.",
+    "lambda_definition": "0 fluid, 1 solid; interface uses 0.5*(1-tanh(sigma/V^(1/3)))"
+  },
+  "local": {
+    "uin": 0.1,
+    "nu": 0.01,
+    "pout": 0.0,
+    "domain_cells": [64, 64],
+    "domain_extent_m": [0.128, 0.128],
+    "boundary_placement": "Inlet/outlet imposed directly at the exported ROI edges.",
+    "lambda_definition": "Signed-distance source uses 1.5*h transition and snaps negative-distance cells to lambda=1."
+  },
+  "matches": {
+    "uin": true,
+    "nu": true,
+    "pout": true,
+    "roi_coordinates": true,
+    "computational_domain": false,
+    "boundary_placement": false,
+    "hfdib_interface_regularization": false
+  },
+  "evidence": {
+    "published_left_edge_is_physical_inlet": false,
+    "published_right_edge_is_physical_outlet": false,
+    "local_over_published_pressure_range": [1.980744, 2.383427, 2.103772],
+    "three_case_velocity_relative_l2": [0.180377, 0.195568, 0.203469]
+  },
+  "decision": "Do not claim exact CFD equivalence. Full-domain dimensions/case are not publicly specified."
+}

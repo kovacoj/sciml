@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -82,6 +83,49 @@ def load_shared_base_state(dataset_dir: str):
     if not base_path.exists():
         raise FileNotFoundError(f"Shared base state not found: {base_path}")
     return np.load(base_path)
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def checkpoint_provenance(dataset_dir: str, samples, args) -> dict:
+    dataset = Path(dataset_dir)
+    if not dataset.is_absolute():
+        dataset = Path(PROJECT_ROOT) / dataset
+    topology_ids = [sample["topology_id"] for sample in samples]
+    mesh_json = dataset / "shared" / "mesh_metadata.json"
+    mesh = json.loads(mesh_json.read_text())
+    return {
+        "seed": args.seed,
+        "target_k": args.target_k,
+        "training_topology_ids": topology_ids,
+        "training_topology_ids_sha256": hashlib.sha256(
+            json.dumps(topology_ids, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "base_state_sha256": file_sha256(dataset / "shared" / "base_state_k0.npy"),
+        "mesh_metadata_sha256": file_sha256(dataset / "shared" / "mesh_metadata.npz"),
+        "mesh_metadata_json_sha256": file_sha256(mesh_json),
+        "target_normalization_sha256": file_sha256(
+            dataset / "solver_targets" / f"target_normalization_k{args.target_k:03d}.json"
+        ),
+        "split_sha256": file_sha256(dataset / "splits.json"),
+        "state_scales": {"u": 0.1, "p": 0.01, "phi": 4e-7},
+        "state_layout": {
+            "n_cells": mesh["n_cells"],
+            "n_faces": mesh["n_faces"],
+            "n_internal_faces": mesh["n_internal_faces"],
+            "phi_dof_order": "internal faces, then outletLower/outletUpper faces",
+        },
+        "phi_trainable_indices": {
+            "n": mesh["n_internal_faces"] + 16,
+            "definition": "all internal faces plus both 8-face outlets",
+        },
+    }
 
 
 def load_loss_config(dataset_dir: str):
@@ -932,6 +976,8 @@ def main() -> int:
                     help="Initialize model weights from this checkpoint (curriculum)")
     ap.add_argument("--seed", type=int, default=42,
                     help="Random seed for torch")
+    ap.add_argument("--topology-limit", type=int, default=None,
+                    help="Use the first N topology IDs from the selected split")
     args = ap.parse_args()
 
     if args.device != "cpu":
@@ -944,6 +990,8 @@ def main() -> int:
     torch.set_default_dtype(torch.float64)
 
     samples = load_dataset_samples(args.dataset, args.mode, args.split)
+    if args.topology_limit is not None:
+        samples = samples[:args.topology_limit]
     print(f"[train] {len(samples)} samples, mode={args.mode}, arch={args.architecture}")
 
     model_kwargs = {}
@@ -1014,22 +1062,27 @@ def main() -> int:
             start_step=start_step,
             prev_history=prev_history)
 
+    provenance = checkpoint_provenance(args.dataset, samples, args)
     torch.save({
         "model_state_dict": model.state_dict(),
         "architecture": args.architecture,
         "model_kwargs": model_kwargs,
         "mode": args.mode,
+        "step": args.steps if args.mode != "supervised" else None,
+        **provenance,
     }, output_dir / "checkpoint.pt")
 
     write_json(output_dir / "history.json", history)
     write_json(output_dir / "config.json", {
         "mode": args.mode,
         "architecture": args.architecture,
-        "steps": args.steps if args.mode == "physics" else args.epochs,
-        "topology_batch_size": args.topology_batch_size if args.mode == "physics" else None,
+        "steps": args.steps if args.mode != "supervised" else args.epochs,
+        "topology_batch_size": args.topology_batch_size if args.mode != "supervised" else None,
         "lr": args.lr,
         "n_params": n_params,
         "uses_flow_labels": args.mode == "supervised",
+        "topology_limit": args.topology_limit,
+        **provenance,
     })
 
     print(f"[train] done: {output_dir}")

@@ -1,0 +1,136 @@
+{
+  "indices": [
+    0,
+    274,
+    549
+  ],
+  "geometry_reconstruction": "mask EDT plus paper h*atanh(1-2lambda) in interface cells",
+  "results": [
+    {
+      "sample_index": 0,
+      "wall_time_s": 156.11161694700013,
+      "velocity_identity_rel_l2": 0.18037729121238716,
+      "velocity_best_orientation": {
+        "orientation": "identity",
+        "rel_u": 0.18037729121238716
+      },
+      "pressure_rel_l2_direct_gauge_centered": 0.3767403900487317,
+      "pressure_rel_l2_rho1000_gauge_centered": 1233.81437751431,
+      "local_velocity_max": 0.5925914356913885,
+      "reference_velocity_max": 0.541823957594767,
+      "local_pressure_range": 126.59795016895336,
+      "reference_pressure_range_pa": 63.9153794937,
+      "orientation_errors": [
+        {
+          "orientation": "identity",
+          "rel_u": 0.18037729121238716
+        },
+        {
+          "orientation": "transpose",
+          "rel_u": 1.3524264725401176
+        },
+        {
+          "orientation": "flip_x",
+          "rel_u": 1.1178371640833495
+        },
+        {
+          "orientation": "flip_y",
+          "rel_u": 1.4604812333510657
+        },
+        {
+          "orientation": "transpose_flip_x",
+          "rel_u": 1.3909953371530492
+        },
+        {
+          "orientation": "transpose_flip_y",
+          "rel_u": 1.3913226280023718
+        }
+      ]
+    },
+    {
+      "sample_index": 274,
+      "wall_time_s": 156.8747470320004,
+      "velocity_identity_rel_l2": 0.19556757931108495,
+      "velocity_best_orientation": {
+        "orientation": "identity",
+        "rel_u": 0.19556757931108495
+      },
+      "pressure_rel_l2_direct_gauge_centered": 0.46423484355740957,
+      "pressure_rel_l2_rho1000_gauge_centered": 1243.684915868461,
+      "local_velocity_max": 0.33558700102917566,
+      "reference_velocity_max": 0.28740052169292496,
+      "local_pressure_range": 91.33910584944527,
+      "reference_pressure_range_pa": 38.331074826,
+      "orientation_errors": [
+        {
+          "orientation": "identity",
+          "rel_u": 0.19556757931108495
+        },
+        {
+          "orientation": "transpose",
+          "rel_u": 1.3334351278841141
+        },
+        {
+          "orientation": "flip_x",
+          "rel_u": 1.355991737818541
+        },
+        {
+          "orientation": "flip_y",
+          "rel_u": 1.2365213558253012
+        },
+        {
+          "orientation": "transpose_flip_x",
+          "rel_u": 1.3610309553816589
+        },
+        {
+          "orientation": "transpose_flip_y",
+          "rel_u": 1.3609634876006673
+        }
+      ]
+    },
+    {
+      "sample_index": 549,
+      "wall_time_s": 156.18644154200047,
+      "velocity_identity_rel_l2": 0.20346883779752342,
+      "velocity_best_orientation": {
+        "orientation": "identity",
+        "rel_u": 0.20346883779752342
+      },
+      "pressure_rel_l2_direct_gauge_centered": 0.456229956322421,
+      "pressure_rel_l2_rho1000_gauge_centered": 1129.9554774461183,
+      "local_velocity_max": 0.5989106726141075,
+      "reference_velocity_max": 0.539567230538093,
+      "local_pressure_range": 107.01768476832038,
+      "reference_pressure_range_pa": 50.8709341422,
+      "orientation_errors": [
+        {
+          "orientation": "identity",
+          "rel_u": 0.20346883779752342
+        },
+        {
+          "orientation": "transpose",
+          "rel_u": 1.348723321589473
+        },
+        {
+          "orientation": "flip_x",
+          "rel_u": 1.0320580777391064
+        },
+        {
+          "orientation": "flip_y",
+          "rel_u": 1.3244222495273592
+        },
+        {
+          "orientation": "transpose_flip_x",
+          "rel_u": 1.371171253972127
+        },
+        {
+          "orientation": "transpose_flip_y",
+          "rel_u": 1.3712520285297911
+        }
+      ]
+    }
+  ],
+  "mean_velocity_identity_rel_l2": 0.1931379027736652,
+  "passes_velocity_20_percent": false,
+  "decision": "STOP_PDE_MISMATCH"
+}

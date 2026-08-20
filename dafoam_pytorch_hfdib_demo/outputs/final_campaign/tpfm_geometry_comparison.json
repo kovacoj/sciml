@@ -1,0 +1,24 @@
+{
+  "tpfm": {
+    "physical_cfd_domain_width_m": null,
+    "physical_cfd_domain_height_m": null,
+    "roi_width_m": 0.128,
+    "roi_height_m": 0.128,
+    "distance_physical_inlet_to_roi_m": null,
+    "distance_roi_to_physical_outlet_m": null,
+    "number_of_ports": 4,
+    "port_layout": "Two left and two right horizontal extensions outside the ROI, from Figure 1.",
+    "note": "The public paper schematic has no numerical extension dimensions."
+  },
+  "local": {
+    "physical_cfd_domain_width_m": 0.128,
+    "physical_cfd_domain_height_m": 0.128,
+    "roi_width_m": 0.128,
+    "roi_height_m": 0.128,
+    "distance_physical_inlet_to_roi_m": 0.0,
+    "distance_roi_to_physical_outlet_m": 0.0,
+    "number_of_ports": 4,
+    "port_layout": "Two inlet and two outlet patches directly on ROI edges."
+  },
+  "conclusion": "The cases impose the same nominal physical values on different boundary locations."
+}

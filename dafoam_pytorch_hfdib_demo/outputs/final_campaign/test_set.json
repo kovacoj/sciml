@@ -1,0 +1,25 @@
+{
+  "split_file": "datasets/four_port_64/splits.json",
+  "split_file_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+  "n_test": 16,
+  "test_topology_ids": [
+    "topology_128",
+    "topology_129",
+    "topology_130",
+    "topology_131",
+    "topology_132",
+    "topology_133",
+    "topology_134",
+    "topology_135",
+    "topology_136",
+    "topology_137",
+    "topology_138",
+    "topology_139",
+    "topology_140",
+    "topology_141",
+    "topology_142",
+    "topology_143"
+  ],
+  "test_topology_ids_sha256": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+  "policy": "Converged states for these IDs are evaluation-only."
+}

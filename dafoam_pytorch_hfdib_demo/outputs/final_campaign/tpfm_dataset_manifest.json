@@ -1,0 +1,78 @@
+{
+  "source": "techMathGroup/tpfm_unet",
+  "source_git_head": "c0566779b54877ca46053a8ff44096c3351f4805",
+  "source_file": "/home/cady/research/tpfm_unet_reference/data/mixer_64.npz",
+  "sha256": "c68233faeeb71e2398633a839c6f672cbdad298c0f710ef3ea6e0ffcd540518b",
+  "n_samples": 550,
+  "input_shape": [
+    550,
+    1,
+    64,
+    64
+  ],
+  "output_shape": [
+    550,
+    4,
+    64,
+    64
+  ],
+  "input_dtype": "float64",
+  "output_dtype": "float64",
+  "input_channels": [
+    {
+      "channel": 0,
+      "min": 0.0,
+      "max": 1.0,
+      "mean": 0.6560011424854527,
+      "std": 0.43675713650622194
+    }
+  ],
+  "output_channels": [
+    {
+      "channel": 0,
+      "min": -0.2413070207,
+      "max": 0.5426342938,
+      "mean": 0.02496695276766642,
+      "std": 0.060451503414683826
+    },
+    {
+      "channel": 1,
+      "min": -0.5274296559,
+      "max": 0.531916643,
+      "mean": -2.839950978974851e-05,
+      "std": 0.03881119020265291
+    },
+    {
+      "channel": 2,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "std": 0.0
+    },
+    {
+      "channel": 3,
+      "min": -1.180483291,
+      "max": 92.12169853,
+      "mean": 19.218274961220654,
+      "std": 14.35332125997799
+    }
+  ],
+  "output_channel_order": [
+    "Ux",
+    "Uy",
+    "Uz",
+    "p"
+  ],
+  "sampled_lambda_unique_count": 6,
+  "sampled_lambda_unique": [
+    0.0,
+    0.2701612409,
+    0.3312081123,
+    0.6687918877,
+    0.7298387591,
+    1.0
+  ],
+  "published_test_archive_present": false,
+  "split_policy": "No published test archive is present; no published test split is claimed.",
+  "training_policy": "Only inputs may be used to generate truncated-SIMPLE training targets."
+}

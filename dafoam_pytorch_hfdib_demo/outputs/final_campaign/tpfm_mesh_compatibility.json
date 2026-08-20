@@ -1,0 +1,68 @@
+{
+  "same_n_cells": true,
+  "same_dx": true,
+  "same_dy": true,
+  "same_domain_extent": true,
+  "coordinate_max_error": 1.3877787807814457e-17,
+  "coordinates_match": true,
+  "lambda_reconstruction": [
+    {
+      "sample_index": 0,
+      "paper_width_h": {
+        "width_factor": 1.0,
+        "interface_cells": 547,
+        "relative_lambda_l2": 0.011914556473861334,
+        "max_lambda_error": 0.055807219207169745,
+        "sigma_min": -0.04118252056394804,
+        "sigma_max": 0.015620499351813321
+      },
+      "local_width_1_5h": {
+        "width_factor": 1.5,
+        "interface_cells": 547,
+        "relative_lambda_l2": 0.03540368642453664,
+        "max_lambda_error": 0.13174490060994548,
+        "sigma_min": -0.04118252056394804,
+        "sigma_max": 0.015620499351813321
+      }
+    },
+    {
+      "sample_index": 274,
+      "paper_width_h": {
+        "width_factor": 1.0,
+        "interface_cells": 745,
+        "relative_lambda_l2": 0.01527151278146643,
+        "max_lambda_error": 0.055807219207169745,
+        "sigma_min": -0.03200000000000003,
+        "sigma_max": 0.01264911064067353
+      },
+      "local_width_1_5h": {
+        "width_factor": 1.5,
+        "interface_cells": 745,
+        "relative_lambda_l2": 0.04487830695747591,
+        "max_lambda_error": 0.13174490060994548,
+        "sigma_min": -0.03200000000000003,
+        "sigma_max": 0.01264911064067353
+      }
+    },
+    {
+      "sample_index": 549,
+      "paper_width_h": {
+        "width_factor": 1.0,
+        "interface_cells": 673,
+        "relative_lambda_l2": 0.01415934956162386,
+        "max_lambda_error": 0.055807219207169745,
+        "sigma_min": -0.039446165846632075,
+        "sigma_max": 0.01216552506059645
+      },
+      "local_width_1_5h": {
+        "width_factor": 1.5,
+        "interface_cells": 673,
+        "relative_lambda_l2": 0.041431960094846954,
+        "max_lambda_error": 0.13174490060994548,
+        "sigma_min": -0.039446165846632075,
+        "sigma_max": 0.01216552506059645
+      }
+    }
+  ],
+  "warning": "Local HFDIB uses a 1.5*h tanh width; the reference paper states h."
+}

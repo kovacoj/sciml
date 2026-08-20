@@ -100,7 +100,21 @@ def checkpoint_provenance(dataset_dir: str, samples, args) -> dict:
     topology_ids = [sample["topology_id"] for sample in samples]
     mesh_json = dataset / "shared" / "mesh_metadata.json"
     mesh = json.loads(mesh_json.read_text())
+    from pinn.mesh_metadata import MeshMetadata
+    mesh_metadata = MeshMetadata.load(
+        str(dataset / "shared" / "mesh_metadata.npz"), str(mesh_json)
+    )
+    phi_indices = list(range(mesh_metadata.n_internal_faces))
+    for patch_name in ("outletLower", "outletUpper"):
+        patch = list(mesh_metadata.patch_names).index(patch_name)
+        start = int(mesh_metadata.patch_start_faces[patch])
+        count = int(mesh_metadata.patch_face_counts[patch])
+        phi_indices.extend(range(start, start + count))
+    encoded_phi_indices = json.dumps(phi_indices, separators=(",", ":")).encode()
     return {
+        "git_sha": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT, text=True
+        ).strip(),
         "seed": args.seed,
         "target_k": args.target_k,
         "training_topology_ids": topology_ids,
@@ -121,10 +135,11 @@ def checkpoint_provenance(dataset_dir: str, samples, args) -> dict:
             "n_internal_faces": mesh["n_internal_faces"],
             "phi_dof_order": "internal faces, then outletLower/outletUpper faces",
         },
-        "phi_trainable_indices": {
-            "n": mesh["n_internal_faces"] + 16,
-            "definition": "all internal faces plus both 8-face outlets",
-        },
+        "phi_trainable_indices": phi_indices,
+        "phi_trainable_indices_sha256": hashlib.sha256(encoded_phi_indices).hexdigest(),
+        "optimizer": "Adam",
+        "learning_rate": args.lr,
+        "training_steps": args.steps,
     }
 
 
@@ -1069,6 +1084,8 @@ def main() -> int:
         "model_kwargs": model_kwargs,
         "mode": args.mode,
         "step": args.steps if args.mode != "supervised" else None,
+        "optimizer_state_dict": optimizer.state_dict(),
+        "n_parameters": n_params,
         **provenance,
     }, output_dir / "checkpoint.pt")
 

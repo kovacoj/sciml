@@ -50,6 +50,7 @@ def audit(checkpoint: Path, dataset: Path, project: Path) -> dict:
     mesh = MeshMetadata.load(str(mesh_npz), str(mesh_json))
 
     required_metadata = {
+        "git_sha": ckpt.get("git_sha"),
         "seed": ckpt.get("seed"),
         "target_k": ckpt.get("target_k"),
         "training_topology_ids": ckpt.get("training_topology_ids"),
@@ -58,10 +59,56 @@ def audit(checkpoint: Path, dataset: Path, project: Path) -> dict:
         "target_normalization_sha256": ckpt.get("target_normalization_sha256"),
         "state_scales": ckpt.get("state_scales"),
         "phi_trainable_indices": ckpt.get("phi_trainable_indices"),
+        "phi_trainable_indices_sha256": ckpt.get("phi_trainable_indices_sha256"),
+        "optimizer": ckpt.get("optimizer"),
+        "learning_rate": ckpt.get("learning_rate"),
+        "training_steps": ckpt.get("training_steps"),
+        "n_parameters": ckpt.get("n_parameters"),
     }
     missing = [key for key, value in required_metadata.items() if value is None]
     if missing:
         reasons.append("checkpoint lacks: " + ", ".join(missing))
+
+    topology_ids = ckpt.get("training_topology_ids")
+    if topology_ids is not None:
+        if ckpt.get("training_topology_ids_sha256") != json_hash(topology_ids):
+            reasons.append("training topology ID hash mismatch")
+        if len(topology_ids) != 384:
+            reasons.append(f"training topology count is {len(topology_ids)}, expected 384")
+    phi_indices = ckpt.get("phi_trainable_indices")
+    if phi_indices is not None:
+        if ckpt.get("phi_trainable_indices_sha256") != json_hash(phi_indices):
+            reasons.append("phi trainable index hash mismatch")
+        expected_phi_indices = list(range(mesh.n_internal_faces))
+        for patch_name in ("outletLower", "outletUpper"):
+            patch = list(mesh.patch_names).index(patch_name)
+            start = int(mesh.patch_start_faces[patch])
+            count = int(mesh.patch_face_counts[patch])
+            expected_phi_indices.extend(range(start, start + count))
+        if phi_indices != expected_phi_indices:
+            reasons.append("phi trainable indices differ from current mesh")
+    expected_files = {
+        "base_state_sha256": base_state,
+        "mesh_metadata_sha256": mesh_npz,
+        "mesh_metadata_json_sha256": mesh_json,
+        "target_normalization_sha256": normalization,
+        "split_sha256": split_path,
+    }
+    for field, path in expected_files.items():
+        if ckpt.get(field) != sha256(path):
+            reasons.append(f"{field} differs from current dataset")
+    if ckpt.get("target_k") != 20:
+        reasons.append(f"target K is {ckpt.get('target_k')}, expected 20")
+    if ckpt.get("seed") != 0:
+        reasons.append(f"seed is {ckpt.get('seed')}, expected 0")
+    if ckpt.get("training_steps") != 10_000 or ckpt.get("step") != 10_000:
+        reasons.append("training did not complete 10,000 steps")
+    if ckpt.get("optimizer") != "Adam" or ckpt.get("learning_rate") != 1e-3:
+        reasons.append("optimizer configuration differs from Adam(lr=1e-3)")
+    if ckpt.get("n_parameters") != sum(p.numel() for p in model.parameters()):
+        reasons.append("stored parameter count mismatch")
+    if ckpt.get("state_scales") != {"u": 0.1, "p": 0.01, "phi": 4e-7}:
+        reasons.append("state scales mismatch")
 
     status = "TRUSTED" if not reasons else "INCOMPLETE_PROVENANCE"
     return {

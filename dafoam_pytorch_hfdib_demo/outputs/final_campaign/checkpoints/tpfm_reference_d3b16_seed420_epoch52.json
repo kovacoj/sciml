@@ -1,0 +1,39 @@
+{
+  "status": "completed_early_stopping",
+  "machine": "laptop2",
+  "reference_repository": "https://github.com/techMathGroup/tpfm_unet.git",
+  "reference_git_sha": "c0566779b54877ca46053a8ff44096c3351f4805",
+  "campaign_git_base_sha": "6a9f7068f8c5c227d6110496fc3d8a30c12f1ce2",
+  "dataset": "data/mixer_64.npz",
+  "dataset_sha256": "c68233faeeb71e2398633a839c6f672cbdad298c0f710ef3ea6e0ffcd540518b",
+  "checkpoint": "tpfm_reference_d3b16_seed420_epoch52.ckpt",
+  "checkpoint_sha256": "99a39c95e424cc762627179a846982f6730654452387fc0cd4e1a8bf28608567",
+  "seed": 420,
+  "epoch": 52,
+  "global_step": 1484,
+  "terminal_validation_loss": 0.0850030928850174,
+  "post_training_validation_loss": 0.090466,
+  "best_observed_validation_loss": 0.0841950848698616,
+  "best_observed_epoch": 42,
+  "architecture": {
+    "base_filters": 16,
+    "depth": 3
+  },
+  "training": {
+    "learning_rate": 0.0003,
+    "max_epochs": 80,
+    "early_stopping_patience": 10,
+    "batch_size": 16,
+    "train_samples": 440,
+    "validation_samples": 110,
+    "uses_converged_training_labels": true
+  },
+  "environment": {
+    "python": "3.11.9",
+    "torch": "2.8.0+cu128",
+    "pytorch_lightning": "2.5.5",
+    "numpy": "2.3.3",
+    "cuda_available": false
+  },
+  "note": "Capacity control using the official D3-B16 configuration. Lightning retained the terminal checkpoint rather than the best epoch-42 state."
+}

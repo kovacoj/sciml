@@ -1,0 +1,41 @@
+{
+  "status": "completed_early_stopping",
+  "machine": "laptop2",
+  "reference_repository": "https://github.com/techMathGroup/tpfm_unet.git",
+  "reference_git_sha": "c0566779b54877ca46053a8ff44096c3351f4805",
+  "campaign_git_base_sha": "6a9f7068f8c5c227d6110496fc3d8a30c12f1ce2",
+  "dataset": "data/mixer_64.npz",
+  "dataset_sha256": "c68233faeeb71e2398633a839c6f672cbdad298c0f710ef3ea6e0ffcd540518b",
+  "checkpoint": "tpfm_reference_d5b32_seed420_epoch57.ckpt",
+  "checkpoint_sha256": "94565a14537b42eed527857df9f69e84753d5ced01de3e0bb7d4006eb5a35e62",
+  "seed": 420,
+  "epoch": 57,
+  "global_step": 1624,
+  "terminal_validation_loss": 0.03410172089934349,
+  "post_training_validation_loss": 0.034634,
+  "best_observed_validation_loss": 0.03028406947851181,
+  "best_observed_epoch_after_resume": 47,
+  "architecture": {
+    "base_filters": 32,
+    "depth": 5,
+    "trainable_parameters": 31100000
+  },
+  "training": {
+    "learning_rate": 0.0003,
+    "max_epochs": 80,
+    "early_stopping_patience": 10,
+    "batch_size": 16,
+    "train_samples": 440,
+    "validation_samples": 110,
+    "uses_converged_training_labels": true,
+    "resumed_from_epoch": 39
+  },
+  "environment": {
+    "python": "3.11.9",
+    "torch": "2.8.0+cu128",
+    "pytorch_lightning": "2.5.5",
+    "numpy": "2.3.3",
+    "cuda_available": false
+  },
+  "note": "Lightning retained the terminal checkpoint, not the best epoch-47 state. The epoch-39 recovery checkpoint remains the lower-loss retained model."
+}

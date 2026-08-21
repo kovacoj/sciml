@@ -11,6 +11,8 @@ outputs/final_campaign/*
 cases/*/processor*
 cases/*/postProcessing/
 cases/*/[0-9]*/
+!cases/four_port_64x64/0/
+!cases/four_port_64x64/0/*
 cases/*/*.log
 cases/*/log.*
 *.foam

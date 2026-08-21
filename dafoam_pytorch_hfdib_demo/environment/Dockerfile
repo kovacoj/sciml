@@ -15,7 +15,7 @@ RUN source $HOME/dafoam/loadDAFoam.sh && \
 # Do not upgrade numpy, mpi4py, petsc4py, OpenMDAO, or DAFoam.
 RUN source $HOME/venvs/dafoam-torch/bin/activate && \
     python -m pip install --upgrade pip && \
-    python -m pip install torch
+    python -m pip install torch==2.8.0
 
 # One-stop activation: DAFoam first, then the venv (venv must win PATH).
 RUN printf '%s\n' \

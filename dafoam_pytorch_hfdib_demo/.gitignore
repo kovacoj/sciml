@@ -3,6 +3,7 @@ outputs/*
 !outputs/.gitkeep
 !outputs/final_campaign/
 outputs/final_campaign/*
+!outputs/final_campaign/*.json
 !outputs/final_campaign/checkpoints/
 !outputs/final_campaign/checkpoints/*.ckpt
 !outputs/final_campaign/checkpoints/*.pt

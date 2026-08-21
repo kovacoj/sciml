@@ -1,0 +1,29 @@
+{
+  "machine": "laptop2",
+  "architecture": "x86_64",
+  "logical_cpus": 12,
+  "memory_gib": 15,
+  "docker": {
+    "base_image": {
+      "tag": "dafoam/opt-packages:v5.0.0",
+      "digest": "sha256:ff3ff894dd9ee07aba8c396f729bbc75d3a8437967bee49629c2b5158d64d316"
+    },
+    "torch_image": {
+      "tag": "sciml-dafoam-torch:v5.0.0",
+      "image_id": "sha256:3a8452a85b5732b7b5f2865c0f4f642752ceedfab7496d2cb9ccd8e22a0cad4b"
+    },
+    "hfdib_image": {
+      "tag": "sciml-dafoam-torch-hfdib:latest",
+      "image_id": "sha256:7c6b4cff718cbe4c5fd56ec771791974034a71f859d9403cd0925fc031339cb1"
+    }
+  },
+  "dafoam_source_commit": "31433b41d1d59638b459d24f02c7f89a756848c2",
+  "normal_library_md5": "b8fc5372dd9c0dd7879213f997f6b339",
+  "adr_library_md5": "f9d2ae8a573ac7baf5dc1d7c29f7d142",
+  "torch": "2.8.0+cu128",
+  "scipy": "1.13.1",
+  "numpy": "1.23.5",
+  "smoke_test": "PASS",
+  "hfdib_in_normal": true,
+  "hfdib_in_adr": true
+}

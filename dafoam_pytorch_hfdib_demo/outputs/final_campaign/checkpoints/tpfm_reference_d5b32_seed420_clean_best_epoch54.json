@@ -1,0 +1,38 @@
+{
+  "status": "best_checkpoint_from_clean_rerun",
+  "machine": "laptop2",
+  "reference_repository": "https://github.com/techMathGroup/tpfm_unet.git",
+  "reference_git_sha": "c0566779b54877ca46053a8ff44096c3351f4805",
+  "campaign_git_sha_at_start": "9a7077f",
+  "dataset": "data/mixer_64.npz",
+  "dataset_sha256": "c68233faeeb71e2398633a839c6f672cbdad298c0f710ef3ea6e0ffcd540518b",
+  "checkpoint": "tpfm_reference_d5b32_seed420_clean_best_epoch54.ckpt",
+  "checkpoint_sha256": "79890c8fb2a503c9c56135bd61c054231b8347beb123de6ce3d63f5de28f7b51",
+  "seed": 420,
+  "epoch": 54,
+  "global_step": 1540,
+  "validation_loss": 0.031474072486162186,
+  "architecture": {
+    "base_filters": 32,
+    "depth": 5,
+    "trainable_parameters": 31100000
+  },
+  "training": {
+    "learning_rate": 0.0003,
+    "max_epochs": 80,
+    "batch_size": 16,
+    "train_samples": 440,
+    "validation_samples": 110,
+    "uses_converged_training_labels": true,
+    "started_from_scratch": true,
+    "best_checkpoint_monitor": "validation_loss"
+  },
+  "environment": {
+    "python": "3.11.9",
+    "torch": "2.8.0+cu128",
+    "pytorch_lightning": "2.5.5",
+    "numpy": "2.3.3",
+    "cuda_available": false
+  },
+  "note": "Run was externally stopped during epoch 60 after the best checkpoint had been durably written."
+}

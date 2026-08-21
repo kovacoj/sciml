@@ -40,4 +40,5 @@ outputs/shared_hfdib/
 **/features.npy
 **/checkpoint*.pt
 *.pt
+!outputs/final_campaign/checkpoints/*.pt
 !*.json

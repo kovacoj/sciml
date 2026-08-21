@@ -81,6 +81,7 @@ def main() -> int:
     ap.add_argument("--dataset", default="datasets/four_port_64")
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--simple-steps", default="0,1,2,5,10")
+    ap.add_argument("--output", default="outputs/warm_start_evaluation/metrics.json")
     args = ap.parse_args()
 
     import torch
@@ -151,9 +152,16 @@ def main() -> int:
     test_topologies = splits["test"]
     simple_steps = [int(s) for s in args.simple_steps.split(",")]
 
-    results = {}
+    output = Path(args.output)
+    if not output.is_absolute():
+        output = Path(PROJECT_ROOT) / output
+    output.parent.mkdir(parents=True, exist_ok=True)
+    results = json.loads(output.read_text()) if output.exists() else {}
 
     for tid in test_topologies:
+        if tid in results:
+            print(f"Skipping completed {tid}", flush=True)
+            continue
         print(f"\n{'='*60}")
         print(f"Evaluating {tid}")
         print(f"{'='*60}")
@@ -300,16 +308,14 @@ def main() -> int:
 
         topo_result["warm_start"] = warm_results
         results[tid] = topo_result
+        output.write_text(json.dumps(results, indent=2) + "\n")
 
         del bridge
 
     # ================================================================
     # Summary
     # ================================================================
-    out_dir = Path(PROJECT) / "outputs" / "warm_start_evaluation"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    with open(out_dir / "metrics.json", "w") as f:
-        json.dump(results, f, indent=2)
+    output.write_text(json.dumps(results, indent=2) + "\n")
 
     print(f"\n{'='*60}")
     print("SUMMARY")

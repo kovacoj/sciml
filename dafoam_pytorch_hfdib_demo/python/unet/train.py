@@ -93,6 +93,13 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def save_checkpoint(checkpoint: dict, path: Path) -> None:
+    """Atomically replace a checkpoint after its complete serialization."""
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    torch.save(checkpoint, temporary)
+    os.replace(temporary, path)
+
+
 def checkpoint_provenance(dataset_dir: str, samples, args) -> dict:
     dataset = Path(dataset_dir)
     if not dataset.is_absolute():
@@ -360,9 +367,10 @@ def train_physics(model, samples, optimizer, device, steps, dataset_dir,
 
         if checkpoint_dir is not None and (step + 1) % save_every == 0:
             ckpt_path = Path(checkpoint_dir) / f"checkpoint_s{step + 1}.pt"
-            torch.save({
+            save_checkpoint({
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
+                "torch_rng_state": torch.get_rng_state(),
                 "architecture": "simple",
                 "model_kwargs": {},
                 "mode": "physics",
@@ -665,9 +673,10 @@ def train_fixed_point(model, samples, optimizer, device, steps, dataset_dir,
 
         if checkpoint_dir is not None and (step + 1) % save_every == 0:
             ckpt_path = Path(checkpoint_dir) / f"checkpoint_s{step + 1}.pt"
-            torch.save({
+            save_checkpoint({
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
+                "torch_rng_state": torch.get_rng_state(),
                 "architecture": "simple",
                 "model_kwargs": {},
                 "mode": "physics",
@@ -852,9 +861,10 @@ def train_solver_distilled(model, samples, optimizer, device, steps, dataset_dir
 
         if checkpoint_dir is not None and (step + 1) % save_every == 0:
             ckpt_path = Path(checkpoint_dir) / f"checkpoint_s{step + 1}.pt"
-            torch.save({
+            save_checkpoint({
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
+                "torch_rng_state": torch.get_rng_state(),
                 "architecture": "simple",
                 "model_kwargs": {},
                 "mode": "solver-distilled",
@@ -1016,6 +1026,8 @@ def main() -> int:
         model.load_state_dict(ckpt["model_state_dict"])
         if "optimizer_state_dict" in ckpt:
             optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        if "torch_rng_state" in ckpt:
+            torch.set_rng_state(ckpt["torch_rng_state"])
         start_step = ckpt.get("step", ckpt.get("epoch", 0))
         prev_history = ckpt.get("history", [])
         print(f"[train] resumed from {args.resume} at step {start_step}")
@@ -1063,7 +1075,7 @@ def main() -> int:
             prev_history=prev_history)
 
     provenance = checkpoint_provenance(args.dataset, samples, args)
-    torch.save({
+    save_checkpoint({
         "model_state_dict": model.state_dict(),
         "architecture": args.architecture,
         "model_kwargs": model_kwargs,

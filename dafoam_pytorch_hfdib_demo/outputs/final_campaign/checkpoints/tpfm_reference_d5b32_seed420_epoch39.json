@@ -1,0 +1,35 @@
+{
+  "status": "interrupted_recovery_checkpoint",
+  "machine": "laptop2",
+  "reference_repository": "https://github.com/techMathGroup/tpfm_unet.git",
+  "reference_git_sha": "c0566779b54877ca46053a8ff44096c3351f4805",
+  "campaign_git_base_sha": "6a9f7068f8c5c227d6110496fc3d8a30c12f1ce2",
+  "dataset": "data/mixer_64.npz",
+  "dataset_sha256": "c68233faeeb71e2398633a839c6f672cbdad298c0f710ef3ea6e0ffcd540518b",
+  "checkpoint": "tpfm_reference_d5b32_seed420_epoch39.ckpt",
+  "checkpoint_sha256": "06dbde8460bd57ad425e09192f62e3aa5700bc7be1f9b6ee9b519ca423655782",
+  "seed": 420,
+  "epoch": 39,
+  "global_step": 1120,
+  "validation_loss": 0.031607501208782196,
+  "architecture": {
+    "base_filters": 32,
+    "depth": 5,
+    "trainable_parameters": 31100000
+  },
+  "training": {
+    "learning_rate": 0.0003,
+    "max_epochs": 80,
+    "batch_size": 16,
+    "train_samples": 440,
+    "validation_samples": 110,
+    "uses_converged_training_labels": true
+  },
+  "environment": {
+    "python": "3.11.9",
+    "torch": "2.8.0+cu128",
+    "pytorch_lightning": "2.5.5",
+    "numpy": "2.3.3",
+    "cuda_available": false
+  }
+}

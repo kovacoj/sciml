@@ -1,6 +1,12 @@
 # Generated results and large artifacts
 outputs/*
 !outputs/.gitkeep
+!outputs/final_campaign/
+outputs/final_campaign/*
+!outputs/final_campaign/checkpoints/
+!outputs/final_campaign/checkpoints/*.ckpt
+!outputs/final_campaign/checkpoints/*.pt
+!outputs/final_campaign/checkpoints/*.json
 cases/*/processor*
 cases/*/postProcessing/
 cases/*/[0-9]*/

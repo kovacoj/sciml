@@ -1,0 +1,2 @@
+dafoam_pytorch_hfdib_demo/outputs/final_campaign/checkpoints/*.ckpt filter=lfs diff=lfs merge=lfs -text
+dafoam_pytorch_hfdib_demo/outputs/final_campaign/checkpoints/*.pt filter=lfs diff=lfs merge=lfs -text

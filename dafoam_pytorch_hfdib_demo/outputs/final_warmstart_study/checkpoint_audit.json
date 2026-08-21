@@ -1,0 +1,56 @@
+{
+  "policy": "Only TRUSTED checkpoints may be used for final warm-start claims.",
+  "checkpoints": [
+    {
+      "status": "TRUSTED",
+      "reasons": [],
+      "checkpoint": "outputs/final_warmstart_study/model_n384_k20_seed0/checkpoint.pt",
+      "checkpoint_sha256": "19c8615014bbf2a8f3fff835b88a53a805b0ccc724a08ccf644b1affba0b9c18",
+      "git_head_at_audit": "470063f135f76a22b2cfab1a5185aef3dc6d697b",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 10000,
+      "seed": 0,
+      "target_k": 20,
+      "n_training_samples": 384,
+      "training_topology_ids_hash": "f4cd7e66ba75421c7bcd8dcffaa6b56fd41651e98e2fc5945a1cf2b2367165cb",
+      "current_dataset": {
+        "split_sha256": "5e5c06c8e2a58ebdefd2a364b6eb3805cf94d91c7982a54b92d4ec9b2df5431e",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "4664c09497bcf6ac19163ba3bc5e997c31e0e4a870482f10683ea7eb21afd1df",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    }
+  ]
+}

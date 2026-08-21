@@ -1,0 +1,363 @@
+{
+  "checkpoint": "outputs/final_warmstart_study/model_n384_k20_seed0/checkpoint.pt",
+  "checkpoint_git_sha": "470063f135f76a22b2cfab1a5185aef3dc6d697b",
+  "target_k": 20,
+  "n_test": 16,
+  "test_topology_ids": [
+    "topology_128",
+    "topology_129",
+    "topology_130",
+    "topology_131",
+    "topology_132",
+    "topology_133",
+    "topology_134",
+    "topology_135",
+    "topology_136",
+    "topology_137",
+    "topology_138",
+    "topology_139",
+    "topology_140",
+    "topology_141",
+    "topology_142",
+    "topology_143"
+  ],
+  "means": {
+    "teacher_to_cfd": {
+      "rel_u": 0.09795075331554236,
+      "rel_p": 0.3235935604596518
+    },
+    "network_to_teacher": {
+      "rel_u": 0.08896174694171126,
+      "rel_p": 0.20663565667228118,
+      "rel_phi": 0.08687828602909753,
+      "rel_delta_u": 0.08896174694171126,
+      "rel_delta_p": 0.20663565667228118
+    },
+    "network_to_cfd": {
+      "rel_u": 0.1221614405380187,
+      "rel_p": 0.36010624846056394
+    }
+  },
+  "cases": [
+    {
+      "topology_id": "topology_128",
+      "teacher_time_s": 1.161348943998746,
+      "inference_time_s": 0.05022386900236597,
+      "teacher_to_cfd": {
+        "rel_u": 0.1271623364038092,
+        "rel_p": 0.48738486227889355
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08852404153691086,
+        "rel_p": 0.23879903191628438,
+        "rel_phi": 0.08650246147366222,
+        "rel_delta_u": 0.08852404153691086,
+        "rel_delta_p": 0.23879903191628438
+      },
+      "network_to_cfd": {
+        "rel_u": 0.1603019727628179,
+        "rel_p": 0.5120284708667124
+      }
+    },
+    {
+      "topology_id": "topology_129",
+      "teacher_time_s": 1.0121590240014484,
+      "inference_time_s": 0.005412259000877384,
+      "teacher_to_cfd": {
+        "rel_u": 0.09937601419459416,
+        "rel_p": 0.3312037659450747
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08963171988498655,
+        "rel_p": 0.2782179613984937,
+        "rel_phi": 0.08736186094624288,
+        "rel_delta_u": 0.08963171988498655,
+        "rel_delta_p": 0.2782179613984937
+      },
+      "network_to_cfd": {
+        "rel_u": 0.13260227559663187,
+        "rel_p": 0.32770722971576793
+      }
+    },
+    {
+      "topology_id": "topology_130",
+      "teacher_time_s": 1.0142251979996217,
+      "inference_time_s": 0.004025964000902604,
+      "teacher_to_cfd": {
+        "rel_u": 0.09242752126547135,
+        "rel_p": 0.2597086546595122
+      },
+      "network_to_teacher": {
+        "rel_u": 0.09593060313934006,
+        "rel_p": 0.15259004692140302,
+        "rel_phi": 0.09398988294036961,
+        "rel_delta_u": 0.09593060313934006,
+        "rel_delta_p": 0.15259004692140302
+      },
+      "network_to_cfd": {
+        "rel_u": 0.12772489985803728,
+        "rel_p": 0.31595959373471827
+      }
+    },
+    {
+      "topology_id": "topology_131",
+      "teacher_time_s": 1.0690341930021532,
+      "inference_time_s": 0.003974384999310132,
+      "teacher_to_cfd": {
+        "rel_u": 0.13067781017474586,
+        "rel_p": 0.4623338450252651
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08612986062598045,
+        "rel_p": 0.29891028413681814,
+        "rel_phi": 0.08460369322433643,
+        "rel_delta_u": 0.08612986062598045,
+        "rel_delta_p": 0.29891028413681814
+      },
+      "network_to_cfd": {
+        "rel_u": 0.15409439206432266,
+        "rel_p": 0.4621475801332377
+      }
+    },
+    {
+      "topology_id": "topology_132",
+      "teacher_time_s": 1.4220967660003225,
+      "inference_time_s": 0.0040313419958692975,
+      "teacher_to_cfd": {
+        "rel_u": 0.08196958358947622,
+        "rel_p": 0.29460839665884636
+      },
+      "network_to_teacher": {
+        "rel_u": 0.084513350037627,
+        "rel_p": 0.2769805207785836,
+        "rel_phi": 0.08237698832365062,
+        "rel_delta_u": 0.084513350037627,
+        "rel_delta_p": 0.2769805207785836
+      },
+      "network_to_cfd": {
+        "rel_u": 0.10144987547761052,
+        "rel_p": 0.36884697809926525
+      }
+    },
+    {
+      "topology_id": "topology_133",
+      "teacher_time_s": 1.6539306949998718,
+      "inference_time_s": 0.007645641999260988,
+      "teacher_to_cfd": {
+        "rel_u": 0.11568370462071925,
+        "rel_p": 0.31314350406256114
+      },
+      "network_to_teacher": {
+        "rel_u": 0.09079838406247678,
+        "rel_p": 0.2041774849037554,
+        "rel_phi": 0.08901590334115285,
+        "rel_delta_u": 0.09079838406247678,
+        "rel_delta_p": 0.2041774849037554
+      },
+      "network_to_cfd": {
+        "rel_u": 0.13940515735656356,
+        "rel_p": 0.29909819207948946
+      }
+    },
+    {
+      "topology_id": "topology_134",
+      "teacher_time_s": 1.6535337810055353,
+      "inference_time_s": 0.005694113999197725,
+      "teacher_to_cfd": {
+        "rel_u": 0.10546166963686955,
+        "rel_p": 0.3444222148541705
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08392701878190444,
+        "rel_p": 0.18879861439225074,
+        "rel_phi": 0.08308108660732484,
+        "rel_delta_u": 0.08392701878190444,
+        "rel_delta_p": 0.18879861439225074
+      },
+      "network_to_cfd": {
+        "rel_u": 0.11614827714094,
+        "rel_p": 0.41398318949559343
+      }
+    },
+    {
+      "topology_id": "topology_135",
+      "teacher_time_s": 1.972500192001462,
+      "inference_time_s": 0.01031994500226574,
+      "teacher_to_cfd": {
+        "rel_u": 0.08592938975037456,
+        "rel_p": 0.2945784418660529
+      },
+      "network_to_teacher": {
+        "rel_u": 0.09692508303412063,
+        "rel_p": 0.11028368764259304,
+        "rel_phi": 0.09411359878549777,
+        "rel_delta_u": 0.09692508303412063,
+        "rel_delta_p": 0.11028368764259304
+      },
+      "network_to_cfd": {
+        "rel_u": 0.11223928493582776,
+        "rel_p": 0.3275207497389788
+      }
+    },
+    {
+      "topology_id": "topology_136",
+      "teacher_time_s": 1.757196856000519,
+      "inference_time_s": 0.008091126001090743,
+      "teacher_to_cfd": {
+        "rel_u": 0.0877375914859762,
+        "rel_p": 0.26543907659819127
+      },
+      "network_to_teacher": {
+        "rel_u": 0.10112145412551546,
+        "rel_p": 0.16244336384438424,
+        "rel_phi": 0.09881313862556772,
+        "rel_delta_u": 0.10112145412551546,
+        "rel_delta_p": 0.16244336384438424
+      },
+      "network_to_cfd": {
+        "rel_u": 0.13431691711952942,
+        "rel_p": 0.3493517958548479
+      }
+    },
+    {
+      "topology_id": "topology_137",
+      "teacher_time_s": 1.2210037290060427,
+      "inference_time_s": 0.004233284998917952,
+      "teacher_to_cfd": {
+        "rel_u": 0.09992442589953232,
+        "rel_p": 0.2965196632409021
+      },
+      "network_to_teacher": {
+        "rel_u": 0.07836305220769767,
+        "rel_p": 0.12950330738929303,
+        "rel_phi": 0.07610303783397018,
+        "rel_delta_u": 0.07836305220769767,
+        "rel_delta_p": 0.12950330738929303
+      },
+      "network_to_cfd": {
+        "rel_u": 0.11471880652210442,
+        "rel_p": 0.33947374801413077
+      }
+    },
+    {
+      "topology_id": "topology_138",
+      "teacher_time_s": 1.1250434400062659,
+      "inference_time_s": 0.00572813100006897,
+      "teacher_to_cfd": {
+        "rel_u": 0.07514339063438194,
+        "rel_p": 0.2872801266979243
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08933240842595162,
+        "rel_p": 0.29375200964180315,
+        "rel_phi": 0.08777361240421584,
+        "rel_delta_u": 0.08933240842595162,
+        "rel_delta_p": 0.29375200964180315
+      },
+      "network_to_cfd": {
+        "rel_u": 0.10746695622150355,
+        "rel_p": 0.3944729393628249
+      }
+    },
+    {
+      "topology_id": "topology_139",
+      "teacher_time_s": 1.2601124020002317,
+      "inference_time_s": 0.004095489995961543,
+      "teacher_to_cfd": {
+        "rel_u": 0.08354926858193093,
+        "rel_p": 0.31250579323192734
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08682150752849488,
+        "rel_p": 0.3018027862155611,
+        "rel_phi": 0.08411652544734492,
+        "rel_delta_u": 0.08682150752849488,
+        "rel_delta_p": 0.3018027862155611
+      },
+      "network_to_cfd": {
+        "rel_u": 0.09685380930549888,
+        "rel_p": 0.2817886348486019
+      }
+    },
+    {
+      "topology_id": "topology_140",
+      "teacher_time_s": 1.4906557430003886,
+      "inference_time_s": 0.004912549004075117,
+      "teacher_to_cfd": {
+        "rel_u": 0.1190195902611022,
+        "rel_p": 0.4109947409688903
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08279412167987481,
+        "rel_p": 0.22200315579883007,
+        "rel_phi": 0.0810453873653541,
+        "rel_delta_u": 0.08279412167987481,
+        "rel_delta_p": 0.22200315579883007
+      },
+      "network_to_cfd": {
+        "rel_u": 0.12282052548557945,
+        "rel_p": 0.44530370365431493
+      }
+    },
+    {
+      "topology_id": "topology_141",
+      "teacher_time_s": 1.4075746430025902,
+      "inference_time_s": 0.005067541002063081,
+      "teacher_to_cfd": {
+        "rel_u": 0.07798496287733966,
+        "rel_p": 0.24342997472304703
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08736039786785478,
+        "rel_p": 0.11231208699702104,
+        "rel_phi": 0.085462407656703,
+        "rel_delta_u": 0.08736039786785478,
+        "rel_delta_p": 0.11231208699702104
+      },
+      "network_to_cfd": {
+        "rel_u": 0.10369018074037291,
+        "rel_p": 0.280969904062363
+      }
+    },
+    {
+      "topology_id": "topology_142",
+      "teacher_time_s": 1.5012744880004902,
+      "inference_time_s": 0.004897617000096943,
+      "teacher_to_cfd": {
+        "rel_u": 0.09764663093126455,
+        "rel_p": 0.29359365990093045
+      },
+      "network_to_teacher": {
+        "rel_u": 0.0930328385407394,
+        "rel_p": 0.20767213582568678,
+        "rel_phi": 0.090789552920234,
+        "rel_delta_u": 0.0930328385407394,
+        "rel_delta_p": 0.20767213582568678
+      },
+      "network_to_cfd": {
+        "rel_u": 0.11861127263649777,
+        "rel_p": 0.32620763863276536
+      }
+    },
+    {
+      "topology_id": "topology_143",
+      "teacher_time_s": 1.2276195869999356,
+      "inference_time_s": 0.004632510994269978,
+      "teacher_to_cfd": {
+        "rel_u": 0.08751816274108977,
+        "rel_p": 0.2803502466422401
+      },
+      "network_to_teacher": {
+        "rel_u": 0.08818210958790486,
+        "rel_p": 0.12792402895373764,
+        "rel_phi": 0.0849034385699335,
+        "rel_delta_u": 0.08818210958790486,
+        "rel_delta_p": 0.12792402895373764
+      },
+      "network_to_cfd": {
+        "rel_u": 0.11213844538446126,
+        "rel_p": 0.316839627075411
+      }
+    }
+  ]
+}

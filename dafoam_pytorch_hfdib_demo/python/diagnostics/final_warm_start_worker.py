@@ -115,7 +115,7 @@ def main() -> int:
     )
     options["primalMinResTol"] = args.residual_tolerance
     options["primalMinIters"] = 2
-    options["printInterval"] = 1
+    options["printInterval"] = 100
     bridge = DAFoamResidualBridge(str(work_dir), options, comm=MPI.COMM_SELF)
     n_pre_steps = {"neural_1": 1, "neural_5": 5}.get(args.method, 0)
     if n_pre_steps:
@@ -129,6 +129,7 @@ def main() -> int:
     started = time.perf_counter()
     bridge.solver()
     solver_time = time.perf_counter() - started
+    remaining_iterations = int(round(bridge.solver.solver.getLatestTime()))
     final_state = np.ascontiguousarray(bridge.solver.getStates().copy(), dtype=np.float64)
     final_residual = float(np.linalg.norm(bridge.residual(final_state)))
     primal_failed = bool(bridge.solver.primalFail)
@@ -145,6 +146,7 @@ def main() -> int:
         "pre_simple_steps": n_pre_steps,
         "pre_simple_time_s": pre_simple_time,
         "remaining_simple_time_s": solver_time,
+        "remaining_simple_iterations": remaining_iterations,
         "total_time_s": inference_time + pre_simple_time + solver_time,
         "primal_failed": primal_failed,
         "final_state": str(final_state_path.relative_to(project)),

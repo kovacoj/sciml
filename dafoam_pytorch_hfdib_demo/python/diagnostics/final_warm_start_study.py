@@ -81,7 +81,8 @@ def main() -> int:
                 continue
             result = json.loads(result_path.read_text())
             times = [int(value) for value in TIME_PATTERN.findall(log_path.read_text())]
-            result["remaining_simple_iterations"] = max(times) if times else None
+            if result.get("remaining_simple_iterations") is None:
+                result["remaining_simple_iterations"] = max(times) if times else None
             result["returncode"] = completed.returncode
             runs.append(result)
 

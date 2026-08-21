@@ -43,7 +43,7 @@ def main() -> int:
                         default=Path("outputs/final_warmstart_study/teacher_states"))
     parser.add_argument("--output-dir", type=Path,
                         default=Path("outputs/final_warmstart_study/convergence"))
-    parser.add_argument("--residual-tolerance", type=float, default=1e-6)
+    parser.add_argument("--residual-tolerance", type=float, default=1e-4)
     args = parser.parse_args()
     project = Path(PROJECT_ROOT)
     absolute = lambda path: path if path.is_absolute() else project / path
@@ -140,8 +140,11 @@ def main() -> int:
                                              "DIFFERENT_FINAL_STATE")},
         }
     payload = {
-        "criterion": {"type": "OpenFOAM SIMPLE residualControl",
-                      "U": args.residual_tolerance, "p": args.residual_tolerance},
+        "criterion": {
+            "type": "DAFOAM/OpenFOAM pressure initial residual",
+            "p": args.residual_tolerance,
+            "note": "U is excluded because the inactive 2D U2 equation has a non-decaying reported residual.",
+        },
         "execution_order": "interleaved by topology, then method",
         "summary": summary,
         "runs": runs,

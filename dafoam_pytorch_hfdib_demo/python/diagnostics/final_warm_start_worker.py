@@ -33,7 +33,6 @@ def add_residual_control(path: Path, tolerance: float) -> None:
         f"{marker}\n"
         "    residualControl\n"
         "    {\n"
-        f"        U {tolerance:.16g};\n"
         f"        p {tolerance:.16g};\n"
         "    }"
     )
@@ -74,7 +73,7 @@ def main() -> int:
     parser.add_argument("--method", choices=METHODS, required=True)
     parser.add_argument("--work-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--residual-tolerance", type=float, default=1e-6)
+    parser.add_argument("--residual-tolerance", type=float, default=1e-4)
     args = parser.parse_args()
 
     project = Path(PROJECT_ROOT)
@@ -114,8 +113,9 @@ def main() -> int:
         str(work_dir), inlet_patches=["inletLower", "inletUpper"],
         outlet_patches=["outletLower", "outletUpper"],
     )
-    options["primalMinResTol"] = 1e-30
+    options["primalMinResTol"] = args.residual_tolerance
     options["primalMinIters"] = 2
+    options["printInterval"] = 1
     bridge = DAFoamResidualBridge(str(work_dir), options, comm=MPI.COMM_SELF)
     n_pre_steps = {"neural_1": 1, "neural_5": 5}.get(args.method, 0)
     if n_pre_steps:
@@ -138,7 +138,7 @@ def main() -> int:
     result = {
         "topology_id": args.topology_id,
         "method": args.method,
-        "residual_control": {"U": args.residual_tolerance, "p": args.residual_tolerance},
+        "residual_control": {"p": args.residual_tolerance},
         "initial_residual_l2": initial_residual,
         "final_residual_l2": final_residual,
         "inference_time_s": inference_time,

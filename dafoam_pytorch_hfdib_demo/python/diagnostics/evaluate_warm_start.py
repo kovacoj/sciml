@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -26,6 +27,7 @@ sys.path.insert(0, str(PYTHON_ROOT))
 from common import hfdib_signed_distance_options, PROJECT_ROOT  # noqa: E402
 from dafoam_bridge import DAFoamResidualBridge  # noqa: E402
 from state_layout import build_isothermal_layout  # noqa: E402
+from unet.generate_case import write_signed_distance_file  # noqa: E402
 
 
 def compute_continuity_error(state, mesh_meta, n_u, n_p, n_internal):
@@ -168,6 +170,11 @@ def main() -> int:
 
         topo_dir = ds_dir / tid
         case_dir = str(topo_dir / "case")
+
+        subprocess.run(["blockMesh", "-case", case_dir], check=True,
+                       capture_output=True)
+        write_signed_distance_file(
+            case_dir, np.load(topo_dir / "signed_distance.npy"))
 
         # Load converged HFDIB reference
         ref_ux = np.load(topo_dir / "ux_hfdib.npy")

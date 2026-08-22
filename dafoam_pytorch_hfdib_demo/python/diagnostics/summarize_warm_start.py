@@ -47,8 +47,9 @@ def main() -> int:
             rows = metrics[tid]["warm_start"]
             cold.append(next(row["rel_u"] for row in rows
                              if row["start"] == "W0" and row["k"] == step))
+            neural_label = "W_NN" if any(r["start"] == "W_NN" for r in rows) else "W_ENS"
             neural.append(next(row["rel_u"] for row in rows
-                               if row["start"] == "W_NN" and row["k"] == step))
+                               if row["start"] == neural_label and row["k"] == step))
         warm[str(step)] = {
             "cold_rel_u": stats(cold),
             "neural_rel_u": stats(neural),

@@ -1,0 +1,56 @@
+{
+  "policy": "Only TRUSTED checkpoints may be used for final warm-start claims.",
+  "checkpoints": [
+    {
+      "status": "TRUSTED",
+      "reasons": [],
+      "checkpoint": "outputs/final_campaign/checkpoints/local_distill_n128_k20_seed11_s20000.pt",
+      "checkpoint_sha256": "b0658cbfc6a55ce05990668e0626ac06cecb04f5debe3411d4b38c9088de32be",
+      "git_head_at_audit": "2706b33066f6b2ac5ca49bb4f6a71f1b00c15ece",
+      "architecture": "simple",
+      "model_kwargs": {},
+      "n_parameters": 3153264,
+      "mode": "solver-distilled",
+      "step": 20000,
+      "seed": 11,
+      "target_k": 20,
+      "n_training_samples": 128,
+      "training_topology_ids_hash": "bc1c57baa9cf28cbeb02d57219813af80c5f9a820647d64c7257d794b80a05bd",
+      "current_dataset": {
+        "split_sha256": "7a9566d476be2cf9b731f8b0600aa0655ea52f337bae2fd15c8b73395d48b84b",
+        "test_topology_ids": [
+          "topology_128",
+          "topology_129",
+          "topology_130",
+          "topology_131",
+          "topology_132",
+          "topology_133",
+          "topology_134",
+          "topology_135",
+          "topology_136",
+          "topology_137",
+          "topology_138",
+          "topology_139",
+          "topology_140",
+          "topology_141",
+          "topology_142",
+          "topology_143"
+        ],
+        "test_topology_ids_hash": "bed2b80254553e611a466c112d04cddf8df37ec5fb5434da6936f59974a30daf",
+        "base_state_sha256": "32939412f10129c43fa0b954bc928ed2b05a36cdc6c8051496d59828931bcccf",
+        "mesh_metadata_npz_sha256": "d894bd1c3f2816deddc514d91b3b2a35f9421a240293a544acc6f298a940aba8",
+        "mesh_metadata_json_sha256": "d27705dff0fe2b2ebb52d89f4c9787b04fb34fc865f4e8d4091ec13208717217",
+        "target_normalization_k020_sha256": "95c18fd91f7b7d84eadd5541350223c9edb38cb5cb1f1bef9aea40b49513d2f9",
+        "n_cells": 4096,
+        "n_faces": 16512,
+        "n_internal_faces": 8064,
+        "n_phi_trainable_expected": 8080,
+        "state_scales_from_code": {
+          "u": 0.1,
+          "p": 0.01,
+          "phi": 4e-07
+        }
+      }
+    }
+  ]
+}

@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-""":"
-Run the final local-distillation seeds sequentially and resume after interruption.
-
-This script is intended to run inside the campaign container after activating
-the DAFoam/PyTorch environment.
-": """
+# Run the final local-distillation seeds sequentially and resume after
+# interruption. Intended for the campaign container after environment setup.
 set -euo pipefail
 
 latest_checkpoint() {

@@ -3,6 +3,7 @@ import random
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 
 from src.train import (
@@ -14,6 +15,7 @@ from src.train import (
     heartbeat_payload,
     relative_mass_imbalance,
     restore_rng,
+    validate_checkpoint_geometry,
 )
 
 
@@ -78,6 +80,20 @@ def test_checkpoint_round_trip_restores_optimizer_counters_and_rng(tmp_path):
     assert torch.equal(torch.rand(1), expected_torch)
 
 
+def test_explicit_checkpoint_geometry_identity_must_match():
+    config = {
+        "geometry_kind": "manufactured_empty",
+        "benchmark_case": "manufactured_empty",
+    }
+    validate_checkpoint_geometry(config, {"config": dict(config)})
+    with pytest.raises(ValueError, match="geometry identity"):
+        validate_checkpoint_geometry(config, {"config": {
+            "geometry_kind": "manufactured_circle",
+            "benchmark_case": "manufactured_circle",
+        }})
+    validate_checkpoint_geometry({"name": "legacy"}, {"config": {}})
+
+
 def test_relative_mass_imbalance_formula():
     assert relative_mass_imbalance(-2.0, 2.0) == 0.0
     expected = 1.0 / (3.0 + 1.0e-12)
@@ -120,6 +136,8 @@ def test_configs_and_launcher_use_exact_operational_contracts():
     root = Path(__file__).resolve().parents[1]
     for path in (root / "configs").glob("*.json"):
         config = json.loads(path.read_text())
+        if path.name.endswith("_geometry.json") or path.name == "controlled_geometry_smoke.json":
+            continue
         assert {"log_every", "checkpoint_every", "field_save_every"} <= set(config)
         assert not {"log_interval", "checkpoint_interval", "field_interval"} & set(config)
     smoke = json.loads((root / "configs/smoke.json").read_text())
@@ -134,3 +152,53 @@ def test_configs_and_launcher_use_exact_operational_contracts():
     assert "--rm --name" in launcher
     assert "--ipc=host" in launcher
     assert "stdout.log" in launcher
+
+
+def test_controlled_configs_use_spec_values_and_required_resolutions():
+    root = Path(__file__).resolve().parents[1]
+    configs = {
+        path.stem: json.loads(path.read_text())
+        for path in (root / "configs").glob("controlled_*.json")
+    }
+    assert (configs["controlled_geometry_smoke"]["nx"], configs["controlled_geometry_smoke"]["ny"]) == (20, 10)
+    for name in (
+        "controlled_topology_a", "controlled_topology_b_scratch",
+        "controlled_topology_b_transfer",
+    ):
+        config = configs[name]
+        assert (config["nx"], config["ny"]) == (40, 20)
+        assert config["benchmark_mode"] == "controlled"
+        assert config["domain_spec"] == "geometry/controlled_tpfm_32cell.json"
+        assert not {"uin", "pout", "nu", "spacing"} & set(config)
+    assert configs["controlled_topology_a"]["seed"] == 11
+    assert configs["controlled_topology_a"]["gamma"] == 1.0
+    direct = [{"beta": 1.0, "steps": 200, "lr": 0.0005}]
+    assert configs["controlled_topology_b_scratch"]["topology_index"] == 1
+    assert configs["controlled_topology_b_transfer"]["topology_index"] == 1
+    assert configs["controlled_topology_b_scratch"]["continuation"] == direct
+    assert configs["controlled_topology_b_transfer"]["continuation"] == direct
+    assert configs["controlled_topology_b_transfer"]["init_from"] == (
+        "outputs/controlled_topoA/checkpoint_best_beta1.pt"
+    )
+
+
+def test_manufactured_configs_are_explicit_and_neural_runs_are_fresh():
+    root = Path(__file__).resolve().parents[1]
+    continuation_steps = [100, 50, 50, 200]
+    for case in ("empty", "circle"):
+        geometry = json.loads(
+            (root / f"configs/manufactured_{case}_geometry.json").read_text()
+        )
+        neural = json.loads(
+            (root / f"configs/manufactured_{case}_neural.json").read_text()
+        )
+        assert (geometry["nx"], geometry["ny"]) == (20, 10)
+        assert (neural["nx"], neural["ny"]) == (40, 20)
+        assert neural["benchmark_mode"] == "manufactured"
+        assert neural["geometry_kind"] == f"manufactured_{case}"
+        assert neural["benchmark_case"] == f"manufactured_{case}"
+        assert (neural["velocity_degree"], neural["pressure_degree"]) == (2, 1)
+        assert (neural["network_width"], neural["network_depth"]) == (64, 4)
+        assert neural["gamma"] == 1.0
+        assert [stage["steps"] for stage in neural["continuation"]] == continuation_steps
+        assert "init_from" not in neural

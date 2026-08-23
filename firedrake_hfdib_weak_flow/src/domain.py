@@ -1,4 +1,4 @@
-"""Strict machine-readable handoff for the authoritative DAFoam domain."""
+"""Strict machine-readable contracts for TPFM benchmark domains."""
 
 from __future__ import annotations
 
@@ -10,6 +10,14 @@ from typing import Any
 
 
 RECONSTRUCTED_TPFM_DOMAIN = "RECONSTRUCTED_TPFM_DOMAIN"
+CONTROLLED_TPFM_DERIVED_DOMAIN = "CONTROLLED_TPFM_DERIVED_DOMAIN"
+MANUFACTURED_EMPTY_CHANNEL = "MANUFACTURED_EMPTY_CHANNEL"
+MANUFACTURED_CIRCULAR_HFDIB = "MANUFACTURED_CIRCULAR_HFDIB"
+_CLASSIFICATIONS = {RECONSTRUCTED_TPFM_DOMAIN, CONTROLLED_TPFM_DERIVED_DOMAIN}
+_MANUFACTURED_CLASSIFICATIONS = {
+    MANUFACTURED_EMPTY_CHANNEL, MANUFACTURED_CIRCULAR_HFDIB,
+}
+_BENCHMARK_MODES = {"article", "controlled", "manufactured"}
 _SIDES = {"left", "right", "bottom", "top"}
 
 
@@ -174,6 +182,11 @@ class DomainSpec:
     pout: float
     nu: float
     roi_cell_indices: tuple[tuple[int, ...], ...]
+    provenance: dict[str, Any] | None = None
+
+    @property
+    def article_reproduction(self) -> bool:
+        return self.classification == RECONSTRUCTED_TPFM_DOMAIN
 
     @classmethod
     def parse(cls, value: Any) -> "DomainSpec":
@@ -182,11 +195,13 @@ class DomainSpec:
             "left_extension_cells", "right_extension_cells", "patches",
             "uin", "pout", "nu", "roi_cell_indices",
         }
-        data = _object(value, "domain spec", keys)
-        if data["classification"] != RECONSTRUCTED_TPFM_DOMAIN:
+        data = _object(value, "domain spec", keys, {"provenance"})
+        classification = data["classification"]
+        if classification not in _CLASSIFICATIONS:
             raise ValueError(
-                f"classification must be {RECONSTRUCTED_TPFM_DOMAIN!r}"
+                f"classification must be one of {sorted(_CLASSIFICATIONS)}"
             )
+        provenance = _parse_provenance(data.get("provenance"), classification)
         dx = _number(data["dx"], "dx")
         if dx <= 0.0:
             raise ValueError("dx must be > 0")
@@ -257,7 +272,7 @@ class DomainSpec:
         if nu <= 0.0:
             raise ValueError("nu must be > 0")
         return cls(
-            classification=RECONSTRUCTED_TPFM_DOMAIN,
+            classification=classification,
             dx=dx,
             roi=roi,
             full_domain=full,
@@ -270,6 +285,7 @@ class DomainSpec:
             pout=_number(data["pout"], "pout"),
             nu=nu,
             roi_cell_indices=mapping,
+            provenance=provenance,
         )
 
 
@@ -290,6 +306,60 @@ def _parse_mapping(value: Any, roi: Grid, full: Grid) -> tuple[tuple[int, ...], 
     if any(item >= full.nx * full.ny for item in flat):
         raise ValueError("roi_cell_indices contains an out-of-range full-domain index")
     return tuple(rows)
+
+
+def _parse_provenance(value: Any, classification: str) -> dict[str, Any] | None:
+    if classification == RECONSTRUCTED_TPFM_DOMAIN:
+        if value is None:
+            return None
+        return dict(_object(value, "provenance", set(value) if isinstance(value, dict) else set()))
+
+    keys = {
+        "source", "source_classification", "source_branch", "source_gate_passed",
+        "extension_selection", "article_reproduction",
+    }
+    data = _object(value, "provenance", keys)
+    for key in ("source", "extension_selection"):
+        if not isinstance(data[key], str) or not data[key]:
+            raise ValueError(f"provenance.{key} must be a non-empty string")
+    expected = {
+        "source_classification": "TPFM_TOPOLOGIES_ONLY",
+        "source_branch": "feat/dafoam-tpfm-reproduction",
+        "source_gate_passed": False,
+        "article_reproduction": False,
+    }
+    for key, expected_value in expected.items():
+        if type(data[key]) is not type(expected_value) or data[key] != expected_value:
+            raise ValueError(f"provenance.{key} must be {expected_value!r}")
+    return dict(data)
+
+
+def validate_benchmark_mode(
+    benchmark_mode: Any, domain_spec: DomainSpec | None
+) -> str:
+    """Validate an explicit benchmark claim without changing its classification."""
+    if domain_spec is None:
+        if benchmark_mode is not None:
+            raise ValueError("benchmark_mode requires domain_spec; cropped geometry is diagnostic")
+        return "diagnostic"
+    if benchmark_mode is None:
+        raise ValueError("benchmark_mode is required whenever domain_spec is present")
+    if not isinstance(benchmark_mode, str) or benchmark_mode not in _BENCHMARK_MODES:
+        raise ValueError(f"benchmark_mode must be one of {sorted(_BENCHMARK_MODES)}")
+    if domain_spec.classification in _MANUFACTURED_CLASSIFICATIONS:
+        expected = "manufactured"
+    else:
+        expected = (
+            "article"
+            if domain_spec.classification == RECONSTRUCTED_TPFM_DOMAIN
+            else "controlled"
+        )
+    if benchmark_mode != expected:
+        raise ValueError(
+            f"benchmark_mode {benchmark_mode!r} does not match domain classification "
+            f"{domain_spec.classification!r}; expected {expected!r}"
+        )
+    return benchmark_mode
 
 
 def load_domain_spec(path: str | Path) -> DomainSpec:

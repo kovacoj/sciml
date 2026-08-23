@@ -100,6 +100,21 @@ def restore_rng(checkpoint: dict) -> None:
     torch.set_rng_state(checkpoint["torch_rng"])
 
 
+def validate_checkpoint_geometry(config: dict, checkpoint: dict) -> None:
+    """Reject explicit benchmark geometry changes while retaining legacy resumes."""
+    current = {
+        key: config[key] for key in ("geometry_kind", "benchmark_case") if key in config
+    }
+    if not current:
+        return
+    saved_config = checkpoint.get("config", {})
+    saved = {key: saved_config.get(key) for key in current}
+    if saved != current:
+        raise ValueError(
+            f"checkpoint geometry identity {saved} does not match config {current}"
+        )
+
+
 def get_git_sha(project_root: Path) -> str:
     repo_root = project_root.parent.resolve()
     try:
@@ -216,12 +231,11 @@ def _save_snapshot(context, geometry, fields, beta: float, output_dir: Path, ste
 
 
 def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Path | None) -> None:
-    from .forms import FiredrakeContext
-    from .domain import load_domain_spec
-    from .geometry import FullDomainGeometry, TPFMGeometry
+    from .benchmark_setup import load_config_geometry
     from .model import CoordinateMLP
+    from .physical_validation import validate_physical_domain
     from .residual_bridge import FiredrakeResidualBridge
-    from .state import FEFieldMapper, enforce_inlet_geometry_compatibility
+    from .state import enforce_inlet_geometry_compatibility
 
     torch.set_default_dtype(torch.float64)
     torch.set_num_threads(1)
@@ -230,76 +244,44 @@ def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Pat
     config_path = config_path.resolve()
     project_root = Path(__file__).resolve().parents[1]
     git_sha = get_git_sha(project_root)
-    config = json.loads(config_path.read_text())
     output_dir.mkdir(parents=True, exist_ok=True)
-    dataset = resolve_path(config["dataset"], config_path, project_root)
-    if not dataset.exists():
-        raise FileNotFoundError(f"dataset not found: {dataset}")
+    config, dataset, _, spec, geometry, context, mapper = load_config_geometry(
+        config_path
+    )
 
     seed = int(config["seed"])
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    domain_spec_path = (
-        resolve_path(config["domain_spec"], config_path, project_root)
-        if config.get("domain_spec") is not None else None
-    )
-    if domain_spec_path is None:
+    if spec is None:
         warnings.warn(
             "domain_spec is absent; using cropped TPFM ROI geometry for diagnostic "
             "legacy behavior only",
             RuntimeWarning,
             stacklevel=2,
         )
-        geometry = TPFMGeometry(
-            dataset, sample_index=int(config["topology_index"]),
-            spacing=float(config["spacing"]),
-        )
-        physical = {name: float(config[name]) for name in ("uin", "pout", "nu")}
+        compatibility = {
+            "classification": geometry.classification,
+            "roi_bounds": None,
+            "full_bounds": {
+                "xmin": geometry.xmin, "ymin": geometry.ymin,
+                "xmax": geometry.xmax, "ymax": geometry.ymax,
+            },
+            "left_extension_cells": 0,
+            "right_extension_cells": 0,
+            "conflict_count": mapper.inlet_geometry_conflicts,
+            "hard_gate_passed": mapper.inlet_geometry_conflicts == 0,
+        }
+        atomic_json(output_dir / "geometry_compatibility.json", compatibility)
+        enforce_inlet_geometry_compatibility(mapper)
     else:
-        spec = load_domain_spec(domain_spec_path)
-        for name in ("uin", "pout", "nu"):
-            if name in config and not np.isclose(float(config[name]), getattr(spec, name)):
-                raise ValueError(
-                    f"config {name}={config[name]} contradicts domain spec {name}="
-                    f"{getattr(spec, name)}"
-                )
-        roi_geometry = TPFMGeometry(
-            dataset, sample_index=int(config["topology_index"]), spacing=spec.dx
+        compatibility = validate_physical_domain(
+            geometry,
+            context,
+            mapper,
+            allow_anisotropic_mesh=config.get("allow_anisotropic_mesh", False),
         )
-        geometry = FullDomainGeometry(roi_geometry, spec)
-        physical = {name: getattr(spec, name) for name in ("uin", "pout", "nu")}
-    context = FiredrakeContext(
-        geometry, int(config["nx"]), int(config["ny"]),
-        velocity_degree=int(config["velocity_degree"]),
-        pressure_degree=int(config["pressure_degree"]),
-        quadrature_degree=int(config["quadrature_degree"]),
-        nu=physical["nu"], ell=config["ell"], uin=physical["uin"],
-        pout=physical["pout"], inlet_marker=int(config["inlet_marker"]),
-        outlet_marker=int(config["outlet_marker"]),
-        wall_markers=config["wall_markers"],
-    )
-    mapper = FEFieldMapper(
-        context, geometry, u_scale=float(config["u_scale"]),
-        p_scale=float(config["p_scale"]),
-    )
-    bounds_payload = lambda bounds: {
-        key: getattr(bounds, key) for key in ("xmin", "ymin", "xmax", "ymax")
-    }
-    compatibility = {
-        "classification": geometry.classification,
-        "roi_bounds": bounds_payload(geometry.roi_bounds) if hasattr(geometry, "roi_bounds") else None,
-        "full_bounds": bounds_payload(geometry.full_bounds) if hasattr(geometry, "full_bounds") else {
-            "xmin": geometry.xmin, "ymin": geometry.ymin,
-            "xmax": geometry.xmax, "ymax": geometry.ymax,
-        },
-        "left_extension_cells": getattr(geometry, "left_extension_cells", 0),
-        "right_extension_cells": getattr(geometry, "right_extension_cells", 0),
-        "conflict_count": mapper.inlet_geometry_conflicts,
-        "hard_gate_passed": mapper.inlet_geometry_conflicts == 0,
-    }
-    atomic_json(output_dir / "geometry_compatibility.json", compatibility)
-    enforce_inlet_geometry_compatibility(mapper)
+        atomic_json(output_dir / "geometry_compatibility.json", compatibility)
     model = CoordinateMLP(
         input_dim=4, width=int(config["network_width"]),
         depth=int(config["network_depth"]),
@@ -313,6 +295,7 @@ def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Pat
     best_beta1_loss = float("inf")
     if resume is not None:
         checkpoint = torch.load(resume, map_location="cpu", weights_only=False)
+        validate_checkpoint_geometry(config, checkpoint)
         model.load_state_dict(checkpoint["model_state"])
         optimizer.load_state_dict(checkpoint["optimizer_state"])
         global_step = int(checkpoint["global_step"])
@@ -331,6 +314,7 @@ def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Pat
         )
         if initial is not None:
             checkpoint = torch.load(initial, map_location="cpu", weights_only=False)
+            validate_checkpoint_geometry(config, checkpoint)
             model.load_state_dict(checkpoint["model_state"])
         bridge.initialize_normalization(mapper.evaluate(model))
 

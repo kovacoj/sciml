@@ -205,14 +205,14 @@ class FiredrakeContext:
             sides = {patch.side for patch in patches}
             if len(sides) != 1:
                 raise ValueError(
-                    f"reconstructed {kind} patches must all occupy one external side"
+                    f"domain {kind} patches must all occupy one external side"
                 )
             return next(iter(sides))
 
         inlet_side = one_side(spec.inlet, "inlet")
         outlet_side = one_side(spec.outlet, "outlet")
         if inlet_side == outlet_side:
-            raise ValueError("reconstructed inlet and outlet must occupy different sides")
+            raise ValueError("domain inlet and outlet must occupy different sides")
         return side_markers[inlet_side], side_markers[outlet_side]
 
     @staticmethod

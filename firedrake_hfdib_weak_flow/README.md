@@ -35,6 +35,28 @@ cells, signed distance is recovered from
 `sigma = h * atanh(1 - 2*lambda)`; elsewhere it comes from Euclidean distance
 transforms. Normals point from solid to fluid.
 
+### Dataset port audit
+
+Audit invariant boundary openings and fluid connectivity across every sample
+without importing Firedrake or running training:
+
+```bash
+python3 src/audit_tpfm_ports.py \
+  --dataset ../tpfm_unet_reference/data/mixer_64.npz \
+  --output-dir outputs/tpfm_port_audit
+```
+
+The audit writes `invariant_port_structure.json` and
+`invariant_port_structure.png`. It uses the exact binary predicate
+`fluid = lambda < 0.5`: intermediate diffuse-interface values below 0.5 count
+as fluid, while `lambda == 0.5` and larger values do not. It reports edge-fluid
+frequencies and invariant row intervals, exact left/right edge-mask patterns,
+partial or closed expected DAFoam bands `[8,16)` and `[48,56)`, four-neighbor
+fluid components, whole-edge left-to-right paths, and connectivity from each
+expected left port to either expected right port. These are structural dataset
+observations, not evidence that the cropped ROI boundaries are physical CFD
+inlets/outlets and not grounds to revise the controlled domain specification.
+
 ## Lightweight tests
 
 From this directory, with NumPy, SciPy, PyTorch, and pytest installed:
@@ -43,9 +65,12 @@ From this directory, with NumPy, SciPy, PyTorch, and pytest installed:
 python -m pytest -q
 ```
 
-The smoke configuration uses a 10 by 10 mesh. Topology configurations use a
-20 by 20 mesh and the default physical values `uin=0.1`, `pout=0`, and
-`nu=0.01`.
+The controlled geometry smoke uses a 20 by 10 mesh. Controlled topology
+configurations use a 40 by 20 mesh. Their physical values come only from the
+controlled domain spec.
+
+Manufactured geometry smokes also use 20 by 10 meshes; manufactured neural and
+direct-reference production configurations use 40 by 20 meshes.
 
 ## Geometry handoff
 
@@ -71,8 +96,10 @@ geometry = FullDomainGeometry(roi, spec)
 
 Set `"domain_spec": "geometry/domain_spec.json"` in a training configuration;
 the existing CLI remains `python3 -m src.train --config CONFIG --output-dir
-OUTPUT`. The spec supplies `uin`, `pout`, and `nu`; contradictory values still
-present in the training config are rejected.
+OUTPUT`. A spec also requires an explicit `benchmark_mode`: `article` accepts
+only `RECONSTRUCTED_TPFM_DOMAIN`, and `controlled` accepts only
+`CONTROLLED_TPFM_DERIVED_DOMAIN`. The spec supplies `uin`, `pout`, and `nu`, so
+those keys must be absent from benchmark configs.
 
 Segmented inlet/outlet channels are reconstructed and constrained from physical
 tangential intervals. The spec must partition every external side completely
@@ -87,18 +114,98 @@ Without `domain_spec`, training retains the legacy cropped geometry with a
 runtime warning. Cropped results are diagnostic only: they exercise the HFDIB
 operator and gradient machinery but are not full-domain CFD reconstructions.
 
-### Current handoff status
+### Claim levels
 
-The completed DAFoam campaign tested 8-, 16-, and 32-cell extensions but
-classified the result as `TPFM_TOPOLOGIES_ONLY`; both its strong and approximate
-physical-reproduction gates failed. Consequently, the 32-cell candidate is not
-loaded as an authoritative Firedrake domain and no new optimization is launched.
-`geometry/dafoam_handoff_status.json` records the gate result and provenance.
+1. **Operator verification.** Synthetic, manufactured, and controlled tests verify the discrete
+   HFDIB operator, hard boundary conditions, dual norms, and external gradients.
+   This is a numerical implementation claim only.
+2. **Manufactured benchmarks.** `MANUFACTURED_EMPTY_CHANNEL` is an obstacle-free
+   rectangular channel and `MANUFACTURED_CIRCULAR_HFDIB` is the same channel
+   with an analytic diffuse circular obstacle. Both use `uin=0.1`, `pout=0`, and
+   `nu=0.01`; neither uses TPFM data, has an ROI, or supports an article claim.
+3. **Controlled benchmark.** `geometry/controlled_tpfm_32cell.json` records the
+   exact 32-cell port-extension generator geometry and is classified
+   `CONTROLLED_TPFM_DERIVED_DOMAIN`. Its provenance retains the failed source
+   gate and `article_reproduction: false`. Results must be labelled “controlled
+   TPFM-derived port-extension domain” and carry no article comparison claim.
+4. **Article reproduction.** This level requires a separately supplied domain
+   contract classified `RECONSTRUCTED_TPFM_DOMAIN` and `benchmark_mode: article`.
+   Controlled results cannot be relabelled into this level.
 
-Firedrake remains blocked until a contract classified
-`RECONSTRUCTED_TPFM_DOMAIN` supplies complete external patch intervals and the
-full-domain-to-ROI cell mapping. This preserves the distinction between a valid
-weighted-residual method and an unvalidated article-domain reconstruction.
+The completed DAFoam campaign tested 8-, 16-, and 32-cell extensions and
+classified its source as `TPFM_TOPOLOGIES_ONLY`; both source gates failed.
+`geometry/dafoam_handoff_status.json` remains the authoritative record of that
+outcome. The controlled contract does not alter it.
+
+Run the geometry-only hard gate without constructing a network or optimizer:
+
+```bash
+python3 -m src.geometry_smoke \
+  --config configs/controlled_geometry_smoke.json \
+  --output-dir outputs/controlled_geometry_smoke
+```
+
+This writes `geometry_compatibility.json`, `geometry_controlled.png`, and an
+accepted copy named `controlled_domain_spec.json`. Validation requires compatible
+inlet/outlet nodes, finite geometry fields, center-based four-neighbor fluid
+connectivity, and FE cell aspect error at most 0.1. Set
+`allow_anisotropic_mesh: true` only as an explicit diagnostic override.
+
+Run the manufactured geometry-only gates without loading a dataset or creating
+a network/optimizer:
+
+```bash
+python3 -m src.geometry_smoke --config configs/manufactured_empty_geometry.json --output-dir outputs/manufactured_empty_geometry
+python3 -m src.geometry_smoke --config configs/manufactured_circle_geometry.json --output-dir outputs/manufactured_circle_geometry
+```
+
+Each writes `geometry_compatibility.json`, `geometry_labels.json`, and a labelled
+PNG. The circular signed distance, normals, and diffuse lambda are evaluated
+analytically at arbitrary query coordinates rather than reconstructed by a
+distance transform.
+
+## Direct reference
+
+The independent empty-channel reference is a conventional mixed P2/P1 steady
+Navier-Stokes solve with weak conservative convection, symmetric viscous stress,
+full-side inlet velocity, top/bottom no slip, and a natural zero-traction outlet
+that fixes the pressure level without removing outlet continuity test functions.
+A tested full-outlet mixed pressure Dirichlet condition was rejected because it
+materially degraded coarse-grid mass conservation. The solve runs serial
+Newton/SNES with direct MUMPS LU:
+
+```bash
+python3 -m src.direct_reference \
+  --config configs/manufactured_empty_neural.json \
+  --output-dir outputs/manufactured_empty_direct
+```
+
+It writes FE coefficients to `direct_reference.npz` and convergence, divergence,
+flux, mass, speed, pressure, and config metadata to
+`direct_reference_metrics.json`. These files are evaluation artifacts and are
+never read by neural training. A circular direct invocation intentionally writes
+only deferred metrics: reproducing the literal strong HFDIB term requires a
+nonlocal `u_ib` fixed-point mapper, while a body-fitted obstacle solve would be a
+different operator and is not substituted.
+
+After a neural run, compare matching-grid coefficient snapshots with the direct
+reference using simple, explicitly unweighted coefficient l2 errors and a
+mean-centered pressure gauge:
+
+```bash
+python3 -m src.compare_reference \
+  --neural outputs/manufactured_empty_neural/fields_0400.npz \
+  --reference outputs/manufactured_empty_direct/direct_reference.npz \
+  --output outputs/manufactured_empty_neural/reference_comparison.json
+```
+
+`--neural` may instead name a `.pt` checkpoint when the matching neural config
+is supplied with `--config configs/manufactured_empty_neural.json`; the helper
+evaluates its fields but does not train or alter the checkpoint.
+
+Manufactured neural configs are fresh-only across geometry identities: resume or
+initialization checkpoints must carry the same `geometry_kind` and
+`benchmark_case`. Existing legacy exact-resume behavior remains unchanged.
 
 ## Training
 

@@ -8,7 +8,126 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import distance_transform_edt
 
-from .domain import DomainSpec, RECONSTRUCTED_TPFM_DOMAIN
+from .domain import (
+    Bounds,
+    DomainSpec,
+    Interval,
+    MANUFACTURED_CIRCULAR_HFDIB,
+    MANUFACTURED_EMPTY_CHANNEL,
+    Patch,
+)
+
+
+class ManufacturedDomainMetadata:
+    """Physical values and complete outer-boundary partition for a rectangle."""
+
+    def __init__(self, classification: str, bounds: Bounds) -> None:
+        self.classification = classification
+        self.uin = 0.1
+        self.pout = 0.0
+        self.nu = 0.01
+        self.article_reproduction = False
+        vertical = (Interval(bounds.ymin, bounds.ymax),)
+        horizontal = (Interval(bounds.xmin, bounds.xmax),)
+        self.inlet = (Patch("left", vertical, marker=1, name="inlet"),)
+        self.outlet = (Patch("right", vertical, marker=2, name="outlet"),)
+        self.wall = (
+            Patch("bottom", horizontal, marker=3, name="bottom"),
+            Patch("top", horizontal, marker=4, name="top"),
+        )
+
+
+class EmptyChannelGeometry:
+    """Analytic obstacle-free manufactured rectangular channel."""
+
+    def __init__(self, *, spacing: float = 0.002) -> None:
+        self.spacing = float(spacing)
+        self.xmin = self.ymin = 0.0
+        self.xmax, self.ymax = 0.256, 0.128
+        self.nx = int(round((self.xmax - self.xmin) / self.spacing))
+        self.ny = int(round((self.ymax - self.ymin) / self.spacing))
+        if self.nx != 128 or self.ny != 64:
+            raise ValueError("manufactured raster spacing must produce a 128 by 64 grid")
+        self.x = (np.arange(self.nx, dtype=np.float64) + 0.5) * self.spacing
+        self.y = (np.arange(self.ny, dtype=np.float64) + 0.5) * self.spacing
+        self.classification = MANUFACTURED_EMPTY_CHANNEL
+        self.analytic_geometry = True
+        self.spec = ManufacturedDomainMetadata(
+            self.classification, Bounds(self.xmin, self.ymin, self.xmax, self.ymax)
+        )
+        self.roi_bounds = None
+        self.lambda_field = np.zeros((self.ny, self.nx), dtype=np.float64)
+        self.signed_distance = np.full_like(self.lambda_field, self.xmax + self.ymax)
+        self.normals = np.zeros((*self.lambda_field.shape, 2), dtype=np.float64)
+        self.interface = np.zeros_like(self.lambda_field, dtype=bool)
+        self.reconstruction_error = {"relative_l2": 0.0, "max_abs": 0.0}
+
+    def interpolate(self, coordinates: np.ndarray, field: str = "signed_distance") -> np.ndarray:
+        points = _coordinate_array(coordinates)
+        shape = points.shape[:-1]
+        if field == "lambda":
+            return np.zeros(shape, dtype=np.float64)
+        if field == "signed_distance":
+            return np.full(shape, self.xmax + self.ymax, dtype=np.float64)
+        if field == "normals":
+            return np.zeros(shape + (2,), dtype=np.float64)
+        raise ValueError(f"unknown geometry field: {field}")
+
+
+class CircularObstacleGeometry(EmptyChannelGeometry):
+    """Analytic manufactured diffuse circular obstacle in the channel."""
+
+    center = np.array((0.128, 0.064), dtype=np.float64)
+    radius = 0.024
+
+    def __init__(self, *, spacing: float = 0.002) -> None:
+        super().__init__(spacing=spacing)
+        self.classification = MANUFACTURED_CIRCULAR_HFDIB
+        self.spec = ManufacturedDomainMetadata(
+            self.classification, Bounds(self.xmin, self.ymin, self.xmax, self.ymax)
+        )
+        xx, yy = np.meshgrid(self.x, self.y)
+        points = np.stack((xx, yy), axis=-1)
+        self.signed_distance = self._sigma(points)
+        self.normals = self._normals(points)
+        self.lambda_field = 0.5 * (
+            1.0 - np.tanh(self.signed_distance / self.spacing)
+        )
+        self.interface = (self.lambda_field > 1.0e-10) & (
+            self.lambda_field < 1.0 - 1.0e-10
+        )
+        self.reconstruction_error = {"relative_l2": 0.0, "max_abs": 0.0}
+
+    def _sigma(self, points: np.ndarray) -> np.ndarray:
+        return np.linalg.norm(points - self.center, axis=-1) - self.radius
+
+    def _normals(self, points: np.ndarray) -> np.ndarray:
+        displacement = points - self.center
+        distance = np.linalg.norm(displacement, axis=-1)
+        return np.divide(
+            displacement,
+            distance[..., None],
+            out=np.zeros_like(displacement),
+            where=distance[..., None] > 0.0,
+        )
+
+    def interpolate(self, coordinates: np.ndarray, field: str = "signed_distance") -> np.ndarray:
+        points = _coordinate_array(coordinates)
+        sigma = self._sigma(points)
+        if field == "signed_distance":
+            return sigma
+        if field == "normals":
+            return self._normals(points)
+        if field == "lambda":
+            return 0.5 * (1.0 - np.tanh(sigma / self.spacing))
+        raise ValueError(f"unknown geometry field: {field}")
+
+
+def _coordinate_array(coordinates: np.ndarray) -> np.ndarray:
+    points = np.asarray(coordinates, dtype=np.float64)
+    if points.ndim == 0 or points.shape[-1] != 2:
+        raise ValueError("coordinates must have shape (..., 2)")
+    return points
 
 
 def _geometry_fields(lambda_field: np.ndarray, spacing: float, tolerance: float):
@@ -137,7 +256,7 @@ class FullDomainGeometry:
                 )
 
         self.spec = spec
-        self.classification = RECONSTRUCTED_TPFM_DOMAIN
+        self.classification = spec.classification
         self.spacing = spec.dx
         self.nx, self.ny = spec.full_domain.nx, spec.full_domain.ny
         self.xmin, self.ymin = spec.full_domain.bounds.xmin, spec.full_domain.bounds.ymin

@@ -1,0 +1,29 @@
+{
+  "name": "manufactured_empty_neural",
+  "geometry_kind": "manufactured_empty",
+  "benchmark_case": "manufactured_empty",
+  "benchmark_mode": "manufactured",
+  "spacing": 0.002,
+  "nx": 40,
+  "ny": 20,
+  "velocity_degree": 2,
+  "pressure_degree": 1,
+  "quadrature_degree": 6,
+  "ell": null,
+  "u_scale": 0.1,
+  "p_scale": 0.01,
+  "network_width": 64,
+  "network_depth": 4,
+  "seed": 11,
+  "gamma": 1.0,
+  "continuation": [
+    {"beta": 0.0, "steps": 100, "lr": 0.001},
+    {"beta": 0.25, "steps": 50, "lr": 0.0005},
+    {"beta": 0.5, "steps": 50, "lr": 0.0005},
+    {"beta": 1.0, "steps": 200, "lr": 0.0005}
+  ],
+  "checkpoint_every": 25,
+  "log_every": 5,
+  "field_save_every": 100,
+  "allow_anisotropic_mesh": false
+}

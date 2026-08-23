@@ -63,3 +63,13 @@ def synthetic_domain_data():
             [16, 17, 18, 19],
         ],
     }
+
+
+@pytest.fixture
+def controlled_setup():
+    from pathlib import Path
+
+    from src.benchmark_setup import load_config_geometry
+
+    root = Path(__file__).resolve().parents[1]
+    return load_config_geometry(root / "configs/controlled_geometry_smoke.json")

@@ -1,0 +1,10 @@
+{
+  "name": "controlled_geometry_smoke",
+  "dataset": "../tpfm_unet_reference/data/mixer_64.npz",
+  "topology_index": 0,
+  "domain_spec": "geometry/controlled_tpfm_32cell.json",
+  "benchmark_mode": "controlled",
+  "nx": 20,
+  "ny": 10,
+  "allow_anisotropic_mesh": false
+}

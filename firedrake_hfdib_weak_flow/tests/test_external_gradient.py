@@ -12,6 +12,56 @@ from src.residual_bridge import FEGradients, FiredrakeResidualBridge, ResidualMe
 from src.state import FEFieldMapper
 
 
+def _directional_gradient_check(context, mapper, output: Path, classification: str):
+    torch.manual_seed(12)
+    model = CoordinateMLP(input_dim=4, width=16, depth=2)
+    fields = mapper.evaluate(model)
+    bridge = FiredrakeResidualBridge(context)
+    bridge.initialize_normalization(fields)
+    _, gradients = bridge.evaluate_loss_and_gradients(fields, beta=0.25)
+    model.zero_grad(set_to_none=True)
+    torch.autograd.backward(
+        (fields.ux, fields.uy, fields.p, fields.uibx, fields.uiby),
+        tuple(torch.as_tensor(getattr(gradients, name), dtype=torch.float64)
+              for name in ("ux", "uy", "p", "uibx", "uiby")),
+    )
+    parameter_gradients = tuple(
+        parameter.grad.detach().numpy().copy() for parameter in model.parameters()
+    )
+    rng = np.random.default_rng(5)
+    directions = tuple(rng.standard_normal(parameter.shape) for parameter in model.parameters())
+    length = np.sqrt(sum(np.sum(direction**2) for direction in directions))
+    directions = tuple(direction / length for direction in directions)
+    exact = sum(np.sum(g * d) for g, d in zip(parameter_gradients, directions))
+    originals = tuple(parameter.detach().clone() for parameter in model.parameters())
+    epsilons = (1e-4, 3e-5, 1e-5)
+    finite_differences, errors = [], []
+    for epsilon in epsilons:
+        with torch.no_grad():
+            for parameter, value, direction in zip(model.parameters(), originals, directions):
+                parameter.copy_(value + epsilon * torch.as_tensor(direction))
+        plus = bridge.evaluate_loss(mapper.evaluate(model), beta=0.25).loss
+        with torch.no_grad():
+            for parameter, value, direction in zip(model.parameters(), originals, directions):
+                parameter.copy_(value - epsilon * torch.as_tensor(direction))
+        minus = bridge.evaluate_loss(mapper.evaluate(model), beta=0.25).loss
+        finite_difference = (plus - minus) / (2.0 * epsilon)
+        finite_differences.append(finite_difference)
+        errors.append(abs(finite_difference - exact) / max(
+            abs(finite_difference), abs(exact), 1e-14
+        ))
+    output.parent.mkdir(exist_ok=True)
+    output.write_text(json.dumps({
+        "domain_classification": classification,
+        "beta": 0.25,
+        "epsilons": list(epsilons),
+        "exact_directional_derivative": exact,
+        "finite_differences": finite_differences,
+        "relative_errors": errors,
+    }, indent=2) + "\n")
+    return errors, fields
+
+
 def test_full_external_parameter_direction_finite_difference(synthetic_geometry_path):
     torch.manual_seed(12)
     path, spacing = synthetic_geometry_path
@@ -80,3 +130,83 @@ def test_full_external_parameter_direction_finite_difference(synthetic_geometry_
     }, indent=2) + "\n")
     print("FD relative errors:", errors)
     assert min(errors) < 1e-3
+
+
+def test_controlled_geometry_external_parameter_direction_finite_difference(
+    controlled_setup,
+):
+    torch.manual_seed(12)
+    _, _, _, _, _, context, mapper = controlled_setup
+    model = CoordinateMLP(input_dim=4, width=16, depth=2)
+    fields = mapper.evaluate(model)
+    bridge = FiredrakeResidualBridge(context)
+    bridge.initialize_normalization(fields)
+    _, fe_gradients = bridge.evaluate_loss_and_gradients(fields, beta=0.25)
+
+    model.zero_grad(set_to_none=True)
+    torch.autograd.backward(
+        (fields.ux, fields.uy, fields.p, fields.uibx, fields.uiby),
+        tuple(torch.as_tensor(getattr(fe_gradients, name), dtype=torch.float64)
+              for name in ("ux", "uy", "p", "uibx", "uiby")),
+    )
+    parameter_gradients = tuple(
+        parameter.grad.detach().numpy().copy() for parameter in model.parameters()
+    )
+    rng = np.random.default_rng(5)
+    directions = tuple(rng.standard_normal(p.shape) for p in model.parameters())
+    length = np.sqrt(sum(np.sum(direction**2) for direction in directions))
+    directions = tuple(direction / length for direction in directions)
+    exact = sum(np.sum(g * d) for g, d in zip(parameter_gradients, directions))
+    originals = tuple(parameter.detach().clone() for parameter in model.parameters())
+    epsilons = (1e-4, 3e-5, 1e-5)
+    errors = []
+    finite_differences = []
+    for eps in epsilons:
+        with torch.no_grad():
+            for parameter, value, direction in zip(model.parameters(), originals, directions):
+                parameter.copy_(value + eps * torch.as_tensor(direction))
+        plus = bridge.evaluate_loss(mapper.evaluate(model), beta=0.25).loss
+        with torch.no_grad():
+            for parameter, value, direction in zip(model.parameters(), originals, directions):
+                parameter.copy_(value - eps * torch.as_tensor(direction))
+        minus = bridge.evaluate_loss(mapper.evaluate(model), beta=0.25).loss
+        finite_difference = (plus - minus) / (2.0 * eps)
+        finite_differences.append(finite_difference)
+        errors.append(abs(finite_difference - exact) / max(
+            abs(finite_difference), abs(exact), 1e-14
+        ))
+
+    output = Path("outputs/controlled_gradient_check.json")
+    output.parent.mkdir(exist_ok=True)
+    output.write_text(json.dumps({
+        "domain_classification": "CONTROLLED_TPFM_DERIVED_DOMAIN",
+        "beta": 0.25,
+        "epsilons": list(epsilons),
+        "exact_directional_derivative": exact,
+        "finite_differences": finite_differences,
+        "relative_errors": errors,
+    }, indent=2) + "\n")
+    print("Controlled FD relative errors:", errors)
+    assert min(errors) < 1e-3
+
+
+def test_manufactured_external_parameter_direction_finite_difference():
+    from src.forms import FiredrakeContext
+    from src.geometry import CircularObstacleGeometry, EmptyChannelGeometry
+
+    cases = (
+        ("empty", EmptyChannelGeometry()),
+        ("circle", CircularObstacleGeometry()),
+    )
+    for name, geometry in cases:
+        context = FiredrakeContext(geometry, 16, 8)
+        mapper = FEFieldMapper(context, geometry)
+        errors, fields = _directional_gradient_check(
+            context, mapper,
+            Path(f"outputs/manufactured_{name}_gradient_check.json"),
+            geometry.classification,
+        )
+        assert min(errors) < 1e-3
+        if name == "circle":
+            assert np.count_nonzero(context.chi.dat.data_ro) > 0
+            assert torch.count_nonzero(fields.uibx).item() > 0

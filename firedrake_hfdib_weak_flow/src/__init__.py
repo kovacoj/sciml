@@ -1,7 +1,17 @@
 """Lightweight geometry, interpolation, and neural-field components."""
 
-from .domain import DomainSpec, RECONSTRUCTED_TPFM_DOMAIN, load_domain_spec
-from .geometry import FullDomainGeometry, TPFMGeometry
+from .domain import (
+    CONTROLLED_TPFM_DERIVED_DOMAIN,
+    DomainSpec,
+    RECONSTRUCTED_TPFM_DOMAIN,
+    MANUFACTURED_CIRCULAR_HFDIB,
+    MANUFACTURED_EMPTY_CHANNEL,
+    load_domain_spec,
+    validate_benchmark_mode,
+)
+from .geometry import (
+    CircularObstacleGeometry, EmptyChannelGeometry, FullDomainGeometry, TPFMGeometry,
+)
 from .hfdib import HFDIB, first_order, second_order
 from .model import CoordinateMLP
 
@@ -9,12 +19,18 @@ __all__ = [
     "CoordinateMLP",
     "DomainSpec",
     "FullDomainGeometry",
+    "EmptyChannelGeometry",
+    "CircularObstacleGeometry",
     "HFDIB",
     "TPFMGeometry",
+    "CONTROLLED_TPFM_DERIVED_DOMAIN",
     "RECONSTRUCTED_TPFM_DOMAIN",
+    "MANUFACTURED_EMPTY_CHANNEL",
+    "MANUFACTURED_CIRCULAR_HFDIB",
     "first_order",
     "second_order",
     "load_domain_spec",
+    "validate_benchmark_mode",
     "FEFieldMapper",
     "NeuralFields",
     "enforce_inlet_geometry_compatibility",

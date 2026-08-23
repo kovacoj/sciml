@@ -4,7 +4,12 @@ import json
 import numpy as np
 import pytest
 
-from src.domain import RECONSTRUCTED_TPFM_DOMAIN, load_domain_spec
+from src.domain import (
+    CONTROLLED_TPFM_DERIVED_DOMAIN,
+    RECONSTRUCTED_TPFM_DOMAIN,
+    load_domain_spec,
+    validate_benchmark_mode,
+)
 from src.geometry import FullDomainGeometry, TPFMGeometry
 
 
@@ -29,6 +34,7 @@ def test_valid_spec_loads_frozen_machine_contract(tmp_path, synthetic_domain_dat
     synthetic_domain_data["patches"]["inlet"][0].pop("marker")
     spec = _load(tmp_path, synthetic_domain_data)
     assert spec.classification == RECONSTRUCTED_TPFM_DOMAIN
+    assert spec.article_reproduction is True
     assert spec.roi.nx == 4
     assert spec.full_domain.bounds.xmin == -2.0
     assert spec.inlet[0].name == "inlet"
@@ -202,3 +208,81 @@ def test_rejected_dafoam_handoff_cannot_be_loaded_as_domain_spec():
     assert status["accepted_as_reconstructed_tpfm_domain"] is False
     with pytest.raises(ValueError, match="unknown keys|missing required keys"):
         load_domain_spec(path)
+
+
+def test_controlled_spec_exact_generator_contract_and_mapping():
+    path = __import__("pathlib").Path(__file__).parents[1] / "geometry/controlled_tpfm_32cell.json"
+    spec = load_domain_spec(path)
+    assert spec.classification == CONTROLLED_TPFM_DERIVED_DOMAIN
+    assert spec.article_reproduction is False
+    assert spec.dx == 0.002
+    assert (spec.roi.nx, spec.roi.ny) == (64, 64)
+    assert vars(spec.roi.bounds) == {
+        "xmin": 0.0, "ymin": 0.0, "xmax": 0.128, "ymax": 0.128,
+    }
+    assert (spec.full_domain.nx, spec.full_domain.ny) == (128, 64)
+    assert vars(spec.full_domain.bounds) == {
+        "xmin": -0.064, "ymin": 0.0, "xmax": 0.192, "ymax": 0.128,
+    }
+    assert (spec.left_extension_cells, spec.right_extension_cells) == (32, 32)
+    assert spec.uin == 0.1 and spec.pout == 0.0 and spec.nu == 0.01
+    assert spec.roi_cell_indices == tuple(
+        tuple(j * 128 + i for i in range(32, 96)) for j in range(64)
+    )
+    assert [(i.minimum, i.maximum) for i in spec.inlet[0].intervals] == [
+        (0.016, 0.032), (0.096, 0.112),
+    ]
+    assert [(i.minimum, i.maximum) for i in spec.outlet[0].intervals] == [
+        (0.016, 0.032), (0.096, 0.112),
+    ]
+
+
+def test_controlled_provenance_is_required_and_strict(tmp_path):
+    source = __import__("pathlib").Path(__file__).parents[1] / "geometry/controlled_tpfm_32cell.json"
+    data = json.loads(source.read_text())
+    expected = {
+        "source_classification": "TPFM_TOPOLOGIES_ONLY",
+        "source_branch": "feat/dafoam-tpfm-reproduction",
+        "source_gate_passed": False,
+        "article_reproduction": False,
+    }
+    assert data["provenance"]["source"].endswith(
+        "dafoam_pytorch_hfdib_demo/python/tpfm_reference/full_domain_case.py"
+    )
+    assert isinstance(data["provenance"]["extension_selection"], str)
+    assert all(data["provenance"][key] == value for key, value in expected.items())
+    for mutation, message in (
+        (lambda value: value.pop("provenance"), "provenance must be an object"),
+        (lambda value: value["provenance"].update(extra=True), "unknown keys"),
+        (lambda value: value["provenance"].pop("source_branch"), "missing required"),
+        (lambda value: value["provenance"].update(source_gate_passed=0), "must be False"),
+        (lambda value: value["provenance"].update(article_reproduction=True), "must be False"),
+        (lambda value: value["provenance"].update(source=1), "non-empty string"),
+        (lambda value: value["provenance"].update(source_classification="OTHER"), "TPFM_TOPOLOGIES_ONLY"),
+        (lambda value: value["provenance"].update(source_branch=1), "feat/dafoam-tpfm-reproduction"),
+        (lambda value: value["provenance"].update(extension_selection=False), "non-empty string"),
+    ):
+        changed = copy.deepcopy(data)
+        mutation(changed)
+        with pytest.raises(ValueError, match=message):
+            _load(tmp_path, changed)
+
+
+def test_benchmark_mode_is_explicit_and_cannot_relabel(tmp_path, synthetic_domain_data):
+    authoritative = _load(tmp_path, synthetic_domain_data)
+    controlled_path = __import__("pathlib").Path(__file__).parents[1] / "geometry/controlled_tpfm_32cell.json"
+    controlled = load_domain_spec(controlled_path)
+    assert validate_benchmark_mode("article", authoritative) == "article"
+    assert validate_benchmark_mode("controlled", controlled) == "controlled"
+    assert validate_benchmark_mode(None, None) == "diagnostic"
+    for mode, spec, message in (
+        (None, controlled, "required"),
+        ("invalid", controlled, "must be one"),
+        ("article", controlled, "does not match"),
+        ("controlled", authoritative, "does not match"),
+        ("controlled", None, "requires domain_spec"),
+    ):
+        classification = None if spec is None else spec.classification
+        with pytest.raises(ValueError, match=message):
+            validate_benchmark_mode(mode, spec)
+        assert (None if spec is None else spec.classification) == classification

@@ -9,7 +9,12 @@ import numpy as np
 import torch
 from firedrake import Function, SpatialCoordinate
 
-from .domain import RECONSTRUCTED_TPFM_DOMAIN
+from .domain import (
+    CONTROLLED_TPFM_DERIVED_DOMAIN,
+    MANUFACTURED_CIRCULAR_HFDIB,
+    MANUFACTURED_EMPTY_CHANNEL,
+    RECONSTRUCTED_TPFM_DOMAIN,
+)
 from .geometry import TPFMGeometry
 from .hfdib import second_order
 
@@ -57,18 +62,34 @@ class FEFieldMapper:
         self.s_features = self._feature_array(self.s_coords)
         self.q_features = self._feature_array(self.q_coords)
         self.s_lambda = self._sample(self.s_coords, "lambda")
+        self.q_lambda = self._sample(self.q_coords, "lambda")
         self.s_sigma = self._sample(self.s_coords, "signed_distance")
         self.s_normals = self._sample(self.s_coords, "normals")
         inlet_nodes = context.inlet_velocity_nodes
         prescribed_nonzero = inlet_nodes[
             np.abs(context.ux_lift[inlet_nodes]) > 0.0
         ]
+        inlet_lambda = (
+            self._sample_cell_centers(self.s_coords[prescribed_nonzero])
+            if getattr(geometry, "spec", None) is not None
+            else self.s_lambda[prescribed_nonzero]
+        )
         self.inlet_geometry_conflicts = int(np.count_nonzero(
-            self.s_lambda[prescribed_nonzero] > self.interface_tolerance
+            inlet_lambda > self.interface_tolerance
+        ))
+        self.outlet_geometry_conflicts = int(np.count_nonzero(
+            self._sample_cell_centers(
+                self.q_coords[context.pressure_outlet_nodes]
+            ) > self.interface_tolerance
         ))
         if (
             self.inlet_geometry_conflicts
-            and geometry.classification != RECONSTRUCTED_TPFM_DOMAIN
+            and geometry.classification not in {
+                RECONSTRUCTED_TPFM_DOMAIN,
+                CONTROLLED_TPFM_DERIVED_DOMAIN,
+                MANUFACTURED_EMPTY_CHANNEL,
+                MANUFACTURED_CIRCULAR_HFDIB,
+            }
         ):
             warnings.warn(
                 f"hard inlet overlaps solid/interface geometry at "
@@ -100,9 +121,23 @@ class FEFieldMapper:
 
     def _sample(self, points: np.ndarray, field: str) -> np.ndarray:
         query = np.asarray(points, dtype=np.float64).copy()
-        query[..., 0] = np.clip(query[..., 0], self.geometry.x[0], self.geometry.x[-1])
-        query[..., 1] = np.clip(query[..., 1], self.geometry.y[0], self.geometry.y[-1])
+        if not getattr(self.geometry, "analytic_geometry", False):
+            query[..., 0] = np.clip(query[..., 0], self.geometry.x[0], self.geometry.x[-1])
+            query[..., 1] = np.clip(query[..., 1], self.geometry.y[0], self.geometry.y[-1])
         return np.asarray(self.geometry.interpolate(query, field), dtype=np.float64)
+
+    def _sample_cell_centers(self, points: np.ndarray) -> np.ndarray:
+        """Sample raster cells using the same half-open endpoint convention as patches."""
+        coordinates = np.asarray(points, dtype=np.float64)
+        columns = np.floor(
+            (coordinates[:, 0] - self.geometry.xmin) / self.geometry.spacing
+        ).astype(np.int64)
+        rows = np.floor(
+            (coordinates[:, 1] - self.geometry.ymin) / self.geometry.spacing
+        ).astype(np.int64)
+        np.clip(columns, 0, self.geometry.nx - 1, out=columns)
+        np.clip(rows, 0, self.geometry.ny - 1, out=rows)
+        return self.geometry.lambda_field[rows, columns]
 
     def _feature_array(self, points: np.ndarray) -> np.ndarray:
         c = self.context
@@ -184,12 +219,17 @@ class FEFieldMapper:
 
 
 def enforce_inlet_geometry_compatibility(mapper: FEFieldMapper) -> None:
-    """Hard-gate incompatible prescribed inlet flow on a reconstructed domain."""
+    """Hard-gate incompatible prescribed inlet flow on a benchmark domain."""
     if (
-        mapper.geometry.classification == RECONSTRUCTED_TPFM_DOMAIN
+        mapper.geometry.classification in {
+            RECONSTRUCTED_TPFM_DOMAIN,
+            CONTROLLED_TPFM_DERIVED_DOMAIN,
+            MANUFACTURED_EMPTY_CHANNEL,
+            MANUFACTURED_CIRCULAR_HFDIB,
+        }
         and mapper.inlet_geometry_conflicts
     ):
         raise RuntimeError(
-            f"reconstructed full domain has {mapper.inlet_geometry_conflicts} nonzero "
+            f"domain has {mapper.inlet_geometry_conflicts} nonzero "
             "inlet velocity DOFs where lambda exceeds chi_eps"
         )

@@ -257,6 +257,13 @@ Thus one refinement and removal of diffuse lambda improve but do not resolve
 the gate. The appendix reports the Brinkman length `sqrt(nu/alpha)` relative to
 mesh spacing and freezes the experiment without neural fitting.
 
+A bounded fitted-domain follow-up meshes analytic Topology A channels
+conformingly instead of penalizing a fixed background domain. Its direct
+Taylor-Hood Stokes solve has assembled weak residual norm `4.88e-16` and mass
+imbalance `2.93e-15`, demonstrating that the level-set-derived BVP is clean.
+Neural A/B recycling is deferred because it requires a dedicated variable-mesh
+residual mapper; this was not improvised after the implementation time gate.
+
 That result is retained as the strong-residual diagnostic. Case0 now selects
 `"residual_formulation": "h1_weak"`: direct and neural/coefficient paths call
 `src.weak_forms.navier_stokes_weak_form`, use first derivatives only, leave all

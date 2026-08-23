@@ -107,3 +107,11 @@ by sharp chi at alpha 2500 improves this only to `0.403`. The issue therefore
 combines penalty-layer resolution, diffuse-interface width, and the global
 leakage metric rather than being rescued by one refinement. Neural and recycling
 runs were not launched. Use these figures only as appendix/next-work material.
+
+The bounded fitted-domain follow-up succeeds for Topology A: an exact union of
+axis-aligned level-set channels is meshed conformingly, giving a direct Stokes
+solve with weak residual norm `4.88e-16` and mass imbalance `2.93e-15`. This
+removes Brinkman leakage entirely. A new variable-mesh neural bridge would be
+required for A/B recycling; it was deferred at the implementation time gate
+rather than improvised. The direct fitted field is suitable as a final
+"next application" appendix figure.

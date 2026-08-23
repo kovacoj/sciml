@@ -27,6 +27,7 @@ def test_empty_channel_geometry_is_finite_and_has_no_hfdib_path():
     assert geometry.lambda_field.shape == (64, 128)
     assert np.count_nonzero(geometry.lambda_field) == 0
     assert np.count_nonzero(geometry.interface) == 0
+    assert np.count_nonzero(geometry.signed_distance) == 0
     assert np.all(np.isfinite(geometry.interpolate(points)))
     assert np.count_nonzero(geometry.interpolate(points, "normals")) == 0
     assert geometry.spec.article_reproduction is False

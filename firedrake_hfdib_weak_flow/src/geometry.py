@@ -57,7 +57,9 @@ class EmptyChannelGeometry:
         )
         self.roi_bounds = None
         self.lambda_field = np.zeros((self.ny, self.nx), dtype=np.float64)
-        self.signed_distance = np.full_like(self.lambda_field, self.xmax + self.ymax)
+        # Signed distance is undefined when no immersed interface exists. Zero is
+        # the neutral feature value and avoids saturating the coordinate MLP.
+        self.signed_distance = np.zeros_like(self.lambda_field)
         self.normals = np.zeros((*self.lambda_field.shape, 2), dtype=np.float64)
         self.interface = np.zeros_like(self.lambda_field, dtype=bool)
         self.reconstruction_error = {"relative_l2": 0.0, "max_abs": 0.0}
@@ -68,7 +70,7 @@ class EmptyChannelGeometry:
         if field == "lambda":
             return np.zeros(shape, dtype=np.float64)
         if field == "signed_distance":
-            return np.full(shape, self.xmax + self.ymax, dtype=np.float64)
+            return np.zeros(shape, dtype=np.float64)
         if field == "normals":
             return np.zeros(shape + (2,), dtype=np.float64)
         raise ValueError(f"unknown geometry field: {field}")

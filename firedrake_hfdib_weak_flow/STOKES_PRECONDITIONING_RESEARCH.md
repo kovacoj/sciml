@@ -37,3 +37,20 @@ Multiple seeds are intentionally deferred for this convex coefficient pilot:
 with a fixed initial vector they add no statistical information. The next stage
 will compare identical coordinate-MLP initializations across losses and use
 multiple seeds there, where nonconvex optimization makes them meaningful.
+
+## Matched-initialization coordinate MLP pilot
+
+Five seeds use identical initial weights across all three losses and receive
+300 L-BFGS iterations. Median velocity errors are:
+
+| mesh | raw | dual | exact correction |
+|---|---:|---:|---:|
+| 16x8 | 0.327 | 0.0847 | 0.0513 |
+| 32x16 | 0.428 | 0.0933 | 0.0625 |
+
+The correction metric remains best after restricting the FE coefficients to a
+nonconvex coordinate MLP, while raw training degrades substantially under mesh
+refinement. Pressure improvements are smaller (32x16 medians: raw 0.784, dual
+0.583, correction 0.566), making block-norm and approximate-preconditioner
+design the next priority. The archive stores all 30 final network states, every
+run JSON, aggregate CSV/JSON, convergence figures, and SHA-256 hashes.

@@ -66,6 +66,15 @@ def test_manufactured_physical_gates_connectivity_aspect_and_bcs(manufactured_se
     assert report["aspect_error"] <= 0.1
     assert len(context.inlet_velocity_nodes) > 0
     assert len(context.pressure_outlet_nodes) > 0
+    coordinates = context._coordinates(context.S)
+    corners = (
+        (np.isclose(coordinates[:, 0], context.xmin)
+         | np.isclose(coordinates[:, 0], context.xmax))
+        & (np.isclose(coordinates[:, 1], context.ymin)
+           | np.isclose(coordinates[:, 1], context.ymax))
+    )
+    assert np.all(context.ux_lift[corners] == 0.0)
+    assert np.all(context.velocity_mask[corners] == 0.0)
     assert spec.inlet[0].side == "left" and spec.outlet[0].side == "right"
     assert (spec.uin, spec.pout, spec.nu) == (0.1, 0.0, 0.01)
     if geometry.classification == "MANUFACTURED_EMPTY_CHANNEL":

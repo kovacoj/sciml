@@ -112,8 +112,8 @@ class FiredrakeContext:
                 "validated DomainSpec boundary partition must classify every external DOF"
             )
             inlet_nodes = np.flatnonzero(inlet)
-            # The validated partition proves this remainder is explicitly declared wall.
-            wall_nodes = np.flatnonzero(external & ~outlet & ~inlet)
+            # Explicit walls win at shared corner DOFs, matching walls-after-inlet BCs.
+            wall_nodes = np.flatnonzero(declared_wall)
             pressure_outlet_nodes = np.flatnonzero(
                 self._patch_selector(self.q_coordinates, self.domain_spec.outlet)
             )
@@ -279,14 +279,13 @@ class FiredrakeContext:
             essential = inlet | walls
         else:
             inlet = self._patch_selector(coordinates, self.domain_spec.inlet)
-            outlet = self._patch_selector(coordinates, self.domain_spec.outlet)
-            essential = self._external_selector(coordinates) & ~outlet
+            walls = self._patch_selector(coordinates, self.domain_spec.wall)
+            essential = inlet | walls
         mask = np.ones(len(coordinates), dtype=np.float64)
         lift = np.zeros(len(coordinates), dtype=np.float64)
         mask[essential] = 0.0
         lift[inlet] = self.uin
-        if self.domain_spec is None:
-            lift[walls] = 0.0
+        lift[walls] = 0.0
         return mask, lift
 
     def assign_boundary_lift(self) -> None:

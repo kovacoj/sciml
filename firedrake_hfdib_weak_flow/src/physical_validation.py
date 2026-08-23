@@ -65,7 +65,7 @@ def validate_physical_domain(
         raise ValueError("physical domain validation requires boundary metadata")
 
     epsilon = mapper.interface_tolerance
-    outlet_nodes = np.asarray(context.pressure_outlet_nodes, dtype=np.int64)
+    outlet_nodes = np.asarray(context.geometric_pressure_outlet_nodes, dtype=np.int64)
     outlet_conflicts = int(mapper.outlet_geometry_conflicts)
     inlet_nodes = int(len(context.inlet_velocity_nodes))
     outlet_node_count = int(len(outlet_nodes))

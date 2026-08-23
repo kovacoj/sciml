@@ -137,7 +137,9 @@ def test_reconstructed_nonzero_inlet_geometry_conflict_is_a_hard_gate(
         "intervals": [{"min": 10.5, "max": 11.5}],
     })
     lam = np.zeros((3, 4), dtype=np.float64)
-    lam[0, 0] = 1.0
+    # The lower corner is an explicit wall. Put solid geometry at the middle
+    # left-edge cell, where the inlet lift is genuinely nonzero.
+    lam[1, 0] = 1.0
     geometry = _full_geometry(tmp_path, synthetic_domain_data, lam)
     mapper = FEFieldMapper(FiredrakeContext(geometry, 5, 3), geometry)
     assert mapper.inlet_geometry_conflicts > 0
@@ -179,15 +181,17 @@ def test_segmented_reconstructed_boundary_uses_exact_interval_nodes(
     )
     inlet = np.isclose(x, context.xmin) & (y >= 10.5)
     outlet = np.isclose(x, context.xmax) & (y < 11.5)
-    expected_walls = external & ~outlet & ~inlet
+    expected_walls = context._patch_selector(
+        mapper.s_coords, geometry.spec.wall
+    )
     np.testing.assert_array_equal(context.inlet_velocity_nodes, np.flatnonzero(inlet))
     np.testing.assert_array_equal(context.velocity_wall_nodes, np.flatnonzero(expected_walls))
     np.testing.assert_array_equal(
-        context.velocity_boundary_nodes, np.flatnonzero(external & ~outlet)
+        context.velocity_boundary_nodes, np.flatnonzero(inlet | expected_walls)
     )
-    assert np.all(context.ux_lift[inlet] == context.uin)
+    assert np.all(context.ux_lift[inlet & ~expected_walls] == context.uin)
     assert np.all(context.ux_lift[expected_walls] == 0.0)
-    assert np.all(context.velocity_mask[outlet] == 1.0)
+    assert np.all(context.velocity_mask[outlet & ~expected_walls] == 1.0)
 
     coordinates = SpatialCoordinate(context.mesh)
     context.p.interpolate(coordinates[0])

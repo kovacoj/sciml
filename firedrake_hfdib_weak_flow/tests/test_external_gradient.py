@@ -12,13 +12,15 @@ from src.residual_bridge import FEGradients, FiredrakeResidualBridge, ResidualMe
 from src.state import FEFieldMapper
 
 
-def _directional_gradient_check(context, mapper, output: Path, classification: str):
+def _directional_gradient_check(
+    context, mapper, output: Path, classification: str, beta: float = 0.25
+):
     torch.manual_seed(12)
     model = CoordinateMLP(input_dim=4, width=16, depth=2)
     fields = mapper.evaluate(model)
     bridge = FiredrakeResidualBridge(context)
     bridge.initialize_normalization(fields)
-    _, gradients = bridge.evaluate_loss_and_gradients(fields, beta=0.25)
+    _, gradients = bridge.evaluate_loss_and_gradients(fields, beta=beta)
     model.zero_grad(set_to_none=True)
     torch.autograd.backward(
         (fields.ux, fields.uy, fields.p, fields.uibx, fields.uiby),
@@ -40,11 +42,11 @@ def _directional_gradient_check(context, mapper, output: Path, classification: s
         with torch.no_grad():
             for parameter, value, direction in zip(model.parameters(), originals, directions):
                 parameter.copy_(value + epsilon * torch.as_tensor(direction))
-        plus = bridge.evaluate_loss(mapper.evaluate(model), beta=0.25).loss
+        plus = bridge.evaluate_loss(mapper.evaluate(model), beta=beta).loss
         with torch.no_grad():
             for parameter, value, direction in zip(model.parameters(), originals, directions):
                 parameter.copy_(value - epsilon * torch.as_tensor(direction))
-        minus = bridge.evaluate_loss(mapper.evaluate(model), beta=0.25).loss
+        minus = bridge.evaluate_loss(mapper.evaluate(model), beta=beta).loss
         finite_difference = (plus - minus) / (2.0 * epsilon)
         finite_differences.append(finite_difference)
         errors.append(abs(finite_difference - exact) / max(
@@ -53,7 +55,7 @@ def _directional_gradient_check(context, mapper, output: Path, classification: s
     output.parent.mkdir(exist_ok=True)
     output.write_text(json.dumps({
         "domain_classification": classification,
-        "beta": 0.25,
+        "beta": beta,
         "epsilons": list(epsilons),
         "exact_directional_derivative": exact,
         "finite_differences": finite_differences,
@@ -199,7 +201,8 @@ def test_manufactured_external_parameter_direction_finite_difference():
         ("circle", CircularObstacleGeometry()),
     )
     for name, geometry in cases:
-        context = FiredrakeContext(geometry, 16, 8)
+        formulation = "h1_weak" if name == "empty" else "literal_strong_hfdib"
+        context = FiredrakeContext(geometry, 16, 8, formulation=formulation)
         mapper = FEFieldMapper(context, geometry, p_scale=0.2)
         errors, fields = _directional_gradient_check(
             context, mapper,
@@ -210,3 +213,20 @@ def test_manufactured_external_parameter_direction_finite_difference():
         if name == "circle":
             assert np.count_nonzero(context.chi.dat.data_ro) > 0
             assert torch.count_nonzero(fields.uibx).item() > 0
+
+
+def test_h1_weak_external_parameter_direction_finite_difference_beta0_and_beta025():
+    from src.geometry import EmptyChannelGeometry
+
+    geometry = EmptyChannelGeometry()
+    context = FiredrakeContext(geometry, 16, 8, formulation="h1_weak")
+    mapper = FEFieldMapper(context, geometry, p_scale=0.2)
+    for beta in (0.0, 0.25):
+        errors, _ = _directional_gradient_check(
+            context,
+            mapper,
+            Path(f"outputs/manufactured_empty_h1_weak_beta{beta}_gradient_check.json"),
+            geometry.classification,
+            beta,
+        )
+        assert min(errors) < 1e-3

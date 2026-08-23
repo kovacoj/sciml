@@ -1,4 +1,4 @@
-"""Firedrake state, strong residual forms, and fixed Riesz maps."""
+"""Firedrake state, selectable residual forms, and fixed Riesz maps."""
 
 from __future__ import annotations
 
@@ -27,6 +27,13 @@ from firedrake import (
 )
 from firedrake.petsc import PETSc
 
+from .domain import MANUFACTURED_EMPTY_CHANNEL
+from .weak_forms import (
+    continuity_weak_action,
+    momentum_weak_action,
+    navier_stokes_weak_form,
+)
+
 
 class FiredrakeContext:
     """Serial flow coefficients, residuals, Riesz maps, and derivative forms."""
@@ -47,12 +54,23 @@ class FiredrakeContext:
         inlet_marker: int = 1,
         outlet_marker: int = 2,
         wall_markers: list[int] | tuple[int, ...] = (3, 4),
+        formulation: str = "literal_strong_hfdib",
     ) -> None:
         if COMM_WORLD.size != 1:
             raise RuntimeError(
                 "FiredrakeContext is intentionally serial; use experiment-level "
                 "parallelism instead."
             )
+        if formulation not in {"literal_strong_hfdib", "h1_weak"}:
+            raise ValueError(f"unknown residual formulation: {formulation}")
+        if (
+            formulation == "h1_weak"
+            and geometry.classification != MANUFACTURED_EMPTY_CHANNEL
+        ):
+            raise ValueError(
+                "h1_weak is restricted to manufactured empty geometry (chi == 0)"
+            )
+        self.formulation = formulation
         self.xmin = float(getattr(geometry, "xmin", 0.0))
         self.ymin = float(getattr(geometry, "ymin", 0.0))
         self.xmax = float(getattr(geometry, "xmax", geometry.nx * geometry.spacing))
@@ -125,7 +143,11 @@ class FiredrakeContext:
         self.ux_lift = np.zeros(self.S.dim(), dtype=np.float64)
         self.ux_lift[inlet_nodes] = self.uin
         self.ux_lift[wall_nodes] = 0.0
-        self.pressure_outlet_nodes = pressure_outlet_nodes
+        self.geometric_pressure_outlet_nodes = pressure_outlet_nodes
+        self.pressure_outlet_nodes = (
+            np.empty(0, dtype=np.int64)
+            if self.formulation == "h1_weak" else pressure_outlet_nodes
+        )
         self.pressure_mask = np.ones(self.Q.dim(), dtype=np.float64)
         self.pressure_mask[self.pressure_outlet_nodes] = 0.0
 
@@ -148,14 +170,30 @@ class FiredrakeContext:
                 self.nu * (grad(w) + transpose(grad(w)))
             )
 
-        self.F = momentum(u) + grad(self.p) - self.chi * (
-            momentum(uib) + grad(self.p)
-        )
         self.continuity = div(u)
         vs, vq = TestFunction(self.S), TestFunction(self.Q)
-        self.rx_form = self.F[0] * vs * measure
-        self.ry_form = self.F[1] * vs * measure
-        self.rc_form = self.continuity * vq * measure
+        if self.formulation == "literal_strong_hfdib":
+            self.F = momentum(u) + grad(self.p) - self.chi * (
+                momentum(uib) + grad(self.p)
+            )
+            self.rx_form = self.F[0] * vs * measure
+            self.ry_form = self.F[1] * vs * measure
+            self.rc_form = self.continuity * vq * measure
+        else:
+            zero = Constant(0.0)
+            self.F = None
+            self.rx_form = navier_stokes_weak_form(
+                u, self.p, as_vector((vs, zero * vs)), zero * vs,
+                self.nu, self.beta, measure,
+            )
+            self.ry_form = navier_stokes_weak_form(
+                u, self.p, as_vector((zero * vs, vs)), zero * vs,
+                self.nu, self.beta, measure,
+            )
+            self.rc_form = navier_stokes_weak_form(
+                u, self.p, as_vector((zero * vq, zero * vq)), vq,
+                self.nu, self.beta, measure,
+            )
 
         trial_s, test_s = TrialFunction(self.S), TestFunction(self.S)
         trial_q, test_q = TrialFunction(self.Q), TestFunction(self.Q)
@@ -187,14 +225,30 @@ class FiredrakeContext:
         self.q_solver = LinearSolver(self.q_mass_matrix, solver_parameters=parameters)
         self.yx, self.yy, self.yc = Function(self.S), Function(self.S), Function(self.Q)
 
-        self.weighted_objective_form = 2.0 * (
-            self.inv_Cm * (self.F[0] * self.yx + self.F[1] * self.yy)
-            + self.gamma_fd * self.inv_Cc * self.continuity * self.yc
-        ) * measure
+        if self.formulation == "literal_strong_hfdib":
+            self.weighted_objective_form = 2.0 * (
+                self.inv_Cm * (self.F[0] * self.yx + self.F[1] * self.yy)
+                + self.gamma_fd * self.inv_Cc * self.continuity * self.yc
+            ) * measure
+        else:
+            self.weighted_objective_form = 2.0 * (
+                self.inv_Cm * momentum_weak_action(
+                    u, self.p, as_vector((self.yx, self.yy)),
+                    self.nu, self.beta, measure,
+                )
+                + self.gamma_fd * self.inv_Cc * continuity_weak_action(
+                    u, self.yc, measure
+                )
+            )
         coefficients = (self.ux, self.uy, self.p, self.uibx, self.uiby)
+        differentiated = (
+            coefficients
+            if self.formulation == "literal_strong_hfdib"
+            else coefficients[:3]
+        )
         self.derivative_forms = tuple(
             derivative(self.weighted_objective_form, coefficient)
-            for coefficient in coefficients
+            for coefficient in differentiated
         )
 
     @staticmethod
@@ -316,7 +370,11 @@ class FiredrakeContext:
         return tuple(values)
 
     def assemble_gradients(self) -> tuple[np.ndarray, ...]:
-        return tuple(
+        gradients = tuple(
             np.asarray(assemble(form).dat.data_ro, dtype=np.float64).copy()
             for form in self.derivative_forms
         )
+        if self.formulation == "h1_weak":
+            zero = np.zeros(self.S.dim(), dtype=np.float64)
+            return (*gradients, zero.copy(), zero.copy())
+        return gradients

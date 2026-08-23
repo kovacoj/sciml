@@ -77,6 +77,7 @@ def load_config_geometry(config_path: Path):
         pout=physical["pout"], inlet_marker=int(config.get("inlet_marker", 1)),
         outlet_marker=int(config.get("outlet_marker", 2)),
         wall_markers=config.get("wall_markers", [3, 4]),
+        formulation=config.get("residual_formulation", "literal_strong_hfdib"),
     )
     mapper = FEFieldMapper(
         context, geometry, u_scale=float(config.get("u_scale", 0.1)),

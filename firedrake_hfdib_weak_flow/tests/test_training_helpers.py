@@ -24,7 +24,8 @@ EXPECTED_HISTORY_COLUMNS = [
     "loss_momentum", "loss_continuity", "loss_x_raw", "loss_y_raw",
     "loss_continuity_raw", "residual_x_l2", "residual_y_l2",
     "residual_continuity_l2", "divergence_l2", "inlet_flux", "outlet_flux",
-    "mass_imbalance", "max_speed", "mean_speed", "pressure_min", "pressure_max",
+    "mass_imbalance", "continuity_constant_test", "absolute_mass_defect",
+    "max_speed", "mean_speed", "pressure_min", "pressure_max",
     "gradient_norm", "seconds_per_step", "elapsed_seconds", "rss_mb",
 ]
 

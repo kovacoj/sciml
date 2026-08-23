@@ -9,7 +9,8 @@ Firedrake training infrastructure for a weak-flow HFDIB experiment. It provides:
   at normal coordinates `0`, `d1`, and `d1 + d2`;
 - outward normal search for fluid interpolation points; and
 - a coordinate MLP for `(u_x, u_y, p)`;
-- strong Firedrake residuals with fixed discrete Riesz maps; and
+- literal strong HFDIB residuals plus a shared Case0 first-derivative weak form
+  with fixed discrete Riesz maps; and
 - resumable training, diagnostics, field snapshots, and atomic run status.
 
 ## Data
@@ -167,7 +168,7 @@ distance transform.
 ## Direct reference
 
 The independent empty-channel reference is a conventional mixed P2/P1 steady
-Navier-Stokes solve with weak conservative convection, symmetric viscous stress,
+Navier-Stokes solve with advective convection, symmetric viscous stress,
 full-side inlet velocity, top/bottom no slip, and a natural zero-traction outlet
 that fixes the pressure level without removing outlet continuity test functions.
 A tested full-outlet mixed pressure Dirichlet condition was rejected because it
@@ -225,6 +226,41 @@ fluid domain, a passing external-gradient check, and a converged direct
 reference. The present weighted strong-residual objective can decrease while
 retaining a near-stagnant, globally imbalanced field. Future work must repair
 that objective or its admissible test treatment before adding HFDIB complexity.
+
+The Case 0 replacement uses one shared first-derivative Taylor-Hood weak form
+for direct solving and dual-residual assembly. Injecting the direct Stokes field
+gives dual loss `1.07e-30`. A nondimensionalized 40 by 20 coefficient-space
+L-BFGS solve reaches loss `5.40e-10`, `ux` error `3.86e-5`, gauge-centered
+pressure error `3.08e-4`, and mass imbalance `2.39e-5`. This validates the weak
+objective independently of the coordinate MLP; HFDIB remains on the unchanged
+literal-strong path pending successful neural Case 0 validation.
+
+That result is retained as the strong-residual diagnostic. Case0 now selects
+`"residual_formulation": "h1_weak"`: direct and neural/coefficient paths call
+`src.weak_forms.navier_stokes_weak_form`, use first derivatives only, leave all
+pressure coefficients free, and obtain `p_out=0` from natural zero traction.
+`h1_weak` is rejected for circular, controlled, reconstructed, and legacy
+geometries; those paths retain `literal_strong_hfdib` unchanged.
+
+The validation hierarchy for the shared form is:
+
+1. Inject the matching-grid direct P2/P1 solution and require each assembled
+   weak residual coefficient norm below `1e-8`.
+2. Check the full external gradient at `beta=0` and `beta=0.25` by centered
+   finite differences.
+3. Optimize free FE coefficients from the boundary lift without reading the
+   direct solution, then optionally compare only after optimization:
+
+```bash
+python3 -m src.optimize_fe_coefficients \
+  --config configs/manufactured_empty_fe_coefficients.json \
+  --output-dir outputs/manufactured_empty_fe_coefficients \
+  --reference outputs/manufactured_empty_direct/direct_reference.npz
+```
+
+The optimizer writes `normalization.json`, `final_fields.npz`, and `metrics.json`.
+Both training paths report normalized momentum/continuity components, signed
+constant-test continuity, absolute mass defect, and relative mass imbalance.
 
 ## Training
 

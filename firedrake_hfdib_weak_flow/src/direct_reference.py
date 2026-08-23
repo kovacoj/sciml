@@ -11,6 +11,7 @@ import numpy as np
 from .benchmark_setup import load_config_geometry
 from .domain import MANUFACTURED_CIRCULAR_HFDIB, MANUFACTURED_EMPTY_CHANNEL
 from .train import atomic_json, relative_mass_imbalance
+from .weak_forms import navier_stokes_weak_form
 
 
 def run(config_path: Path, output_dir: Path) -> dict:
@@ -36,7 +37,7 @@ def run(config_path: Path, output_dir: Path) -> dict:
         Constant, DirichletBC, FacetNormal, Function, FunctionSpace,
         NonlinearVariationalProblem, NonlinearVariationalSolver, SpatialCoordinate,
         TestFunctions, VectorFunctionSpace, as_vector, assemble, div, dot, ds, dx,
-        grad, inner, outer, split, sym,
+        split,
     )
 
     mesh = context.mesh
@@ -50,14 +51,12 @@ def run(config_path: Path, output_dir: Path) -> dict:
     v, q = TestFunctions(W)
     normal = FacetNormal(mesh)
     nu = Constant(geometry.spec.nu)
-    # Weak conservative convection retains its boundary flux; symmetric stress has
-    # the natural zero-traction condition on the outlet.
-    residual = (
-        -inner(outer(u, u), grad(v)) * dx
-        + dot(u, normal) * dot(u, v) * ds
-        + 2.0 * nu * inner(sym(grad(u)), sym(grad(v))) * dx
-        - p * div(v) * dx
-        + q * div(u) * dx
+    beta = Constant(float(config.get("direct_beta", 0.0)))
+    # With p_out == 0, the shared first-derivative form supplies natural zero
+    # traction at the unconstrained outlet.
+    residual = navier_stokes_weak_form(
+        u, p, v, q, nu, beta,
+        dx(metadata={"quadrature_degree": context.quadrature_degree}),
     )
     zero = Constant((0.0, 0.0))
     bcs = [
@@ -101,6 +100,8 @@ def run(config_path: Path, output_dir: Path) -> dict:
         "elapsed_seconds": elapsed,
         "classification": geometry.classification,
         "pressure_condition": "natural_zero_traction_outlet",
+        "residual_formulation": "h1_weak",
+        "beta": float(beta),
         "divergence_l2": float(assemble(div(velocity) ** 2 * dx) ** 0.5),
         "inlet_flux": inlet_flux,
         "outlet_flux": outlet_flux,

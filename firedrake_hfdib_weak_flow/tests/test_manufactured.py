@@ -66,7 +66,7 @@ def test_manufactured_physical_gates_connectivity_aspect_and_bcs(manufactured_se
     assert report["article_reproduction"] is False
     assert report["aspect_error"] <= 0.1
     assert len(context.inlet_velocity_nodes) > 0
-    assert len(context.pressure_outlet_nodes) > 0
+    assert len(context.geometric_pressure_outlet_nodes) > 0
     coordinates = context._coordinates(context.S)
     corners = (
         (np.isclose(coordinates[:, 0], context.xmin)
@@ -80,10 +80,18 @@ def test_manufactured_physical_gates_connectivity_aspect_and_bcs(manufactured_se
     assert (spec.uin, spec.pout, spec.nu) == (0.1, 0.0, 0.01)
     if geometry.classification == "MANUFACTURED_EMPTY_CHANNEL":
         assert np.count_nonzero(context.chi.dat.data_ro) == 0
+        assert context.formulation == "h1_weak"
+        assert len(context.pressure_outlet_nodes) == 0
+        assert np.all(context.pressure_mask == 1.0)
+    else:
+        assert context.formulation == "literal_strong_hfdib"
+        assert len(context.pressure_outlet_nodes) > 0
 
 
 def test_article_operator_invariants_hold_for_manufactured(manufactured_setup):
     _, _, _, _, _, context, _ = manufactured_setup
+    if context.formulation != "literal_strong_hfdib":
+        pytest.skip("literal HFDIB invariant applies only to the strong formulation")
     rng = np.random.default_rng(91)
     for field in (context.ux, context.uy, context.p):
         field.dat.data[:] = rng.standard_normal(field.dat.data.shape)
@@ -139,6 +147,13 @@ def test_circle_direct_reference_is_explicitly_deferred(tmp_path):
     assert metrics["status"] == "deferred"
     assert "fixed-point" in metrics["reason"]
     assert not (tmp_path / "direct_reference.npz").exists()
+
+
+def test_h1_weak_rejects_nonempty_geometry():
+    from src.forms import FiredrakeContext
+
+    with pytest.raises(ValueError, match="manufactured empty"):
+        FiredrakeContext(CircularObstacleGeometry(), 8, 4, formulation="h1_weak")
 
 
 def test_compare_reference_names_simple_norm_and_centers_pressure(tmp_path):

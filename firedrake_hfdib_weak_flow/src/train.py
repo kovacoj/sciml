@@ -25,7 +25,8 @@ HISTORY_COLUMNS = [
     "loss_momentum", "loss_continuity", "loss_x_raw", "loss_y_raw",
     "loss_continuity_raw", "residual_x_l2", "residual_y_l2",
     "residual_continuity_l2", "divergence_l2", "inlet_flux", "outlet_flux",
-    "mass_imbalance", "max_speed", "mean_speed", "pressure_min", "pressure_max",
+    "mass_imbalance", "continuity_constant_test", "absolute_mass_defect",
+    "max_speed", "mean_speed", "pressure_min", "pressure_max",
     "gradient_norm", "seconds_per_step", "elapsed_seconds", "rss_mb",
 ]
 
@@ -176,12 +177,19 @@ def _diagnostics(context, ux: np.ndarray, uy: np.ndarray, p: np.ndarray) -> dict
     outlet_flux = float(assemble(
         dot(u, normal) * context.boundary_measure(context.outlet_marker)
     ))
+    continuity_constant_test = float(assemble(div(u) * context.measure))
+    absolute_mass_defect = abs(inlet_flux + outlet_flux)
+    tolerance = 1.0e-10 * max(1.0, abs(inlet_flux), abs(outlet_flux))
+    if abs(continuity_constant_test - inlet_flux - outlet_flux) > tolerance:
+        raise AssertionError("constant continuity test disagrees with boundary flux")
     speed = np.hypot(ux, uy)
     return {
         "divergence_l2": float(assemble(div(u) ** 2 * context.measure) ** 0.5),
         "inlet_flux": inlet_flux,
         "outlet_flux": outlet_flux,
         "mass_imbalance": relative_mass_imbalance(inlet_flux, outlet_flux),
+        "continuity_constant_test": continuity_constant_test,
+        "absolute_mass_defect": absolute_mass_defect,
         "max_speed": float(speed.max()),
         "mean_speed": float(speed.mean()),
         "pressure_min": float(p.min()),
@@ -317,6 +325,13 @@ def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Pat
             validate_checkpoint_geometry(config, checkpoint)
             model.load_state_dict(checkpoint["model_state"])
         bridge.initialize_normalization(mapper.evaluate(model))
+
+    atomic_json(output_dir / "normalization.json", {
+        "Cm": bridge.Cm,
+        "Cc": bridge.Cc,
+        "gamma": bridge.gamma,
+        "formulation": context.formulation,
+    })
 
     stage_index, stage_step = continuation_position(
         continuation, stage_index, stage_step

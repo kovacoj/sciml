@@ -79,7 +79,7 @@ class FEFieldMapper:
         ))
         self.outlet_geometry_conflicts = int(np.count_nonzero(
             self._sample_cell_centers(
-                self.q_coords[context.pressure_outlet_nodes]
+                self.q_coords[context.geometric_pressure_outlet_nodes]
             ) > self.interface_tolerance
         ))
         if (
@@ -180,9 +180,12 @@ class FEFieldMapper:
             dtype,
         )
         q_raw = model(torch.as_tensor(self.q_features, dtype=dtype))[:, 2]
-        pressure = self.context.pout + self.p_scale * torch.as_tensor(
-            self.context.pressure_mask, dtype=dtype
-        ) * q_raw
+        if self.context.formulation == "h1_weak":
+            pressure = self.p_scale * q_raw
+        else:
+            pressure = self.context.pout + self.p_scale * torch.as_tensor(
+                self.context.pressure_mask, dtype=dtype
+            ) * q_raw
 
         first_velocity = self._velocity(
             model,

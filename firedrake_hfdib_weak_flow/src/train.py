@@ -100,9 +100,11 @@ def restore_rng(checkpoint: dict) -> None:
 
 
 def get_git_sha(project_root: Path) -> str:
+    repo_root = project_root.parent.resolve()
     try:
         return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=project_root, text=True,
+            ["git", "-c", f"safe.directory={repo_root}", "rev-parse", "HEAD"],
+            cwd=repo_root, text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
     except (OSError, subprocess.CalledProcessError):

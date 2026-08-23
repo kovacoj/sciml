@@ -10,6 +10,7 @@ from src.train import (
     atomic_torch_save,
     checkpoint_payload,
     continuation_position,
+    get_git_sha,
     heartbeat_payload,
     relative_mass_imbalance,
     restore_rng,
@@ -81,6 +82,25 @@ def test_relative_mass_imbalance_formula():
     assert relative_mass_imbalance(-2.0, 2.0) == 0.0
     expected = 1.0 / (3.0 + 1.0e-12)
     assert relative_mass_imbalance(-1.0, 2.0) == expected
+
+
+def test_get_git_sha_marks_repository_as_safe(monkeypatch, tmp_path):
+    project_root = tmp_path / "repo" / "project"
+    project_root.mkdir(parents=True)
+    captured = {}
+
+    def check_output(command, **kwargs):
+        captured["command"] = command
+        captured.update(kwargs)
+        return "abc123\n"
+
+    monkeypatch.setattr("src.train.subprocess.check_output", check_output)
+    assert get_git_sha(project_root) == "abc123"
+    assert captured["command"] == [
+        "git", "-c", f"safe.directory={project_root.parent.resolve()}",
+        "rev-parse", "HEAD",
+    ]
+    assert captured["cwd"] == project_root.parent.resolve()
 
 
 def test_heartbeat_schema_is_exact():

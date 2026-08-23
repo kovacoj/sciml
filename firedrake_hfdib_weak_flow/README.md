@@ -235,6 +235,15 @@ pressure error `3.08e-4`, and mass imbalance `2.39e-5`. This validates the weak
 objective independently of the coordinate MLP; HFDIB remains on the unchanged
 literal-strong path pending successful neural Case 0 validation.
 
+The coordinate MLP was then trained without reference labels for 1000 Adam
+steps and refined for three fixed blocks of 1000 exact-gradient L-BFGS
+iterations. Its final Stokes result has loss `3.33e-4`, `ux` error `0.0136`,
+gauge-centered pressure error `0.0626`, divergence L2 `0.03150` (direct:
+`0.03195`), and mass imbalance `0.0120`. This is close in field shape but misses
+the predeclared `ux < 0.01` and mass-imbalance `< 1e-4` validation gates.
+Optimization is stopped at that fixed budget; circular HFDIB and controlled
+TPFM neural runs remain blocked.
+
 That result is retained as the strong-residual diagnostic. Case0 now selects
 `"residual_formulation": "h1_weak"`: direct and neural/coefficient paths call
 `src.weak_forms.navier_stokes_weak_form`, use first derivatives only, leave all

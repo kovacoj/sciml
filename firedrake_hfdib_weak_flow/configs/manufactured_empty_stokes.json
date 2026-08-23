@@ -24,5 +24,11 @@
   "checkpoint_every": 25,
   "log_every": 5,
   "field_save_every": 100,
-  "allow_anisotropic_mesh": false
+  "allow_anisotropic_mesh": false,
+  "lbfgs_maxiter": 1000,
+  "lbfgs_maxfun": 2000,
+  "lbfgs_ftol": 1e-15,
+  "lbfgs_gtol": 1e-10,
+  "lbfgs_maxls": 50,
+  "lbfgs_maxcor": 20
 }

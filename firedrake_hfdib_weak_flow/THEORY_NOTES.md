@@ -100,3 +100,13 @@ Exact correction tracks oracle closely, while simple approximate inverses do
 not retain enough benefit under refinement. The gap between oracle cost and
 exact-correction cost motivates fixed Richardson, multigrid, and better Schur
 approximations.
+For the fixed block-Richardson map used in the next campaign,
+
+\[
+\delta_{j+1}=\delta_j+\omega P^{-1}(r-A\delta_j),\qquad \delta_0=0.
+\]
+
+With fixed `k`, `omega`, and linear `P^-1`, this defines a fixed linear map
+`B_k`. Its transpose is applied by the analogous recurrence with `A^T` and
+`P^-T`; this is used in the loss gradient rather than treating an inexact solve
+as an exact inverse.

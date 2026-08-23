@@ -11,10 +11,7 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.sparse import bmat, csr_matrix
 from scipy.sparse.linalg import splu
-
-from .geometry import EmptyChannelGeometry
-from .forms import FiredrakeContext
-
+from scipy.sparse.linalg import LinearOperator, eigs
 
 def _csr(matrix) -> csr_matrix:
     indptr, indices, values = matrix.petscmat.getValuesCSR()
@@ -23,6 +20,8 @@ def _csr(matrix) -> csr_matrix:
 
 def build_system(nx: int, ny: int):
     from firedrake import TrialFunction, assemble, derivative
+    from .forms import FiredrakeContext
+    from .geometry import EmptyChannelGeometry
 
     geometry = EmptyChannelGeometry()
     context = FiredrakeContext(
@@ -66,6 +65,7 @@ class Loss:
     def __init__(
         self, name: str, operator, residual0, norm,
         n_velocity: int | None = None, exact: np.ndarray | None = None,
+        richardson_steps: int | None = None, richardson_omega: float = 0.1,
     ):
         self.name = name
         self.A = operator
@@ -73,6 +73,8 @@ class Loss:
         self.X = norm
         self.exact = exact
         self.n_velocity = n_velocity
+        self.richardson_steps = richardson_steps
+        self.richardson_omega = float(richardson_omega)
         self.A_factor_seconds = 0.0
         self.X_factor_seconds = 0.0
         self.block_factor_seconds = 0.0
@@ -85,7 +87,7 @@ class Loss:
             factor_started = time.monotonic()
             self.X_lu = splu(norm.tocsc())
             self.X_factor_seconds = time.monotonic() - factor_started
-        if name == "block":
+        if name == "block" or name.startswith("richardson_"):
             if n_velocity is None:
                 raise ValueError("block loss requires n_velocity")
             factor_started = time.monotonic()
@@ -93,6 +95,11 @@ class Loss:
             self.K_lu = splu(operator[:split, :split].tocsc())
             self.Mp_lu = splu(norm[split:, split:].tocsc())
             self.block_factor_seconds = time.monotonic() - factor_started
+        if name.startswith("richardson_"):
+            parsed_steps = int(name.split("_", 1)[1])
+            if richardson_steps is not None and parsed_steps != richardson_steps:
+                raise ValueError("Richardson name and step count disagree")
+            self.richardson_steps = parsed_steps
         if name == "jacobi_ls":
             diagonal = np.asarray(operator.power(2).sum(axis=0)).ravel()
             self.jacobi_inverse = 1.0 / np.maximum(diagonal, 1.0e-30)
@@ -121,6 +128,22 @@ class Loss:
         self.solve_seconds += time.monotonic() - started
         self.solve_calls += 2
         return result
+
+    def _richardson_apply(self, residual):
+        """Apply a fixed linear k-step Richardson approximation to A^-1."""
+        correction = np.zeros_like(residual)
+        for _ in range(self.richardson_steps):
+            defect = residual - self.A @ correction
+            correction += self.richardson_omega * self._block_apply(defect)
+        return correction
+
+    def _richardson_transpose_apply(self, value):
+        """Apply the exact transpose of the fixed Richardson map."""
+        correction = np.zeros_like(value)
+        for _ in range(self.richardson_steps):
+            defect = value - self.A.T @ correction
+            correction += self.richardson_omega * self._block_transpose_apply(defect)
+        return correction
 
     def _unnormalized(self, values):
         residual = self.A @ values + self.r0
@@ -157,6 +180,11 @@ class Loss:
             value = float(correction @ (self.X @ correction))
             adjoint = self._block_transpose_apply(self.X @ correction)
             gradient = 2.0 * (self.A.T @ adjoint)
+        elif self.name.startswith("richardson_"):
+            correction = self._richardson_apply(residual)
+            value = float(correction @ (self.X @ correction))
+            adjoint = self._richardson_transpose_apply(self.X @ correction)
+            gradient = 2.0 * (self.A.T @ adjoint)
         else:
             raise ValueError(self.name)
         return value, np.asarray(gradient)
@@ -178,11 +206,43 @@ def directional_error(loss: Loss, values: np.ndarray, seed: int = 3) -> float:
     return abs(exact - finite) / max(abs(exact), abs(finite), 1.0e-14)
 
 
+def richardson_stability(loss: Loss) -> dict:
+    """Estimate whether I-omega P^-1 A is contractive for block Richardson."""
+    size = loss.A.shape[0]
+    operator = LinearOperator(
+        (size, size),
+        matvec=lambda value: value - loss.richardson_omega * loss._block_apply(
+            loss.A @ value
+        ),
+        rmatvec=lambda value: value - loss.richardson_omega * loss.A.T @
+        loss._block_transpose_apply(value),
+        dtype=np.float64,
+    )
+    try:
+        eigenvalues = eigs(
+            operator, k=min(6, size - 2), which="LM", return_eigenvectors=False,
+            maxiter=500,
+        )
+        spectral_radius = float(np.max(np.abs(eigenvalues)))
+        return {
+            "estimated_spectral_radius": spectral_radius,
+            "contractive": spectral_radius < 1.0,
+            "eigenvalues": [[float(value.real), float(value.imag)] for value in eigenvalues],
+        }
+    except Exception as error:
+        return {
+            "estimated_spectral_radius": None,
+            "contractive": False,
+            "error": repr(error),
+        }
+
+
 def run(
     nx: int, ny: int, output: Path, maxiter: int = 300,
     methods: tuple[str, ...] = (
         "raw", "dual", "jacobi_ls", "block", "correction", "oracle",
     ),
+    richardson_omega: float = 0.1,
 ) -> dict:
     operator, residual0, norm, metadata, n_velocity, n_pressure = build_system(nx, ny)
     exact = splu(operator.tocsc()).solve(-residual0)
@@ -192,9 +252,20 @@ def run(
         loss = Loss(
             name, operator, residual0, norm,
             n_velocity=n_velocity, exact=exact,
+            richardson_omega=richardson_omega,
         )
         x0 = np.zeros(operator.shape[1])
         gradient_error = directional_error(loss, x0)
+        stability = richardson_stability(loss) if name.startswith("richardson_") else None
+        if stability is not None and not stability["contractive"]:
+            results.append({
+                "loss": name,
+                "status": "OPERATOR_UNSTABLE",
+                "richardson_omega": richardson_omega,
+                "directional_gradient_error": gradient_error,
+                "stability": stability,
+            })
+            continue
         history = []
         callback_count = 0
         started = time.monotonic()
@@ -236,6 +307,10 @@ def run(
             "directional_gradient_error": gradient_error,
             "success": bool(result.success), "message": str(result.message),
             "history_samples": history,
+            "richardson_omega": (
+                richardson_omega if name.startswith("richardson_") else None
+            ),
+            "stability": stability,
             "operator_factor_seconds": loss.A_factor_seconds,
             "norm_factor_seconds": loss.X_factor_seconds,
             "block_factor_seconds": loss.block_factor_seconds,
@@ -256,10 +331,12 @@ def main() -> None:
     parser.add_argument(
         "--methods", default="raw,dual,jacobi_ls,block,correction,oracle",
     )
+    parser.add_argument("--richardson-omega", type=float, default=0.1)
     arguments = parser.parse_args()
     run(
         arguments.nx, arguments.ny, arguments.output, arguments.maxiter,
         tuple(arguments.methods.split(",")),
+        arguments.richardson_omega,
     )
 
 

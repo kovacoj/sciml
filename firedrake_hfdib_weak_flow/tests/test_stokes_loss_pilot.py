@@ -6,7 +6,11 @@ from src.stokes_loss_pilot import Loss, build_system, directional_error
 def test_all_stokes_pilot_loss_gradients_and_exact_root():
     operator, residual0, norm, _, n_velocity, _ = build_system(4, 2)
     exact = np.linalg.solve(operator.toarray(), -residual0)
-    for name in ("raw", "dual", "jacobi_ls", "block", "correction", "oracle"):
+    for name in (
+        "raw", "dual", "jacobi_ls", "block", "richardson_1",
+        "richardson_2", "richardson_5", "richardson_10",
+        "correction", "oracle",
+    ):
         loss = Loss(
             name, operator, residual0, norm,
             n_velocity=n_velocity, exact=exact,

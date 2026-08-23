@@ -1,0 +1,23 @@
+{
+  "status": "BLOCKED",
+  "classification": "TPFM_TOPOLOGIES_ONLY",
+  "accepted_as_reconstructed_tpfm_domain": false,
+  "source": {
+    "worktree": "/home/cady/personal/sciml-dafoam",
+    "branch": "feat/dafoam-tpfm-reproduction",
+    "gate_artifact": "dafoam_pytorch_hfdib_demo/outputs/final_dafoam/reproduction_gate.json"
+  },
+  "tested_reconstruction": {
+    "dx": 0.002,
+    "roi_cells": [64, 64],
+    "extension_candidates_cells_each_side": [8, 16, 32],
+    "selected_candidate_cells_each_side": 32,
+    "validation_velocity_relative_l2": [0.15890105492964982, 0.18514169866698535, 0.18517077079147526]
+  },
+  "gates": {
+    "strong_reproduction_pass": false,
+    "approximate_physical_reproduction_pass": false
+  },
+  "reason": "The tested extension is a controlled reconstruction, not an authoritative recovery of the article CFD domain.",
+  "required_next_artifact": "A domain specification classified RECONSTRUCTED_TPFM_DOMAIN with complete external patches and ROI cell mapping."
+}

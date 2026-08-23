@@ -87,6 +87,19 @@ Without `domain_spec`, training retains the legacy cropped geometry with a
 runtime warning. Cropped results are diagnostic only: they exercise the HFDIB
 operator and gradient machinery but are not full-domain CFD reconstructions.
 
+### Current handoff status
+
+The completed DAFoam campaign tested 8-, 16-, and 32-cell extensions but
+classified the result as `TPFM_TOPOLOGIES_ONLY`; both its strong and approximate
+physical-reproduction gates failed. Consequently, the 32-cell candidate is not
+loaded as an authoritative Firedrake domain and no new optimization is launched.
+`geometry/dafoam_handoff_status.json` records the gate result and provenance.
+
+Firedrake remains blocked until a contract classified
+`RECONSTRUCTED_TPFM_DOMAIN` supplies complete external patch intervals and the
+full-domain-to-ROI cell mapping. This preserves the distinction between a valid
+weighted-residual method and an unvalidated article-domain reconstruction.
+
 ## Training
 
 Launch and inspect the smoke run without running it in the foreground:

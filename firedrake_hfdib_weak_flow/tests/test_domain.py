@@ -193,3 +193,12 @@ def test_template_is_valid_json_but_intentionally_rejected():
     json.loads(path.read_text())
     with pytest.raises(ValueError, match="dx must be a finite number"):
         load_domain_spec(path)
+
+
+def test_rejected_dafoam_handoff_cannot_be_loaded_as_domain_spec():
+    path = __import__("pathlib").Path(__file__).parents[1] / "geometry/dafoam_handoff_status.json"
+    status = json.loads(path.read_text())
+    assert status["classification"] == "TPFM_TOPOLOGIES_ONLY"
+    assert status["accepted_as_reconstructed_tpfm_domain"] is False
+    with pytest.raises(ValueError, match="unknown keys|missing required keys"):
+        load_domain_spec(path)

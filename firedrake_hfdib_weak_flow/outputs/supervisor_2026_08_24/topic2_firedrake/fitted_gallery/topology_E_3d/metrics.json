@@ -1,0 +1,28 @@
+{
+  "topology_id": "E_extruded_3d",
+  "height": 0.016,
+  "layers": 4,
+  "mesh_cells": 656,
+  "solve_time": 55.0428205119988,
+  "stages": [
+    {
+      "beta": 0.0,
+      "seconds": 48.38815361900015,
+      "reason": 2
+    },
+    {
+      "beta": 1.0,
+      "seconds": 6.654666892998648,
+      "reason": 2
+    }
+  ],
+  "Q_in": -4.302222222222224e-05,
+  "Q_out": 4.302222222222227e-05,
+  "mass_imbalance": 3.150122494500621e-16,
+  "divergence_L2": 0.036340427188583754,
+  "u_max": 0.22482024414328322,
+  "delta_p": 19.872847182586458,
+  "weak_residual": 8.676113262345966e-12,
+  "velocity_dofs": 40527,
+  "pressure_dofs": 2115
+}

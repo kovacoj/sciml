@@ -1,0 +1,9 @@
+{
+  "cases": 6,
+  "max_mass_imbalance": 1.7889335842064972e-14,
+  "max_weak_residual": 1.8171731134525386e-16,
+  "pressure_drop_range": [
+    12.235441873185344,
+    23.76774361357669
+  ]
+}

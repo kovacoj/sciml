@@ -1,0 +1,176 @@
+[
+  {
+    "topology_id": "A",
+    "mesh_cells": 1312,
+    "mesh_vertices": 825,
+    "solve_type": "steady_navier_stokes_stokes_initialized",
+    "solve_time": 6.030144705000566,
+    "stages": [
+      {
+        "beta": 0.0,
+        "seconds": 5.915588718000436,
+        "reason": 2
+      },
+      {
+        "beta": 1.0,
+        "seconds": 0.1145559870001307,
+        "reason": 2
+      }
+    ],
+    "Q_in": -0.0014666666666666658,
+    "Q_out": 0.001466666666666685,
+    "mass_imbalance": 6.505213032695302e-15,
+    "divergence_L2": 0.06948148680652892,
+    "u_max": 0.14140417528483856,
+    "u_mean": 0.05421290567401465,
+    "delta_p": 23.76774361357669,
+    "weak_residual": 1.8171731134525386e-16,
+    "velocity_dofs": 5922,
+    "pressure_dofs": 825
+  },
+  {
+    "topology_id": "B",
+    "mesh_cells": 2160,
+    "mesh_vertices": 1267,
+    "solve_type": "steady_navier_stokes_stokes_initialized",
+    "solve_time": 12.743972479998774,
+    "stages": [
+      {
+        "beta": 0.0,
+        "seconds": 12.344737276998785,
+        "reason": 2
+      },
+      {
+        "beta": 1.0,
+        "seconds": 0.39923520299998927,
+        "reason": 2
+      }
+    ],
+    "Q_in": -0.002266666666666666,
+    "Q_out": 0.00226666666666671,
+    "mass_imbalance": 9.757819550216986e-15,
+    "divergence_L2": 0.15358201943079708,
+    "u_max": 0.15668300118188386,
+    "u_mean": 0.06886275138596148,
+    "delta_p": 15.486627221471421,
+    "weak_residual": 1.5281021263114282e-16,
+    "velocity_dofs": 9386,
+    "pressure_dofs": 1267
+  },
+  {
+    "topology_id": "C",
+    "mesh_cells": 2280,
+    "mesh_vertices": 1332,
+    "solve_type": "steady_navier_stokes_stokes_initialized",
+    "solve_time": 0.46948676699867065,
+    "stages": [
+      {
+        "beta": 0.0,
+        "seconds": 0.21462485899974126,
+        "reason": 2
+      },
+      {
+        "beta": 1.0,
+        "seconds": 0.2548619079989294,
+        "reason": 2
+      }
+    ],
+    "Q_in": -0.002866666666666666,
+    "Q_out": 0.0028666666666665843,
+    "mass_imbalance": 1.4220698259887864e-14,
+    "divergence_L2": 0.2029177636200842,
+    "u_max": 0.3012863852090991,
+    "u_mean": 0.09153048305857935,
+    "delta_p": 16.13780635152939,
+    "weak_residual": 1.7876363183838658e-16,
+    "velocity_dofs": 9886,
+    "pressure_dofs": 1332
+  },
+  {
+    "topology_id": "D",
+    "mesh_cells": 1816,
+    "mesh_vertices": 1096,
+    "solve_type": "steady_navier_stokes_stokes_initialized",
+    "solve_time": 0.4284465900018404,
+    "stages": [
+      {
+        "beta": 0.0,
+        "seconds": 0.19311720300174784,
+        "reason": 2
+      },
+      {
+        "beta": 1.0,
+        "seconds": 0.23532938700009254,
+        "reason": 2
+      }
+    ],
+    "Q_in": -0.002266666666666666,
+    "Q_out": 0.002266666666666585,
+    "mass_imbalance": 1.7889335842064972e-14,
+    "divergence_L2": 0.2150025054265727,
+    "u_max": 0.16009792848654253,
+    "u_mean": 0.07491880001720563,
+    "delta_p": 15.669644945436636,
+    "weak_residual": 1.3915475264025243e-16,
+    "velocity_dofs": 8012,
+    "pressure_dofs": 1096
+  },
+  {
+    "topology_id": "E",
+    "mesh_cells": 2510,
+    "mesh_vertices": 1446,
+    "solve_type": "steady_navier_stokes_stokes_initialized",
+    "solve_time": 0.4983763239997643,
+    "stages": [
+      {
+        "beta": 0.0,
+        "seconds": 0.1879249699995853,
+        "reason": 2
+      },
+      {
+        "beta": 1.0,
+        "seconds": 0.310451354000179,
+        "reason": 2
+      }
+    ],
+    "Q_in": -0.0028666666666666654,
+    "Q_out": 0.0028666666666667283,
+    "mass_imbalance": 1.0968091742998343e-14,
+    "divergence_L2": 0.17106562921498253,
+    "u_max": 0.18779736172938996,
+    "u_mean": 0.0782731874211526,
+    "delta_p": 12.235441873185344,
+    "weak_residual": 1.299364228219988e-16,
+    "velocity_dofs": 10802,
+    "pressure_dofs": 1446
+  },
+  {
+    "topology_id": "F",
+    "mesh_cells": 2128,
+    "mesh_vertices": 1259,
+    "solve_type": "steady_navier_stokes_stokes_initialized",
+    "solve_time": 0.4148966489992745,
+    "stages": [
+      {
+        "beta": 0.0,
+        "seconds": 0.18966150199958065,
+        "reason": 2
+      },
+      {
+        "beta": 1.0,
+        "seconds": 0.22523514699969382,
+        "reason": 2
+      }
+    ],
+    "Q_in": -0.002266666666666666,
+    "Q_out": 0.0022666666666666976,
+    "mass_imbalance": 6.983537521233746e-15,
+    "divergence_L2": 0.07262480709774582,
+    "u_max": 0.18147403164765052,
+    "u_mean": 0.05914602762369113,
+    "delta_p": 12.612266865389437,
+    "weak_residual": 1.0050759931635565e-16,
+    "velocity_dofs": 9290,
+    "pressure_dofs": 1259
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "topology_id": "C",
+  "mesh_cells": 2280,
+  "mesh_vertices": 1332,
+  "solve_type": "steady_navier_stokes_stokes_initialized",
+  "solve_time": 0.46948676699867065,
+  "stages": [
+    {
+      "beta": 0.0,
+      "seconds": 0.21462485899974126,
+      "reason": 2
+    },
+    {
+      "beta": 1.0,
+      "seconds": 0.2548619079989294,
+      "reason": 2
+    }
+  ],
+  "Q_in": -0.002866666666666666,
+  "Q_out": 0.0028666666666665843,
+  "mass_imbalance": 1.4220698259887864e-14,
+  "divergence_L2": 0.2029177636200842,
+  "u_max": 0.3012863852090991,
+  "u_mean": 0.09153048305857935,
+  "delta_p": 16.13780635152939,
+  "weak_residual": 1.7876363183838658e-16,
+  "velocity_dofs": 9886,
+  "pressure_dofs": 1332
+}

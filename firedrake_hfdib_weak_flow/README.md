@@ -47,6 +47,21 @@ The smoke configuration uses a 10 by 10 mesh. Topology configurations use a
 20 by 20 mesh and the default physical values `uin=0.1`, `pout=0`, and
 `nu=0.01`.
 
+## Domain limitation
+
+The published TPFM arrays are an area of interest rather than the full CFD
+domain. Their left and right edges contain fluid, diffuse-interface, and solid
+pixels, while this proof of concept uses rectangular full-side inlet and outlet
+markers. The mapper records this incompatibility in
+`geometry_compatibility.json` and emits a warning when a hard inlet overlaps
+solid or interface geometry.
+
+For topology 0 on the 20 by 20 P2 mesh, 16 of 41 inlet velocity DOFs overlap
+solid or interface geometry. The completed experiment therefore demonstrates
+the literal HFDIB operator, external-gradient validation, residual reduction,
+and transfer behavior, but it is not a mass-balanced reconstruction of the
+article's unspecified full CFD domain.
+
 ## Training
 
 Launch and inspect the smoke run without running it in the foreground:

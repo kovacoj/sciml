@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import warnings
 
 import numpy as np
 import torch
@@ -57,6 +58,21 @@ class FEFieldMapper:
         self.s_lambda = self._sample(self.s_coords, "lambda")
         self.s_sigma = self._sample(self.s_coords, "signed_distance")
         self.s_normals = self._sample(self.s_coords, "normals")
+        inlet_nodes = np.flatnonzero(context.velocity_mask == 0.0)
+        inlet_nodes = inlet_nodes[
+            np.isclose(self.s_coords[inlet_nodes, 0], context.xmin)
+        ]
+        self.inlet_geometry_conflicts = int(np.count_nonzero(
+            self.s_lambda[inlet_nodes] > self.interface_tolerance
+        ))
+        if self.inlet_geometry_conflicts:
+            warnings.warn(
+                f"hard inlet overlaps solid/interface geometry at "
+                f"{self.inlet_geometry_conflicts} velocity DOFs; the cropped "
+                "TPFM area of interest does not define a compatible full-side inlet",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         boundary = self.s_coords - self.s_sigma[:, None] * self.s_normals
         self.d1 = np.full(self.s_sigma.shape, geometry.spacing)
         self.d2 = np.full(self.s_sigma.shape, geometry.spacing)

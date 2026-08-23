@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 
 from src.forms import FiredrakeContext
@@ -11,7 +12,8 @@ def test_context_domain_spaces_and_exact_fe_boundary_constraints(synthetic_geome
     path, spacing = synthetic_geometry_path
     geometry = TPFMGeometry(path, spacing=spacing)
     context = FiredrakeContext(geometry, 6, 5)
-    mapper = FEFieldMapper(context, geometry)
+    with pytest.warns(RuntimeWarning, match="hard inlet overlaps"):
+        mapper = FEFieldMapper(context, geometry)
     fields = mapper.evaluate(CoordinateMLP(input_dim=4, width=8, depth=2))
     assert isinstance(fields, NeuralFields)
     assert context.Lx == geometry.nx * spacing
@@ -28,6 +30,7 @@ def test_context_domain_spaces_and_exact_fe_boundary_constraints(synthetic_geome
     assert np.max(np.abs(fields.p.detach().numpy()[outlet])) < 1e-14
     assert np.all(context.velocity_mask[context.velocity_boundary_nodes] == 0.0)
     assert set(np.unique(context.chi.dat.data_ro)) <= {0.0, 1.0}
+    assert mapper.inlet_geometry_conflicts > 0
 
 
 def test_uib_graph_explicitly_reaches_network_parameters(synthetic_geometry_path):

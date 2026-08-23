@@ -252,6 +252,14 @@ def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Pat
         context, geometry, u_scale=float(config["u_scale"]),
         p_scale=float(config["p_scale"]),
     )
+    atomic_json(output_dir / "geometry_compatibility.json", {
+        "inlet_velocity_dofs": int(np.count_nonzero(
+            np.isclose(mapper.s_coords[:, 0], context.xmin)
+        )),
+        "inlet_solid_or_interface_dofs": mapper.inlet_geometry_conflicts,
+        "full_side_inlet_compatible": mapper.inlet_geometry_conflicts == 0,
+        "scope": "TPFM topology geometry under a reconstructed FE domain",
+    })
     model = CoordinateMLP(
         input_dim=4, width=int(config["network_width"]),
         depth=int(config["network_depth"]),

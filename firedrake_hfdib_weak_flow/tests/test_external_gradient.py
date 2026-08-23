@@ -200,7 +200,7 @@ def test_manufactured_external_parameter_direction_finite_difference():
     )
     for name, geometry in cases:
         context = FiredrakeContext(geometry, 16, 8)
-        mapper = FEFieldMapper(context, geometry)
+        mapper = FEFieldMapper(context, geometry, p_scale=0.2)
         errors, fields = _directional_gradient_check(
             context, mapper,
             Path(f"outputs/manufactured_{name}_gradient_check.json"),

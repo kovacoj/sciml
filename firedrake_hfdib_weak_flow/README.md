@@ -206,6 +206,9 @@ evaluates its fields but does not train or alter the checkpoint.
 Manufactured neural configs are fresh-only across geometry identities: resume or
 initialization checkpoints must carry the same `geometry_kind` and
 `benchmark_case`. Existing legacy exact-resume behavior remains unchanged.
+Their pressure output scale is `0.2`, set from the channel viscous estimate
+`12 * nu * uin * Lx / Ly^2 = 0.1875`, rather than inherited from the TPFM
+diagnostic configuration.
 
 ## Training
 

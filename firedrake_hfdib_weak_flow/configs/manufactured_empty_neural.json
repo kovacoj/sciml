@@ -11,7 +11,7 @@
   "quadrature_degree": 6,
   "ell": null,
   "u_scale": 0.1,
-  "p_scale": 0.01,
+  "p_scale": 0.2,
   "network_width": 64,
   "network_depth": 4,
   "seed": 11,

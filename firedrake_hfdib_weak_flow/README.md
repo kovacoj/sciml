@@ -210,6 +210,22 @@ Their pressure output scale is `0.2`, set from the channel viscous estimate
 `12 * nu * uin * Lx / Ly^2 = 0.1875`, rather than inherited from the TPFM
 diagnostic configuration.
 
+### Manufactured validation outcome
+
+The final empty-channel neural run completed 400 steps and reduced normalized
+total loss to `0.05828`, but it did not reproduce the conventional mixed-FE
+reference. Final mass imbalance was `0.6930` (direct: `1.16e-14`), velocity-x
+coefficient error was `0.6980`, and gauge-centered pressure error was `0.9589`.
+The circle and controlled-TPFM neural runs are therefore intentionally not
+launched.
+
+This is a method-validation stop, not a geometry failure: the manufactured
+channel has compatible boundary conditions, no immersed solid, a connected
+fluid domain, a passing external-gradient check, and a converged direct
+reference. The present weighted strong-residual objective can decrease while
+retaining a near-stagnant, globally imbalanced field. Future work must repair
+that objective or its admissible test treatment before adding HFDIB complexity.
+
 ## Training
 
 Launch and inspect the smoke run without running it in the foreground:

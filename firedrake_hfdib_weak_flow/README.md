@@ -47,20 +47,45 @@ The smoke configuration uses a 10 by 10 mesh. Topology configurations use a
 20 by 20 mesh and the default physical values `uin=0.1`, `pout=0`, and
 `nu=0.01`.
 
-## Domain limitation
+## Geometry handoff
 
-The published TPFM arrays are an area of interest rather than the full CFD
-domain. Their left and right edges contain fluid, diffuse-interface, and solid
-pixels, while this proof of concept uses rectangular full-side inlet and outlet
-markers. The mapper records this incompatibility in
-`geometry_compatibility.json` and emits a warning when a hard inlet overlaps
-solid or interface geometry.
+Commit `e78cf3f` is the endpoint of the cropped-ROI experiment and the starting
+point for the geometry handoff. DAFoam is authoritative for all full-domain
+dimensions, bounds, extension counts, patch intervals, ROI cell mapping, and
+physical values. This project does not independently interpret or infer any of
+those values.
 
-For topology 0 on the 20 by 20 P2 mesh, 16 of 41 inlet velocity DOFs overlap
-solid or interface geometry. The completed experiment therefore demonstrates
-the literal HFDIB operator, external-gradient validation, residual reduction,
-and transfer behavior, but it is not a mass-balanced reconstruction of the
-article's unspecified full CFD domain.
+`geometry/domain_spec.template.json` is a deliberately unfilled, valid-JSON
+contract template. DAFoam must replace every `null`, including the complete
+`roi_cell_indices` array with shape `(roi.ny, roi.nx)`. The strict loader rejects
+missing and unknown fields, placeholder values, inconsistent grids, invalid
+mappings, and overlapping or out-of-range patch intervals:
+
+```python
+from src import FullDomainGeometry, TPFMGeometry, load_domain_spec
+
+spec = load_domain_spec("geometry/domain_spec.json")
+roi = TPFMGeometry("/path/to/mixer_64.npz", spacing=spec.dx)
+geometry = FullDomainGeometry(roi, spec)
+```
+
+Set `"domain_spec": "geometry/domain_spec.json"` in a training configuration;
+the existing CLI remains `python3 -m src.train --config CONFIG --output-dir
+OUTPUT`. The spec supplies `uin`, `pout`, and `nu`; contradictory values still
+present in the training config are rejected.
+
+Segmented inlet/outlet channels are reconstructed and constrained from physical
+tangential intervals. The spec must partition every external side completely
+with ordered inlet, outlet, or wall intervals; gaps and overlaps are rejected.
+Firedrake selects the exact velocity and pressure DOFs and treats the explicitly
+declared remainder as no-slip wall. Each
+inlet or outlet patch collection must currently stay on one external side, but
+may contain multiple nonoverlapping intervals. Arbitrary ROI mappings are still
+validated by the loader but deferred by the rectangular geometry builder.
+
+Without `domain_spec`, training retains the legacy cropped geometry with a
+runtime warning. Cropped results are diagnostic only: they exercise the HFDIB
+operator and gradient machinery but are not full-domain CFD reconstructions.
 
 ## Training
 

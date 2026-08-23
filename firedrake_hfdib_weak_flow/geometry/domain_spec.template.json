@@ -1,0 +1,31 @@
+{
+  "classification": "RECONSTRUCTED_TPFM_DOMAIN",
+  "dx": null,
+  "roi": {
+    "nx": null,
+    "ny": null,
+    "bounds": {"xmin": null, "ymin": null, "xmax": null, "ymax": null}
+  },
+  "full_domain": {
+    "nx": null,
+    "ny": null,
+    "bounds": {"xmin": null, "ymin": null, "xmax": null, "ymax": null}
+  },
+  "left_extension_cells": null,
+  "right_extension_cells": null,
+  "patches": {
+    "inlet": [
+      {"name": null, "marker": null, "side": null, "intervals": [{"min": null, "max": null}]}
+    ],
+    "outlet": [
+      {"name": null, "marker": null, "side": null, "intervals": [{"min": null, "max": null}]}
+    ],
+    "wall": [
+      {"name": null, "marker": null, "side": null, "intervals": [{"min": null, "max": null}]}
+    ]
+  },
+  "uin": null,
+  "pout": null,
+  "nu": null,
+  "roi_cell_indices": null
+}

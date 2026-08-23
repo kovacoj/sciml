@@ -11,6 +11,7 @@ from firedrake import (
     FunctionSpace,
     LinearSolver,
     RectangleMesh,
+    SpatialCoordinate,
     TestFunction,
     TrialFunction,
     as_vector,
@@ -24,6 +25,7 @@ from firedrake import (
     outer,
     transpose,
 )
+from firedrake.petsc import PETSc
 
 
 class FiredrakeContext:
@@ -51,10 +53,15 @@ class FiredrakeContext:
                 "FiredrakeContext is intentionally serial; use experiment-level "
                 "parallelism instead."
             )
-        self.xmin = self.ymin = 0.0
-        self.Lx = geometry.nx * geometry.spacing
-        self.Ly = geometry.ny * geometry.spacing
-        self.xmax, self.ymax = self.Lx, self.Ly
+        self.xmin = float(getattr(geometry, "xmin", 0.0))
+        self.ymin = float(getattr(geometry, "ymin", 0.0))
+        self.xmax = float(getattr(geometry, "xmax", geometry.nx * geometry.spacing))
+        self.ymax = float(getattr(geometry, "ymax", geometry.ny * geometry.spacing))
+        self.Lx = self.xmax - self.xmin
+        self.Ly = self.ymax - self.ymin
+        self.domain_spec = getattr(geometry, "spec", None)
+        if self.domain_spec is not None:
+            inlet_marker, outlet_marker = self._patch_side_markers(self.domain_spec)
         self.ell = self.Ly if ell is None else float(ell)
         self.uin = float(uin)
         self.pout = float(pout)
@@ -63,9 +70,12 @@ class FiredrakeContext:
         self.wall_markers = tuple(int(marker) for marker in wall_markers)
         self.quadrature_degree = int(quadrature_degree)
         self.mesh = RectangleMesh(nx, ny, self.Lx, self.Ly)
+        if self.xmin != 0.0 or self.ymin != 0.0:
+            self.mesh.coordinates.dat.data[:] += (self.xmin, self.ymin)
         self.S = FunctionSpace(self.mesh, "CG", velocity_degree)
         self.Q = FunctionSpace(self.mesh, "CG", pressure_degree)
         self.DG0 = FunctionSpace(self.mesh, "DG", 0)
+        self.boundary_tolerance = max(1.0e-12, geometry.spacing * 1.0e-10)
 
         self.ux, self.uy = Function(self.S, name="ux"), Function(self.S, name="uy")
         self.p = Function(self.Q, name="p")
@@ -74,20 +84,48 @@ class FiredrakeContext:
         self.lam = Function(self.DG0, name="lambda")
         self.chi = Function(self.DG0, name="chi")
 
-        inlet_nodes = DirichletBC(self.S, 0.0, self.inlet_marker).nodes
-        wall_nodes = np.unique(np.concatenate([
-            DirichletBC(self.S, 0.0, marker).nodes
-            for marker in self.wall_markers
-        ]))
+        if self.domain_spec is None:
+            inlet_nodes = np.asarray(
+                DirichletBC(self.S, 0.0, self.inlet_marker).nodes,
+                dtype=np.int64,
+            )
+            wall_nodes = np.unique(np.concatenate([
+                DirichletBC(self.S, 0.0, marker).nodes
+                for marker in self.wall_markers
+            ]))
+            pressure_outlet_nodes = np.asarray(
+                DirichletBC(self.Q, 0.0, self.outlet_marker).nodes,
+                dtype=np.int64,
+            )
+        else:
+            self.s_coordinates = self._coordinates(self.S)
+            self.q_coordinates = self._coordinates(self.Q)
+            inlet = self._patch_selector(self.s_coordinates, self.domain_spec.inlet)
+            outlet = self._patch_selector(self.s_coordinates, self.domain_spec.outlet)
+            if np.any(inlet & outlet):
+                raise ValueError("inlet and outlet patch intervals select the same S DOF")
+            external = self._external_selector(self.s_coordinates)
+            declared_wall = self._patch_selector(
+                self.s_coordinates, self.domain_spec.wall
+            )
+            assert np.all((inlet | outlet | declared_wall)[external]), (
+                "validated DomainSpec boundary partition must classify every external DOF"
+            )
+            inlet_nodes = np.flatnonzero(inlet)
+            # The validated partition proves this remainder is explicitly declared wall.
+            wall_nodes = np.flatnonzero(external & ~outlet & ~inlet)
+            pressure_outlet_nodes = np.flatnonzero(
+                self._patch_selector(self.q_coordinates, self.domain_spec.outlet)
+            )
         self.velocity_boundary_nodes = np.union1d(inlet_nodes, wall_nodes)
+        self.inlet_velocity_nodes = inlet_nodes
+        self.velocity_wall_nodes = np.asarray(wall_nodes, dtype=np.int64)
         self.velocity_mask = np.ones(self.S.dim(), dtype=np.float64)
         self.velocity_mask[self.velocity_boundary_nodes] = 0.0
         self.ux_lift = np.zeros(self.S.dim(), dtype=np.float64)
         self.ux_lift[inlet_nodes] = self.uin
         self.ux_lift[wall_nodes] = 0.0
-        self.pressure_outlet_nodes = np.asarray(
-            DirichletBC(self.Q, 0.0, self.outlet_marker).nodes, dtype=np.int64
-        )
+        self.pressure_outlet_nodes = pressure_outlet_nodes
         self.pressure_mask = np.ones(self.Q.dim(), dtype=np.float64)
         self.pressure_mask[self.pressure_outlet_nodes] = 0.0
 
@@ -121,14 +159,28 @@ class FiredrakeContext:
 
         trial_s, test_s = TrialFunction(self.S), TestFunction(self.S)
         trial_q, test_q = TrialFunction(self.Q), TestFunction(self.Q)
-        self.velocity_test_bc = DirichletBC(
-            self.S, 0.0, (self.inlet_marker, *self.wall_markers)
-        )
-        self.h1_matrix = assemble(
-            (trial_s * test_s + self.ell**2 * inner(grad(trial_s), grad(test_s)))
-            * measure,
-            bcs=self.velocity_test_bc,
-        )
+        h1_form = (
+            trial_s * test_s + self.ell**2 * inner(grad(trial_s), grad(test_s))
+        ) * measure
+        if self.domain_spec is None:
+            self.velocity_test_bc = DirichletBC(
+                self.S, 0.0, (self.inlet_marker, *self.wall_markers)
+            )
+            self.h1_matrix = assemble(h1_form, bcs=self.velocity_test_bc)
+            self.velocity_test_is = None
+        else:
+            self.velocity_test_bc = None
+            self.h1_matrix = assemble(h1_form)
+            indices = np.asarray(
+                self.velocity_boundary_nodes, dtype=PETSc.IntType
+            )
+            self.velocity_test_is = PETSc.IS().createGeneral(
+                indices, comm=COMM_WORLD
+            )
+            matrix = self.h1_matrix.petscmat
+            matrix.assemble()
+            matrix.zeroRowsColumns(self.velocity_test_is, diag=1.0)
+            matrix.assemble()
         self.q_mass_matrix = assemble(trial_q * test_q * measure)
         parameters = {"ksp_type": "preonly", "pc_type": "lu"}
         self.h1_solver = LinearSolver(self.h1_matrix, solver_parameters=parameters)
@@ -144,6 +196,98 @@ class FiredrakeContext:
             derivative(self.weighted_objective_form, coefficient)
             for coefficient in coefficients
         )
+
+    @staticmethod
+    def _patch_side_markers(spec) -> tuple[int, int]:
+        side_markers = {"left": 1, "right": 2, "bottom": 3, "top": 4}
+
+        def one_side(patches, kind: str) -> str:
+            sides = {patch.side for patch in patches}
+            if len(sides) != 1:
+                raise ValueError(
+                    f"reconstructed {kind} patches must all occupy one external side"
+                )
+            return next(iter(sides))
+
+        inlet_side = one_side(spec.inlet, "inlet")
+        outlet_side = one_side(spec.outlet, "outlet")
+        if inlet_side == outlet_side:
+            raise ValueError("reconstructed inlet and outlet must occupy different sides")
+        return side_markers[inlet_side], side_markers[outlet_side]
+
+    @staticmethod
+    def _coordinates(space) -> np.ndarray:
+        coordinates = SpatialCoordinate(space.mesh())
+        return np.column_stack([
+            Function(space).interpolate(coordinates[index]).dat.data_ro.copy()
+            for index in range(2)
+        ])
+
+    def _external_selector(self, points: np.ndarray) -> np.ndarray:
+        tolerance = self.boundary_tolerance
+        return (
+            np.isclose(points[:, 0], self.xmin, atol=tolerance, rtol=0.0)
+            | np.isclose(points[:, 0], self.xmax, atol=tolerance, rtol=0.0)
+            | np.isclose(points[:, 1], self.ymin, atol=tolerance, rtol=0.0)
+            | np.isclose(points[:, 1], self.ymax, atol=tolerance, rtol=0.0)
+        )
+
+    def _patch_selector(self, points: np.ndarray, patches) -> np.ndarray:
+        selected = np.zeros(len(points), dtype=bool)
+        tolerance = self.boundary_tolerance
+        for patch in patches:
+            if patch.side in {"left", "right"}:
+                normal = points[:, 0]
+                tangent = points[:, 1]
+                side_value = self.xmin if patch.side == "left" else self.xmax
+                global_upper = self.ymax
+            else:
+                normal = points[:, 1]
+                tangent = points[:, 0]
+                side_value = self.ymin if patch.side == "bottom" else self.ymax
+                global_upper = self.xmax
+            on_side = np.isclose(normal, side_value, atol=tolerance, rtol=0.0)
+            for interval in patch.intervals:
+                below_upper = tangent < interval.maximum - tolerance
+                if np.isclose(
+                    interval.maximum, global_upper, atol=tolerance, rtol=0.0
+                ):
+                    below_upper = tangent <= interval.maximum + tolerance
+                selected |= (
+                    on_side
+                    & (tangent >= interval.minimum - tolerance)
+                    & below_upper
+                )
+        return selected
+
+    def velocity_constraints_at(
+        self, points: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return velocity free mask and x lift at arbitrary physical points."""
+        coordinates = np.asarray(points, dtype=np.float64)
+        if self.domain_spec is None:
+            marker_masks = {
+                1: np.isclose(coordinates[:, 0], self.xmin, atol=1.0e-14, rtol=0.0),
+                2: np.isclose(coordinates[:, 0], self.xmax, atol=1.0e-14, rtol=0.0),
+                3: np.isclose(coordinates[:, 1], self.ymin, atol=1.0e-14, rtol=0.0),
+                4: np.isclose(coordinates[:, 1], self.ymax, atol=1.0e-14, rtol=0.0),
+            }
+            inlet = marker_masks[self.inlet_marker]
+            walls = np.logical_or.reduce([
+                marker_masks[marker] for marker in self.wall_markers
+            ])
+            essential = inlet | walls
+        else:
+            inlet = self._patch_selector(coordinates, self.domain_spec.inlet)
+            outlet = self._patch_selector(coordinates, self.domain_spec.outlet)
+            essential = self._external_selector(coordinates) & ~outlet
+        mask = np.ones(len(coordinates), dtype=np.float64)
+        lift = np.zeros(len(coordinates), dtype=np.float64)
+        mask[essential] = 0.0
+        lift[inlet] = self.uin
+        if self.domain_spec is None:
+            lift[walls] = 0.0
+        return mask, lift
 
     def assign_boundary_lift(self) -> None:
         self.ux.dat.data[:] = self.ux_lift

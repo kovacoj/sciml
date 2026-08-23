@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from firedrake import Function, SpatialCoordinate
 
+from .domain import RECONSTRUCTED_TPFM_DOMAIN
 from .geometry import TPFMGeometry
 from .hfdib import second_order
 
@@ -58,14 +59,17 @@ class FEFieldMapper:
         self.s_lambda = self._sample(self.s_coords, "lambda")
         self.s_sigma = self._sample(self.s_coords, "signed_distance")
         self.s_normals = self._sample(self.s_coords, "normals")
-        inlet_nodes = np.flatnonzero(context.velocity_mask == 0.0)
-        inlet_nodes = inlet_nodes[
-            np.isclose(self.s_coords[inlet_nodes, 0], context.xmin)
+        inlet_nodes = context.inlet_velocity_nodes
+        prescribed_nonzero = inlet_nodes[
+            np.abs(context.ux_lift[inlet_nodes]) > 0.0
         ]
         self.inlet_geometry_conflicts = int(np.count_nonzero(
-            self.s_lambda[inlet_nodes] > self.interface_tolerance
+            self.s_lambda[prescribed_nonzero] > self.interface_tolerance
         ))
-        if self.inlet_geometry_conflicts:
+        if (
+            self.inlet_geometry_conflicts
+            and geometry.classification != RECONSTRUCTED_TPFM_DOMAIN
+        ):
             warnings.warn(
                 f"hard inlet overlaps solid/interface geometry at "
                 f"{self.inlet_geometry_conflicts} velocity DOFs; the cropped "
@@ -110,22 +114,7 @@ class FEFieldMapper:
         ))
 
     def _velocity_constraints(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        c = self.context
-        marker_masks = {
-            1: np.isclose(points[:, 0], c.xmin, atol=1.0e-14, rtol=0.0),
-            2: np.isclose(points[:, 0], c.xmax, atol=1.0e-14, rtol=0.0),
-            3: np.isclose(points[:, 1], c.ymin, atol=1.0e-14, rtol=0.0),
-            4: np.isclose(points[:, 1], c.ymax, atol=1.0e-14, rtol=0.0),
-        }
-        inlet = marker_masks[c.inlet_marker]
-        walls = np.logical_or.reduce([marker_masks[marker] for marker in c.wall_markers])
-        mask = np.ones(len(points), dtype=np.float64)
-        lift = np.zeros(len(points), dtype=np.float64)
-        mask[inlet] = 0.0
-        lift[inlet] = c.uin
-        mask[walls] = 0.0
-        lift[walls] = 0.0
-        return mask, lift
+        return self.context.velocity_constraints_at(points)
 
     def _velocity(
         self,
@@ -191,4 +180,16 @@ class FEFieldMapper:
         uib = torch.where(interface[:, None], uib, torch.zeros_like(uib))
         return NeuralFields(
             velocity[:, 0], velocity[:, 1], pressure, uib[:, 0], uib[:, 1]
+        )
+
+
+def enforce_inlet_geometry_compatibility(mapper: FEFieldMapper) -> None:
+    """Hard-gate incompatible prescribed inlet flow on a reconstructed domain."""
+    if (
+        mapper.geometry.classification == RECONSTRUCTED_TPFM_DOMAIN
+        and mapper.inlet_geometry_conflicts
+    ):
+        raise RuntimeError(
+            f"reconstructed full domain has {mapper.inlet_geometry_conflicts} nonzero "
+            "inlet velocity DOFs where lambda exceeds chi_eps"
         )

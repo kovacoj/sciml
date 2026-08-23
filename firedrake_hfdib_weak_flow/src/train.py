@@ -12,6 +12,7 @@ import signal
 import subprocess
 import time
 import traceback
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -202,7 +203,11 @@ def _save_snapshot(context, geometry, fields, beta: float, output_dir: Path, ste
         (geometry.lambda_field, speed, pressure, divergence),
         ("lambda", "speed", "p", "div(u)"),
     ):
-        image = axis.imshow(values, origin="lower", extent=(0, context.Lx, 0, context.Ly))
+        image = axis.imshow(
+            values,
+            origin="lower",
+            extent=(context.xmin, context.xmax, context.ymin, context.ymax),
+        )
         axis.set_title(title)
         axis.set_axis_off()
         figure.colorbar(image, ax=axis, fraction=0.046)
@@ -212,10 +217,11 @@ def _save_snapshot(context, geometry, fields, beta: float, output_dir: Path, ste
 
 def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Path | None) -> None:
     from .forms import FiredrakeContext
-    from .geometry import TPFMGeometry
+    from .domain import load_domain_spec
+    from .geometry import FullDomainGeometry, TPFMGeometry
     from .model import CoordinateMLP
     from .residual_bridge import FiredrakeResidualBridge
-    from .state import FEFieldMapper
+    from .state import FEFieldMapper, enforce_inlet_geometry_compatibility
 
     torch.set_default_dtype(torch.float64)
     torch.set_num_threads(1)
@@ -234,17 +240,42 @@ def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Pat
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    geometry = TPFMGeometry(
-        dataset, sample_index=int(config["topology_index"]),
-        spacing=float(config["spacing"]),
+    domain_spec_path = (
+        resolve_path(config["domain_spec"], config_path, project_root)
+        if config.get("domain_spec") is not None else None
     )
+    if domain_spec_path is None:
+        warnings.warn(
+            "domain_spec is absent; using cropped TPFM ROI geometry for diagnostic "
+            "legacy behavior only",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        geometry = TPFMGeometry(
+            dataset, sample_index=int(config["topology_index"]),
+            spacing=float(config["spacing"]),
+        )
+        physical = {name: float(config[name]) for name in ("uin", "pout", "nu")}
+    else:
+        spec = load_domain_spec(domain_spec_path)
+        for name in ("uin", "pout", "nu"):
+            if name in config and not np.isclose(float(config[name]), getattr(spec, name)):
+                raise ValueError(
+                    f"config {name}={config[name]} contradicts domain spec {name}="
+                    f"{getattr(spec, name)}"
+                )
+        roi_geometry = TPFMGeometry(
+            dataset, sample_index=int(config["topology_index"]), spacing=spec.dx
+        )
+        geometry = FullDomainGeometry(roi_geometry, spec)
+        physical = {name: getattr(spec, name) for name in ("uin", "pout", "nu")}
     context = FiredrakeContext(
         geometry, int(config["nx"]), int(config["ny"]),
         velocity_degree=int(config["velocity_degree"]),
         pressure_degree=int(config["pressure_degree"]),
         quadrature_degree=int(config["quadrature_degree"]),
-        nu=float(config["nu"]), ell=config["ell"], uin=float(config["uin"]),
-        pout=float(config["pout"]), inlet_marker=int(config["inlet_marker"]),
+        nu=physical["nu"], ell=config["ell"], uin=physical["uin"],
+        pout=physical["pout"], inlet_marker=int(config["inlet_marker"]),
         outlet_marker=int(config["outlet_marker"]),
         wall_markers=config["wall_markers"],
     )
@@ -252,14 +283,23 @@ def run(config_path: Path, output_dir: Path, resume: Path | None, init_from: Pat
         context, geometry, u_scale=float(config["u_scale"]),
         p_scale=float(config["p_scale"]),
     )
-    atomic_json(output_dir / "geometry_compatibility.json", {
-        "inlet_velocity_dofs": int(np.count_nonzero(
-            np.isclose(mapper.s_coords[:, 0], context.xmin)
-        )),
-        "inlet_solid_or_interface_dofs": mapper.inlet_geometry_conflicts,
-        "full_side_inlet_compatible": mapper.inlet_geometry_conflicts == 0,
-        "scope": "TPFM topology geometry under a reconstructed FE domain",
-    })
+    bounds_payload = lambda bounds: {
+        key: getattr(bounds, key) for key in ("xmin", "ymin", "xmax", "ymax")
+    }
+    compatibility = {
+        "classification": geometry.classification,
+        "roi_bounds": bounds_payload(geometry.roi_bounds) if hasattr(geometry, "roi_bounds") else None,
+        "full_bounds": bounds_payload(geometry.full_bounds) if hasattr(geometry, "full_bounds") else {
+            "xmin": geometry.xmin, "ymin": geometry.ymin,
+            "xmax": geometry.xmax, "ymax": geometry.ymax,
+        },
+        "left_extension_cells": getattr(geometry, "left_extension_cells", 0),
+        "right_extension_cells": getattr(geometry, "right_extension_cells", 0),
+        "conflict_count": mapper.inlet_geometry_conflicts,
+        "hard_gate_passed": mapper.inlet_geometry_conflicts == 0,
+    }
+    atomic_json(output_dir / "geometry_compatibility.json", compatibility)
+    enforce_inlet_geometry_compatibility(mapper)
     model = CoordinateMLP(
         input_dim=4, width=int(config["network_width"]),
         depth=int(config["network_depth"]),

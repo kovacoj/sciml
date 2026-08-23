@@ -8,6 +8,29 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import distance_transform_edt
 
+from .domain import DomainSpec, RECONSTRUCTED_TPFM_DOMAIN
+
+
+def _geometry_fields(lambda_field: np.ndarray, spacing: float, tolerance: float):
+    solid = lambda_field > 0.5
+    sigma = (
+        distance_transform_edt(~solid) - distance_transform_edt(solid)
+    ) * spacing
+    interface = (lambda_field > tolerance) & (lambda_field < 1.0 - tolerance)
+    sigma[interface] = spacing * np.arctanh(1.0 - 2.0 * lambda_field[interface])
+    grad_y = (
+        np.gradient(sigma, spacing, axis=0)
+        if sigma.shape[0] > 1 else np.zeros_like(sigma)
+    )
+    grad_x = (
+        np.gradient(sigma, spacing, axis=1)
+        if sigma.shape[1] > 1 else np.zeros_like(sigma)
+    )
+    magnitude = np.hypot(grad_x, grad_y)
+    safe_magnitude = np.where(magnitude > 0.0, magnitude, 1.0)
+    normals = np.stack((grad_x / safe_magnitude, grad_y / safe_magnitude), axis=-1)
+    return sigma, interface, normals
+
 
 class TPFMGeometry:
     """Reconstruct geometry fields from one `inputs` sample in mixer_64.npz."""
@@ -31,29 +54,19 @@ class TPFMGeometry:
         self.sample_index = sample_index
         self.spacing = float(spacing)
         self.ny, self.nx = self.lambda_field.shape
+        self.xmin = self.ymin = 0.0
+        self.xmax = self.nx * self.spacing
+        self.ymax = self.ny * self.spacing
+        self.classification = "CROPPED_TPFM_ROI_DIAGNOSTIC"
         self.x = (np.arange(self.nx, dtype=np.float64) + 0.5) * self.spacing
         self.y = (np.arange(self.ny, dtype=np.float64) + 0.5) * self.spacing
 
-        solid = self.lambda_field > 0.5
-        sigma = (
-            distance_transform_edt(~solid) - distance_transform_edt(solid)
-        ) * self.spacing
-        interface = (
-            (self.lambda_field > interface_tolerance)
-            & (self.lambda_field < 1.0 - interface_tolerance)
-        )
-        sigma[interface] = self.spacing * np.arctanh(
-            1.0 - 2.0 * self.lambda_field[interface]
+        sigma, interface, normals = _geometry_fields(
+            self.lambda_field, self.spacing, interface_tolerance
         )
         self.signed_distance = sigma
         self.interface = interface
-
-        grad_y, grad_x = np.gradient(sigma, self.spacing, self.spacing)
-        magnitude = np.hypot(grad_x, grad_y)
-        safe_magnitude = np.where(magnitude > 0.0, magnitude, 1.0)
-        self.normals = np.stack(
-            (grad_x / safe_magnitude, grad_y / safe_magnitude), axis=-1
-        )
+        self.normals = normals
 
         reconstructed = 0.5 * (1.0 - np.tanh(sigma / self.spacing))
         difference = reconstructed - self.lambda_field
@@ -89,3 +102,96 @@ class TPFMGeometry:
         result = interpolator(query)
         trailing_shape = fields[field].shape[2:]
         return result.reshape(original_shape + trailing_shape)
+
+
+class FullDomainGeometry:
+    """Full rectangular geometry reconstructed from an ROI and a domain spec."""
+
+    def __init__(
+        self,
+        roi_geometry: TPFMGeometry,
+        spec: DomainSpec,
+        *,
+        interface_tolerance: float = 1.0e-10,
+    ) -> None:
+        if roi_geometry.lambda_field.shape != (spec.roi.ny, spec.roi.nx):
+            raise ValueError(
+                "ROI lambda shape does not match domain spec roi.ny/roi.nx"
+            )
+        if not np.isclose(roi_geometry.spacing, spec.dx):
+            raise ValueError("ROI geometry spacing does not match domain spec dx")
+        expected = np.arange(spec.full_domain.nx * spec.full_domain.ny).reshape(
+            spec.full_domain.ny, spec.full_domain.nx
+        )[:, spec.left_extension_cells:spec.left_extension_cells + spec.roi.nx]
+        declared = np.asarray(spec.roi_cell_indices, dtype=np.int64)
+        if not np.array_equal(declared, expected):
+            raise ValueError(
+                "roi_cell_indices conflicts with rectangular extension construction; "
+                "arbitrary mappings are not supported yet"
+            )
+        for patch in (*spec.inlet, *spec.outlet):
+            if patch.side not in {"left", "right"}:
+                raise ValueError(
+                    "rectangular horizontal extension construction supports inlet/outlet "
+                    "patches only on left or right sides"
+                )
+
+        self.spec = spec
+        self.classification = RECONSTRUCTED_TPFM_DOMAIN
+        self.spacing = spec.dx
+        self.nx, self.ny = spec.full_domain.nx, spec.full_domain.ny
+        self.xmin, self.ymin = spec.full_domain.bounds.xmin, spec.full_domain.bounds.ymin
+        self.xmax, self.ymax = spec.full_domain.bounds.xmax, spec.full_domain.bounds.ymax
+        self.roi_bounds = spec.roi.bounds
+        self.full_bounds = spec.full_domain.bounds
+        self.left_extension_cells = spec.left_extension_cells
+        self.right_extension_cells = spec.right_extension_cells
+        self.roi_cell_indices = declared.ravel().copy()
+        self.x = self.xmin + (np.arange(self.nx, dtype=np.float64) + 0.5) * self.spacing
+        self.y = self.ymin + (np.arange(self.ny, dtype=np.float64) + 0.5) * self.spacing
+
+        self.lambda_field = np.ones((self.ny, self.nx), dtype=np.float64)
+        roi_slice = slice(self.left_extension_cells, self.left_extension_cells + spec.roi.nx)
+        self.lambda_field[:, roi_slice] = roi_geometry.lambda_field
+        for patch in (*spec.inlet, *spec.outlet):
+            columns = (
+                slice(0, self.left_extension_cells) if patch.side == "left"
+                else slice(self.left_extension_cells + spec.roi.nx, self.nx)
+            )
+            for interval in patch.intervals:
+                tolerance = max(1.0e-12, self.spacing * 1.0e-10)
+                below_upper = self.y < interval.maximum - tolerance
+                if np.isclose(
+                    interval.maximum, self.ymax, atol=tolerance, rtol=0.0
+                ):
+                    below_upper = self.y <= interval.maximum + tolerance
+                rows = (self.y >= interval.minimum - tolerance) & below_upper
+                self.lambda_field[rows, columns] = 0.0
+
+        self.signed_distance, self.interface, self.normals = _geometry_fields(
+            self.lambda_field, self.spacing, interface_tolerance
+        )
+        reconstructed = 0.5 * (1.0 - np.tanh(self.signed_distance / self.spacing))
+        difference = reconstructed - self.lambda_field
+        self.reconstruction_error = {
+            "relative_l2": float(
+                np.linalg.norm(difference) / (np.linalg.norm(self.lambda_field) + 1.0e-30)
+            ),
+            "max_abs": float(np.max(np.abs(difference))),
+        }
+
+    def interpolate(
+        self, coordinates: np.ndarray, field: str = "signed_distance"
+    ) -> np.ndarray:
+        return TPFMGeometry.interpolate(self, coordinates, field)
+
+    def extract_roi(self, array: np.ndarray) -> np.ndarray:
+        """Extract an ROI-shaped cell array using the declared flat mapping."""
+        values = np.asarray(array)
+        if values.shape != (self.ny, self.nx):
+            raise ValueError(
+                f"cell array must have shape ({self.ny}, {self.nx}), got {values.shape}"
+            )
+        return values.ravel()[self.roi_cell_indices].reshape(
+            self.spec.roi.ny, self.spec.roi.nx
+        )

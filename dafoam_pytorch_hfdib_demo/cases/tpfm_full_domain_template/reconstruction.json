@@ -1,0 +1,10 @@
+{
+  "status": "controlled_reconstruction",
+  "cell_spacing_m": 0.002,
+  "roi_cells": [64, 64],
+  "roi_bounds_m": [0.0, 0.128, 0.0, 0.128],
+  "extension_candidates_cells_each_side": [8, 16, 32],
+  "calibration_sample": 0,
+  "validation_samples": [274, 549],
+  "physical_boundaries": {"uin": 0.1, "pout": 0.0, "nu": 0.01}
+}

@@ -1,0 +1,58 @@
+[
+    {
+        "Id": "sha256:de15fe64c0c7591d86c5a297913a7247fb32ca4c2ebae3fa38e1e20d3d84d526",
+        "RepoTags": [
+            "sciml-dafoam-torch-hfdib:latest"
+        ],
+        "RepoDigests": [
+            "sciml-dafoam-torch-hfdib@sha256:de15fe64c0c7591d86c5a297913a7247fb32ca4c2ebae3fa38e1e20d3d84d526"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-08-23T16:05:32.163315962+02:00",
+        "Config": {
+            "User": "dafoamuser",
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "WorkingDir": "/home/dafoamuser/sciml/dafoam_pytorch_hfdib_demo",
+            "Shell": [
+                "/bin/bash",
+                "-lc"
+            ]
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 9989261522,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:2f147cc05c1d81d73d80b10ed306e8c5d0aaaddc1d63862a6189c8a588b5cfcc",
+                "sha256:e4b07c3600652fe7e4f5e404e1c44eda54370e5cd6734b5c127b087fb85d6466",
+                "sha256:232078b8fd6a9bba7d88c6a6c0803bc69166f1ca480096b31b477fd2a45246ac",
+                "sha256:b0ae58169b93087762de40579fb363918b7b3debb7c6077c24946f57b776151e",
+                "sha256:382c6ef55c1bbbedf6394c4c49e88c37041a288ccf234e8eac739338ff2b034b",
+                "sha256:cbf2bdcccfc5a6bf9b9a6e09e00f0390b3fce4899f070806adb63d6b85ab641b",
+                "sha256:5272f9f5c21c75ec32d0033e2120c33ad9405335a971caadd7ade43dbba31e3c",
+                "sha256:00f0f691204e6d7ecc1461f0c7a4f99e47fe6b5754ff37dcd9e2c20f1f608a3a",
+                "sha256:4fa16fb4f090ecac42f2c37b8dc766e89beb61692a4a1c3333775770171ef7f1",
+                "sha256:b95bea29120c7fca3caf034b92d08b191f5d1f56dc37497c089b2234c1fc530e"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-08-23T14:05:37.824634705Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "digest": "sha256:de15fe64c0c7591d86c5a297913a7247fb32ca4c2ebae3fa38e1e20d3d84d526",
+            "size": 856
+        },
+        "Identity": {
+            "Build": [
+                {
+                    "Ref": "oel7rvzcp81zm3v5hnh7ffzh6",
+                    "CreatedAt": "2026-08-23T16:05:38.901558761+02:00"
+                }
+            ]
+        }
+    }
+]

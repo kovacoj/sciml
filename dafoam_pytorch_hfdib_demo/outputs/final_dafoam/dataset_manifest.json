@@ -1,0 +1,14 @@
+{
+  "source": "techMathGroup/tpfm_unet mixer_64.npz inputs only",
+  "classification": "TPFM_TOPOLOGIES_ONLY",
+  "train_count": 256,
+  "validation_count": 32,
+  "test_count": 16,
+  "excluded_reproduction_indices": [
+    0,
+    274,
+    549
+  ],
+  "sigma_width_factor": 1.0,
+  "uses_converged_cfd_labels_for_training": false
+}

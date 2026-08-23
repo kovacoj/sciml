@@ -1,0 +1,51 @@
+{
+  "default_interpretation": "Published p tilde is kinematic pressure, following article terminology.",
+  "unit_conversion_applied_to_range": null,
+  "cases": [
+    {
+      "sample_index": 0,
+      "published_pressure_range": 63.9153794937,
+      "local_openfoam_kinematic_pressure_range": 126.59795016895336,
+      "ratio_direct": 1.9807118595209443,
+      "ratio_x1000": 0.0019807118595209445,
+      "ratio_div1000": 1980.7118595209442,
+      "streamwise_pressure_trend": -58.88089802457343,
+      "outlet_adjacent_values": {
+        "mean": 3.3897711933953127,
+        "min": 0.7732105063,
+        "max": 6.214446963
+      },
+      "gauge_centered_shape_error_direct": 0.3767403900487317
+    },
+    {
+      "sample_index": 274,
+      "published_pressure_range": 38.331074826,
+      "local_openfoam_kinematic_pressure_range": 91.33910584944527,
+      "ratio_direct": 2.3828996777176172,
+      "ratio_x1000": 0.0023828996777176177,
+      "ratio_div1000": 2382.8996777176176,
+      "streamwise_pressure_trend": -33.4140031514375,
+      "outlet_adjacent_values": {
+        "mean": 4.69381141496875,
+        "min": 1.515147534,
+        "max": 9.120242174
+      },
+      "gauge_centered_shape_error_direct": 0.46423484355740957
+    },
+    {
+      "sample_index": 549,
+      "published_pressure_range": 50.8709341422,
+      "local_openfoam_kinematic_pressure_range": 107.01768476832038,
+      "ratio_direct": 2.1037098408527912,
+      "ratio_x1000": 0.002103709840852791,
+      "ratio_div1000": 2103.709840852791,
+      "streamwise_pressure_trend": -41.807627034025,
+      "outlet_adjacent_values": {
+        "mean": 4.7883961981625,
+        "min": 0.2015699078,
+        "max": 13.41436003
+      },
+      "gauge_centered_shape_error_direct": 0.456229956322421
+    }
+  ]
+}

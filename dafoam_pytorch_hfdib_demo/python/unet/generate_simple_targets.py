@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import time
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +41,12 @@ def main() -> int:
                     help="Primary target step (saves q_cell, q_phi, normalization)")
     ap.add_argument("--save-ks", default="",
                     help="Comma-separated extra K values to save (e.g. 5,10,20,40,80)")
+    ap.add_argument("--topology-ids", default="",
+                    help="Comma-separated topology IDs; defaults to the training split")
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="Reuse topology targets with a valid DONE.json")
+    ap.add_argument("--shard-index", type=int, default=0)
+    ap.add_argument("--shard-count", type=int, default=1)
     args = ap.parse_args()
 
     ds_dir = Path(args.dataset)
@@ -107,6 +114,13 @@ def main() -> int:
     with open(ds_dir / "splits.json") as f:
         splits = json.load(f)
     train_topologies = splits["train"]
+    if args.topology_ids:
+        requested = [value.strip() for value in args.topology_ids.split(",") if value.strip()]
+        train_topologies = [value if value.startswith("topology_") else f"topology_{int(value):04d}"
+                            for value in requested]
+    if not 0 <= args.shard_index < args.shard_count:
+        raise ValueError("shard-index must be in [0, shard-count)")
+    train_topologies = train_topologies[args.shard_index::args.shard_count]
 
     print(f"[targets] {len(train_topologies)} training topologies")
     print(f"[targets] K_max={args.k_max}, K_primary={args.k_primary}")
@@ -121,6 +135,20 @@ def main() -> int:
     all_q_phi = {k: [] for k in k_targets_to_convert}
     all_metrics = []
 
+    def valid_done(directory: Path) -> bool:
+        done = directory / "DONE.json"
+        if not done.is_file():
+            return False
+        try:
+            payload = json.loads(done.read_text())
+        except (OSError, json.JSONDecodeError):
+            return False
+        if payload.get("target_k") != args.k_primary or payload.get("status") != "complete":
+            return False
+        return all((directory / f"q_cell_k{k:03d}.npy").is_file()
+                   and (directory / f"q_phi_k{k:03d}.npy").is_file()
+                   for k in k_targets_to_convert)
+
     for ti, tid in enumerate(train_topologies):
         topo_dir = ds_dir / tid
         case_dir = str(topo_dir / "case")
@@ -128,6 +156,18 @@ def main() -> int:
         out_dir.mkdir(exist_ok=True)
 
         print(f"\n[targets] {tid} ({ti+1}/{len(train_topologies)})")
+
+        if args.skip_existing and valid_done(out_dir):
+            print(f"SKIP_VALID {tid}")
+            for k_target in k_targets_to_convert:
+                all_q_cell[k_target].append(np.load(out_dir / f"q_cell_k{k_target:03d}.npy"))
+                all_q_phi[k_target].append(np.load(out_dir / f"q_phi_k{k_target:03d}.npy"))
+            metrics_path = out_dir / "metrics.json"
+            all_metrics.append(json.loads(metrics_path.read_text()) if metrics_path.is_file() else {
+                "topology_id": tid, "k_primary": args.k_primary,
+                "rel_u_vs_converged": -1.0, "rel_p_vs_converged": -1.0,
+            })
+            continue
 
         os.chdir(case_dir)
         from mpi4py import MPI
@@ -216,13 +256,27 @@ def main() -> int:
         with open(out_dir / "metrics.json", "w") as f:
             json.dump(metrics, f, indent=2)
 
+        done_payload = {
+            "topology_id": tid,
+            "target_k": args.k_primary,
+            "git_sha": os.environ.get("GIT_SHA", "unknown"),
+            "solver": "DASimpleFoam",
+            "uses_converged_labels": False,
+            "status": "complete",
+        }
+        with tempfile.NamedTemporaryFile("w", dir=out_dir, delete=False) as stream:
+            json.dump(done_payload, stream, indent=2)
+            stream.write("\n")
+            temporary_done = stream.name
+        os.replace(temporary_done, out_dir / "DONE.json")
+
         del bridge
 
     # ================================================================
     # Verify target representability for topology_000
     # ================================================================
-    print("\n[targets] Verifying representability for topology_000...")
-    tid = "topology_000"
+    tid = train_topologies[0]
+    print(f"\n[targets] Verifying representability for {tid}...")
     out_dir = targets_dir / tid
 
     w_k10 = np.load(out_dir / f"state_k{args.k_primary:03d}.npy")

@@ -1,0 +1,43 @@
+{
+  "classification_pending": true,
+  "extension_cells_each_side": 32,
+  "sigma_width_factor": 1.0,
+  "roi_bounds": [
+    0.0,
+    0.128,
+    0.0,
+    0.128
+  ],
+  "results": [
+    {
+      "sample_index": 274,
+      "velocity_rel_l2": 0.18514169866698535,
+      "pressure_gauge_centered_rel_l2": 0.15411464116091103,
+      "local_velocity_max": 0.3330680054435676,
+      "reference_velocity_max": 0.28740052169292496,
+      "local_pressure_range": 46.586730541562126,
+      "reference_pressure_range": 38.331074826,
+      "pressure_range_ratio": 1.2153776212391079,
+      "inlet_flux": 6.0416779132377875e-06,
+      "outlet_flux": 6.396889132564578e-06,
+      "simple_iterations": 5000,
+      "wall_time_s": 431.94910502999846,
+      "orientation": "identity"
+    },
+    {
+      "sample_index": 549,
+      "velocity_rel_l2": 0.18517077079147526,
+      "pressure_gauge_centered_rel_l2": 0.17682584515363875,
+      "local_velocity_max": 0.598873003401462,
+      "reference_velocity_max": 0.539567230538093,
+      "local_pressure_range": 59.055881413246695,
+      "reference_pressure_range": 50.8709341422,
+      "pressure_range_ratio": 1.1608963430505765,
+      "inlet_flux": 6.041731081204635e-06,
+      "outlet_flux": 6.3970397939906226e-06,
+      "simple_iterations": 5000,
+      "wall_time_s": 397.2302321370007,
+      "orientation": "identity"
+    }
+  ]
+}

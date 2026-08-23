@@ -1,0 +1,4 @@
+{
+  "status": "NOT_RUN",
+  "reason": "Exact-domain gate failed; bounded campaign prioritized fallback distillation and held-out warm-start evaluation."
+}

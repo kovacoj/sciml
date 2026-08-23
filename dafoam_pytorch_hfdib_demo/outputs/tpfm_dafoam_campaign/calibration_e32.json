@@ -1,0 +1,28 @@
+{
+  "classification_pending": true,
+  "extension_cells_each_side": 32,
+  "sigma_width_factor": 1.0,
+  "roi_bounds": [
+    0.0,
+    0.128,
+    0.0,
+    0.128
+  ],
+  "results": [
+    {
+      "sample_index": 0,
+      "velocity_rel_l2": 0.15890105492964982,
+      "pressure_gauge_centered_rel_l2": 0.20151795442462347,
+      "local_velocity_max": 0.5927314217359282,
+      "reference_velocity_max": 0.541823957594767,
+      "local_pressure_range": 77.44489752130511,
+      "reference_pressure_range": 63.9153794937,
+      "pressure_range_ratio": 1.2116785996543864,
+      "inlet_flux": 6.041702037397935e-06,
+      "outlet_flux": 6.397219925895305e-06,
+      "simple_iterations": 5000,
+      "wall_time_s": 316.578212669001,
+      "orientation": "identity"
+    }
+  ]
+}

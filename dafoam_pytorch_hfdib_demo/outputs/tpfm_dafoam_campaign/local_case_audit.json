@@ -1,0 +1,77 @@
+{
+  "uin": 0.1,
+  "pout": 0.0,
+  "nu": 0.01,
+  "mesh_cells": [
+    64,
+    64,
+    4096
+  ],
+  "dx": 0.002,
+  "dy": 0.002,
+  "xmin": 0.0,
+  "xmax": 0.128,
+  "ymin": 0.0,
+  "ymax": 0.128,
+  "patches": {
+    "inletLower": {
+      "U_type": "fixedValue",
+      "U_value": "(0.1 0 0)",
+      "p_type": "zeroGradient",
+      "p_value": null
+    },
+    "inletUpper": {
+      "U_type": "fixedValue",
+      "U_value": "(0.1 0 0)",
+      "p_type": "zeroGradient",
+      "p_value": null
+    },
+    "outletLower": {
+      "U_type": "zeroGradient",
+      "U_value": null,
+      "p_type": "fixedValue",
+      "p_value": "0"
+    },
+    "outletUpper": {
+      "U_type": "zeroGradient",
+      "U_value": null,
+      "p_type": "fixedValue",
+      "p_value": "0"
+    },
+    "sideWalls": {
+      "U_type": "fixedValue",
+      "U_value": "(0 0 0)",
+      "p_type": "zeroGradient",
+      "p_value": null
+    },
+    "topBottomWalls": {
+      "U_type": "fixedValue",
+      "U_value": "(0 0 0)",
+      "p_type": "zeroGradient",
+      "p_value": null
+    },
+    "frontAndBack": {
+      "U_type": "symmetry",
+      "U_value": null,
+      "p_type": "symmetry",
+      "p_value": null
+    }
+  },
+  "div_scheme": "Gauss linearUpwindV grad(U)",
+  "grad_scheme": "Gauss linear",
+  "laplacian_scheme": "Gauss linear corrected",
+  "simple_settings": {
+    "nNonOrthogonalCorrectors": 0.0,
+    "pRefCell": 0.0,
+    "pRefValue": 0.0
+  },
+  "relaxation": {
+    "p": 0.3,
+    "U": 0.7
+  },
+  "article_match": {
+    "uin": true,
+    "pout": true,
+    "nu": true
+  }
+}

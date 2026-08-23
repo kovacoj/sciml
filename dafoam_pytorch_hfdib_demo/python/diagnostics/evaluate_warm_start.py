@@ -84,6 +84,7 @@ def main() -> int:
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--simple-steps", default="0,1,2,5,10")
     ap.add_argument("--output", default="outputs/warm_start_evaluation/metrics.json")
+    ap.add_argument("--topology-limit", type=int, default=None)
     args = ap.parse_args()
 
     import torch
@@ -152,6 +153,8 @@ def main() -> int:
     with open(ds_dir / "splits.json") as f:
         splits = json.load(f)
     test_topologies = splits["test"]
+    if args.topology_limit is not None:
+        test_topologies = test_topologies[:args.topology_limit]
     simple_steps = [int(s) for s in args.simple_steps.split(",")]
 
     output = Path(args.output)
@@ -176,11 +179,6 @@ def main() -> int:
         write_signed_distance_file(
             case_dir, np.load(topo_dir / "signed_distance.npy"))
 
-        # Load converged HFDIB reference
-        ref_ux = np.load(topo_dir / "ux_hfdib.npy")
-        ref_uy = np.load(topo_dir / "uy_hfdib.npy")
-        ref_p = np.load(topo_dir / "pressure_hfdib.npy")
-
         # Reconstruct full converged state for rel_error
         # Use the bridge to get W*
         os.chdir(case_dir)
@@ -196,10 +194,14 @@ def main() -> int:
         )
         w_star = np.ascontiguousarray(
             bridge.solver.getStates().copy(), dtype=np.float64)
+
         # Run primal to get converged state
         bridge.solver()
         w_star = np.ascontiguousarray(
             bridge.solver.getStates().copy(), dtype=np.float64)
+        w_teacher = np.load(ds_dir / "solver_targets" / tid / "state_k020.npy")
+        teacher_rel_u, teacher_rel_p = rel_field_error(
+            w_teacher, w_star, n_cells, n_u, n_p, phi_trainable_indices)
 
         # NN prediction
         lam = np.load(topo_dir / "lambda.npy")
@@ -268,6 +270,10 @@ def main() -> int:
             "rel_errors": {
                 "rel_u": rel_u_nn,
                 "rel_p": rel_p_nn,
+            },
+            "teacher_rel_errors": {
+                "rel_u": teacher_rel_u,
+                "rel_p": teacher_rel_p,
             },
         }
 

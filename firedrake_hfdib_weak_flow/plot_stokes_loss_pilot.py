@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 def main() -> None:
-    source = Path("outputs/stokes_loss_pilot")
+    source = Path("outputs/stokes_loss_pilot_expanded")
     destination = source / "final"
     destination.mkdir(parents=True, exist_ok=True)
     meshes = ((16, 8), (32, 16), (64, 32))
@@ -29,8 +29,11 @@ def main() -> None:
         writer.writeheader(); writer.writerows(rows)
 
     labels = [f"{nx}x{ny}" for nx, ny in meshes]
-    methods = ("raw", "dual", "correction")
-    colors = {"raw": "tab:red", "dual": "tab:blue", "correction": "tab:green"}
+    methods = ("raw", "dual", "jacobi_ls", "block", "correction", "oracle")
+    colors = {
+        "raw": "tab:red", "dual": "tab:blue", "jacobi_ls": "tab:orange",
+        "block": "tab:purple", "correction": "tab:green", "oracle": "black",
+    }
     figure, axes = plt.subplots(1, 3, figsize=(13, 3.8), constrained_layout=True)
     for method in methods:
         axes[0].semilogy(labels, [data[m][method]["relative_velocity_error"] for m in meshes], "o-", color=colors[method], label=method)
@@ -62,7 +65,7 @@ def main() -> None:
     conclusion = {
         "hypothesis_supported": True,
         "fixed_budget_iterations": 300,
-        "finding": "correction loss is markedly less mesh-sensitive in velocity error; raw normalized loss becomes misleading under refinement",
+        "finding": "exact correction tracks oracle and is least mesh-sensitive; block degrades under refinement and Jacobi least-squares is ineffective",
         "data": rows,
     }
     (destination / "pilot_summary.json").write_text(json.dumps(conclusion, indent=2) + "\n")

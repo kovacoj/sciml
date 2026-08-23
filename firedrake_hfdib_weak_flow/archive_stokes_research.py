@@ -19,7 +19,7 @@ def main() -> None:
     root.mkdir(parents=True, exist_ok=True)
     files = []
     patterns = (
-        Path("outputs/stokes_loss_pilot/final"),
+        Path("outputs/stokes_loss_pilot_expanded/final"),
         Path("outputs/stokes_mlp_loss_pilot/final"),
     )
     for source_dir in patterns:
@@ -45,7 +45,10 @@ def main() -> None:
         "claim": "matched-initialization Stokes residual metric pilot",
         "meshes": ["16x8", "32x16"],
         "seeds": [11, 22, 33, 44, 55],
-        "losses": ["raw", "dual", "correction"],
+        "coefficient_losses": [
+            "raw", "dual", "jacobi_ls", "block", "correction", "oracle",
+        ],
+        "mlp_losses": ["raw", "dual", "correction"],
         "optimizer_budget": "300 L-BFGS iterations",
         "network_checkpoints": 30,
         "files": files,

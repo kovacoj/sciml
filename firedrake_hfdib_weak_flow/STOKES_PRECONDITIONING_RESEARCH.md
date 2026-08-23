@@ -54,3 +54,22 @@ refinement. Pressure improvements are smaller (32x16 medians: raw 0.784, dual
 0.583, correction 0.566), making block-norm and approximate-preconditioner
 design the next priority. The archive stores all 30 final network states, every
 run JSON, aggregate CSV/JSON, convergence figures, and SHA-256 hashes.
+
+## Exact and approximate coefficient metrics
+
+The expanded deterministic pilot adds a diagonal normal-equation Jacobi
+correction, a velocity-block/pressure-mass correction, and the unavailable
+oracle FE-error objective. Exact correction and oracle produce nearly identical
+errors at all meshes, as predicted by `A^-1 r = z-z_star`.
+
+At 64x32 after 300 iterations, velocity errors are: raw `0.978`, dual `0.224`,
+Jacobi `0.998`, block `0.189`, exact correction `0.00607`, and oracle `0.00523`.
+Exact correction costs `10.2 s` versus oracle `1.84 s`, quantifying the solve
+overhead that approximate correction operators must recover. The simple block
+method is useful at coarse meshes but loses robustness under refinement;
+pressure-mass scaling alone is not sufficient. Diagonal least-squares Jacobi is
+not competitive.
+
+Fixed-iteration Krylov is deferred until its transpose/algorithmic derivative
+is implemented exactly. Treating an inexact solve as a constant exact inverse
+would give an invalid training gradient.

@@ -1,0 +1,14 @@
+{
+  "validation": {
+    "case": "topology_0257",
+    "state_dict_max_abs": 0.0,
+    "torchscript_max_abs": 0.0
+  },
+  "test": {
+    "case": "topology_0290",
+    "state_dict_max_abs": 0.0,
+    "torchscript_max_abs": 0.0
+  },
+  "state_dict_status": "PASS",
+  "torchscript_status": "PASS"
+}

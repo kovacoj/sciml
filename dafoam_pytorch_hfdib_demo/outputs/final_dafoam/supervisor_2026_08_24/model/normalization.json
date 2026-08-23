@@ -1,0 +1,14 @@
+{
+  "dtype": "float64",
+  "lambda_convention": "0 fluid, 1 solid",
+  "velocity_scale": 0.1,
+  "pressure_scale": 0.01,
+  "phi_scale": 4e-07,
+  "grid_shape": [
+    64,
+    64
+  ],
+  "array_order": "C, row-major y then x",
+  "state_layout": "cell-major interleaved Ux,Uy,Uz; cell p; face phi",
+  "phi_dof_order": "internal faces then outletLower/outletUpper"
+}

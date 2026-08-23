@@ -1,0 +1,7 @@
+{
+  "branch": "feat/dafoam-tpfm-reproduction",
+  "python": "3.10.8",
+  "numpy": "1.23.5",
+  "torch": "2.8.0+cu128",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39"
+}

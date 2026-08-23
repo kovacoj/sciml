@@ -1,0 +1,11 @@
+{
+  "case": "topology_0294",
+  "status": "complete",
+  "methods": [
+    "cold",
+    "teacher_k20",
+    "neural",
+    "neural_t1",
+    "neural_t5"
+  ]
+}

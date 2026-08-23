@@ -28,6 +28,10 @@ from common import hfdib_signed_distance_options, PROJECT_ROOT  # noqa: E402
 from dafoam_bridge import DAFoamResidualBridge  # noqa: E402
 from state_layout import build_isothermal_layout  # noqa: E402
 from unet.generate_case import write_signed_distance_file  # noqa: E402
+from diagnostics.warmstart_common import (  # noqa: E402
+    build_state_assembler,
+    predict_full_state,
+)
 
 
 def compute_continuity_error(state, mesh_meta, n_u, n_p, n_internal):
@@ -132,22 +136,9 @@ def main() -> int:
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
-    from pinn.flux_assembly import FluxAssembler
-    from pinn.state_assembly_independent_phi import IndependentPhiStateAssembler
-    from unet.train import project_solid_velocity
-
-    flux_asm = FluxAssembler(
-        owners=mesh_meta.owners,
-        neighbours=mesh_meta.neighbours,
-        sf_vec=mesh_meta.face_area_vectors,
-        owner_weights=mesh_meta.owner_weights,
-        n_cells=n_cells,
-        n_faces=n_faces,
-    )
-    base_state = torch.from_numpy(w0)
-    state_asm = IndependentPhiStateAssembler(
-        base_state, layout, flux_asm, n_cells, n_faces,
-        phi_trainable_indices)
+    state_asm, shared_phi_indices = build_state_assembler(mesh_meta, layout, w0)
+    if not np.array_equal(shared_phi_indices, phi_trainable_indices):
+        raise AssertionError("shared state assembler changed trainable phi indices")
 
     # Load test topologies
     with open(ds_dir / "splits.json") as f:
@@ -204,14 +195,7 @@ def main() -> int:
             w_teacher, w_star, n_cells, n_u, n_p, phi_trainable_indices)
 
         # NN prediction
-        lam = np.load(topo_dir / "lambda.npy")
-        lam_t = torch.from_numpy(lam).unsqueeze(0).unsqueeze(0)
-        with torch.no_grad():
-            cell_pred, phi_pred = model(lam_t)
-            cell_pred = project_solid_velocity(cell_pred, lam_t)
-            corrections = cell_pred.squeeze(0).permute(1, 2, 0).reshape(-1, 3)
-            phi_corr = phi_pred.squeeze(0)
-            w_nn = state_asm.assemble(corrections, phi_corr).detach().numpy()
+        w_nn, _ = predict_full_state(model, np.load(topo_dir / "lambda.npy"), state_asm)
 
         # ================================================================
         # 1. Article metrics

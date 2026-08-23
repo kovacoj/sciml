@@ -5,8 +5,8 @@ RUN_NAME="$1"
 CPUS="$2"
 shift 2
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPO="$(cd "$ROOT/.." && pwd)"
+ROOT="$(CDPATH= cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$(CDPATH= cd "$ROOT/.." && pwd)"
 OUT="$ROOT/outputs/$RUN_NAME"
 mkdir -p "$OUT"
 

@@ -1,0 +1,40 @@
+{
+  "purpose": "DAFoam warm-start initialization",
+  "architecture": "simple",
+  "parameter_count": 3153264,
+  "seed": 22,
+  "training_mode": "solver-distilled K=20",
+  "training_set_size": 256,
+  "validation_set_size": 32,
+  "test_set_size": 16,
+  "selection_criterion": "best validation performance among seeds 11,22,33",
+  "input_fields": [
+    "lambda"
+  ],
+  "output_fields": [
+    "q_cell(Ux,Uy,p)",
+    "q_phi"
+  ],
+  "normalization": {
+    "dtype": "float64",
+    "lambda_convention": "0 fluid, 1 solid",
+    "velocity_scale": 0.1,
+    "pressure_scale": 0.01,
+    "phi_scale": 4e-07,
+    "grid_shape": [
+      64,
+      64
+    ],
+    "array_order": "C, row-major y then x",
+    "state_layout": "cell-major interleaved Ux,Uy,Uz; cell p; face phi",
+    "phi_dof_order": "internal faces then outletLower/outletUpper"
+  },
+  "classification": "TPFM_TOPOLOGIES_ONLY",
+  "known_limitations": [
+    "not trained on converged CFD labels",
+    "weak pressure accuracy",
+    "exact published CFD reproduction not established",
+    "intended only as a warm start",
+    "requires the campaign grid and state convention"
+  ]
+}

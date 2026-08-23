@@ -1,0 +1,7 @@
+{
+  "selected_seed": 22,
+  "candidate_seeds": [11, 22, 33],
+  "selection_split": "validation",
+  "test_used_for_selection": false,
+  "further_tuning_after_test": false
+}

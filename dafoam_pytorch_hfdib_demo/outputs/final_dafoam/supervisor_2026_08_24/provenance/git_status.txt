@@ -1,0 +1,12 @@
+ M dafoam_pytorch_hfdib_demo/python/diagnostics/evaluate_warm_start.py
+ M dafoam_pytorch_hfdib_demo/scripts/launch_dafoam_nohup.sh
+?? dafoam_pytorch_hfdib_demo/datasets/tpfm_64_crossval/
+?? dafoam_pytorch_hfdib_demo/datasets/tpfm_64_full_calibration/
+?? dafoam_pytorch_hfdib_demo/datasets/tpfm_64_full_validation/
+?? dafoam_pytorch_hfdib_demo/datasets/tpfm_64_local_dafoam/
+?? dafoam_pytorch_hfdib_demo/datasets/tpfm_full_domain_smoke/
+?? dafoam_pytorch_hfdib_demo/python/diagnostics/warmstart_common.py
+?? dafoam_pytorch_hfdib_demo/python/tpfm_reference/evaluate_warmstart_convergence.py
+?? dafoam_pytorch_hfdib_demo/python/tpfm_reference/export_supervisor_model.py
+?? dafoam_pytorch_hfdib_demo/python/tpfm_reference/finalize_supervisor_campaign.py
+?? dafoam_pytorch_hfdib_demo/python/tpfm_reference/inference_example.py

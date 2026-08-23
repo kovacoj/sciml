@@ -1,0 +1,10 @@
+{
+  "selected_seed": 22,
+  "selection_basis": "best validation performance among completed seeds 11,22,33",
+  "no_further_seed_search": true,
+  "checkpoint": "outputs/tpfm_local_distill_seed22/checkpoint.pt",
+  "held_out_cases": [
+    "topology_0290", "topology_0291", "topology_0292", "topology_0293",
+    "topology_0294", "topology_0295", "topology_0296", "topology_0297"
+  ]
+}

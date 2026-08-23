@@ -1,0 +1,7 @@
+{
+  "case": "topology_0297",
+  "rho_reference": 0.0013065304687455593,
+  "threshold": 0.013065304687455592,
+  "definition": "max(10*rho_reference, residual_rel_tol)",
+  "residual_rel_tol": 1e-06
+}

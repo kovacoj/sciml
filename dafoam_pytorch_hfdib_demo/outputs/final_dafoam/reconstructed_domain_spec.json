@@ -1,0 +1,22 @@
+{
+  "benchmark_classification": "TPFM_TOPOLOGIES_ONLY",
+  "source": "bounded DAFoam TPFM reconstruction audit",
+  "domain_model": "reconstructed_32_cell_extensions",
+  "cell_spacing_m": 0.002,
+  "roi_nx": 64,
+  "roi_ny": 64,
+  "full_nx": 128,
+  "full_ny": 64,
+  "left_extension_cells": 32,
+  "right_extension_cells": 32,
+  "full_domain_bounds_m": [-0.064, 0.192, 0.0, 0.128],
+  "roi_bounds_m": [0.0, 0.128, 0.0, 0.128],
+  "roi_full_domain_mapping": "row-major full[j, i + 32] = roi[j, i], 0 <= i,j < 64",
+  "inlet_geometry": "left boundary x=-0.064 m; lower y=[0.016,0.032] m; upper y=[0.096,0.112] m",
+  "outlet_geometry": "right boundary x=0.192 m; lower y=[0.016,0.032] m; upper y=[0.096,0.112] m",
+  "uin_m_s": 0.1,
+  "pout_kinematic": 0.0,
+  "nu_m2_s": 0.01,
+  "exact_tpfm_reproduction": false,
+  "three_case_velocity_errors": [0.158901, 0.185142, 0.185171]
+}

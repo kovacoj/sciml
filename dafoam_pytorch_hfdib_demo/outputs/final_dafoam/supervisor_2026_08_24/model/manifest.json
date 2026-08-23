@@ -1,0 +1,12 @@
+{
+  "INFERENCE_README.md": "10e51ba91a58dc7b7a148f522c6742d82e4841ed44f97352e222b2f4c264163f",
+  "inference_example.py": "c26ee241d59d7f8d2e9256d07005e7954cc1158030b424f5939dbf10591424ef",
+  "inference_reload_test.json": "e201f88ad3ba7521ebf00d86b3cae23ff4fafbdd1a54f21e83fd75a9ba13e9d9",
+  "model_card.json": "1fef18e87c4fd5f580de53c69c00f46a431e4cd531853bdfe7175679c8acd236",
+  "model_config.json": "9893f6dfeec25f860bc54d1a3555898990814c2b4748f28bdcd5be0018f8a484",
+  "normalization.json": "d3b3d32ce1dd6ab91bf89d289abda8031760417463009f000ba999b234ef2dfe",
+  "seed22_checkpoint.pt": "b5e44869813522cde59ab12e5f009b4eebd95b3f559740a4ae4cd8fc74f73583",
+  "seed22_state_dict.pt": "c6522cd882b498da8c626a955b0469d7855cba4934d297ad243830e38776b618",
+  "seed22_torchscript.pt": "3a5a87a7e692d0075f66ec9faf8cf77167943c595ff00e3cbc3c7e2d08aa3e3d",
+  "split_manifest.json": "a8f3b44d2971c77e208d7011de04e4d8a8fca7b153bb9b9757f042e418e35b1d"
+}

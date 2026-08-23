@@ -244,6 +244,19 @@ the predeclared `ux < 0.01` and mass-imbalance `< 1e-4` validation gates.
 Optimization is stopped at that fixed budget; circular HFDIB and controlled
 TPFM neural runs remain blocked.
 
+An additional analytic A/B/C channel-network family tests a separate
+Navier-Stokes-Brinkman application (not article HFDIB). Direct segmented-port
+solves are mass-balanced, but the 32 by 32 penalty gate is not acceptable:
+solid leakage remains `0.235` even at `alpha=1e6`, where divergence L2 degrades
+to `0.677`. No Brinkman neural or recycling runs are launched from this failed
+physical/discretization gate.
+
+The bounded 64 by 64 diagnosis tests only alpha 625/1250/2500. Leakage remains
+`0.694/0.621/0.538`; a single sharp-indicator run at alpha 2500 gives `0.403`.
+Thus one refinement and removal of diffuse lambda improve but do not resolve
+the gate. The appendix reports the Brinkman length `sqrt(nu/alpha)` relative to
+mesh spacing and freezes the experiment without neural fitting.
+
 That result is retained as the strong-residual diagnostic. Case0 now selects
 `"residual_formulation": "h1_weak"`: direct and neural/coefficient paths call
 `src.weak_forms.navier_stokes_weak_form`, use first derivatives only, leave all

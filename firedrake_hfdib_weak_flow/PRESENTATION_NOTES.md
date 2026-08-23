@@ -93,3 +93,17 @@ TPFM-derived benchmark, but does not recover the article CFD domain.
 > minimization recovers that root to high accuracy. Restricting the coefficients
 > to a coordinate MLP gives an approximate Stokes solution; its missed mass gate
 > motivates further representation and optimization work before HFDIB escalation.
+
+## Brinkman application gate
+
+A separate analytic A/B/C channel-network family was created for a fully
+variational Brinkman application. This is explicitly not the article's HFDIB
+discretization. Standard mixed Taylor-Hood direct solves on segmented physical
+ports are globally mass-balanced, but the 32 by 32 alpha gate failed: solid
+leakage decreases only from `0.808` at alpha 100 to `0.235` at alpha `1e6`,
+while divergence L2 degrades to `0.677`. A bounded 64 by 64 check gives leakage
+`0.694`, `0.621`, and `0.538` at alpha 625/1250/2500; replacing diffuse lambda
+by sharp chi at alpha 2500 improves this only to `0.403`. The issue therefore
+combines penalty-layer resolution, diffuse-interface width, and the global
+leakage metric rather than being rescued by one refinement. Neural and recycling
+runs were not launched. Use these figures only as appendix/next-work material.

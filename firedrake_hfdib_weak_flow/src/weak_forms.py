@@ -23,3 +23,13 @@ def navier_stokes_weak_form(u, p, v, q, nu, beta, measure):
         momentum_weak_action(u, p, v, nu, beta, measure)
         + continuity_weak_action(u, q, measure)
     )
+
+
+def navier_stokes_brinkman_weak_form(
+    u, p, v, q, nu, beta, alpha, lam, measure
+):
+    """Variational Navier-Stokes-Brinkman residual."""
+    return (
+        navier_stokes_weak_form(u, p, v, q, nu, beta, measure)
+        + alpha * lam * dot(u, v) * measure
+    )

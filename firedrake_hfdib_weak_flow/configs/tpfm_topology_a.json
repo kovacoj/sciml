@@ -1,17 +1,33 @@
 {
-  "name": "tpfm_topology_a",
-  "geometry": {
-    "dataset": "../tpfm_unet_reference/data/mixer_64.npz",
-    "sample_index": 0
-  },
-  "mesh": {
-    "resolution": 20
-  },
-  "physics": {
-    "uin": 0.1,
-    "pout": 0.0,
-    "nu": 0.01
-  },
-  "continuation": [100, 50, 50, 200],
-  "checkpoint_every": 25
+  "name": "topoA",
+  "dataset": "../tpfm_unet_reference/data/mixer_64.npz",
+  "topology_index": 0,
+  "spacing": 0.002,
+  "nx": 20,
+  "ny": 20,
+  "velocity_degree": 2,
+  "pressure_degree": 1,
+  "quadrature_degree": 6,
+  "inlet_marker": 1,
+  "outlet_marker": 2,
+  "wall_markers": [3, 4],
+  "uin": 0.1,
+  "pout": 0.0,
+  "nu": 0.01,
+  "ell": null,
+  "u_scale": 0.1,
+  "p_scale": 0.01,
+  "network_width": 64,
+  "network_depth": 4,
+  "seed": 11,
+  "gamma": 1.0,
+  "continuation": [
+    {"beta": 0.0, "steps": 100, "lr": 0.001},
+    {"beta": 0.25, "steps": 50, "lr": 0.0005},
+    {"beta": 0.5, "steps": 50, "lr": 0.0005},
+    {"beta": 1.0, "steps": 200, "lr": 0.0005}
+  ],
+  "checkpoint_every": 25,
+  "log_every": 5,
+  "field_save_every": 100
 }

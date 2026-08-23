@@ -1,18 +1,16 @@
 # Firedrake HFDIB weak-flow scaffold
 
-This directory contains the lightweight, Firedrake-independent core for a
-weak-flow HFDIB experiment on the TPFM four-port geometries. It currently
-provides:
+This directory contains the lightweight geometry/network core and serial
+Firedrake training infrastructure for a weak-flow HFDIB experiment. It provides:
 
 - reconstruction of signed distance and normals from `mixer_64.npz`;
 - interpolation of reconstructed geometry fields at arbitrary coordinates;
 - first- and second-order HFDIB interpolation in float64 PyTorch, with samples
   at normal coordinates `0`, `d1`, and `d1 + d2`;
 - outward normal search for fluid interpolation points; and
-- a coordinate MLP for `(u_x, u_y, p)`.
-
-There is deliberately no mock or partial Firedrake bridge. A variational
-operator should be added only in an environment with Firedrake available.
+- a coordinate MLP for `(u_x, u_y, p)`;
+- strong Firedrake residuals with fixed discrete Riesz maps; and
+- resumable training, diagnostics, field snapshots, and atomic run status.
 
 ## Data
 
@@ -45,6 +43,21 @@ From this directory, with NumPy, SciPy, PyTorch, and pytest installed:
 python -m pytest -q
 ```
 
-The smoke configuration uses a 12 by 12 mesh. Topology configurations use a
+The smoke configuration uses a 10 by 10 mesh. Topology configurations use a
 20 by 20 mesh and the default physical values `uin=0.1`, `pout=0`, and
 `nu=0.01`.
+
+## Training
+
+Launch and inspect the smoke run without running it in the foreground:
+
+```bash
+scripts/launch_nohup.sh smoke configs/smoke.json
+scripts/status.sh smoke
+scripts/stop.sh smoke
+```
+
+The launcher automatically resumes `checkpoint_latest.pt`. Direct CLI use in
+the Firedrake image is also supported with `python3 -m src.train --config ...
+--output-dir ...`. Generate available figures and file-backed presentation
+metrics with `python3 plot_results.py`.

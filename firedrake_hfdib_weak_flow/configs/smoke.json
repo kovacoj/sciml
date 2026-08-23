@@ -1,17 +1,28 @@
 {
   "name": "smoke",
-  "geometry": {
-    "dataset": "../tpfm_unet_reference/data/mixer_64.npz",
-    "sample_index": 0
-  },
-  "mesh": {
-    "resolution": 12
-  },
-  "physics": {
-    "uin": 0.1,
-    "pout": 0.0,
-    "nu": 0.01
-  },
-  "continuation": [100, 50, 50, 200],
-  "checkpoint_every": 25
+  "dataset": "../tpfm_unet_reference/data/mixer_64.npz",
+  "topology_index": 0,
+  "spacing": 0.002,
+  "nx": 10,
+  "ny": 10,
+  "velocity_degree": 2,
+  "pressure_degree": 1,
+  "quadrature_degree": 6,
+  "inlet_marker": 1,
+  "outlet_marker": 2,
+  "wall_markers": [3, 4],
+  "uin": 0.1,
+  "pout": 0.0,
+  "nu": 0.01,
+  "ell": null,
+  "u_scale": 0.1,
+  "p_scale": 0.01,
+  "network_width": 16,
+  "network_depth": 2,
+  "seed": 11,
+  "gamma": 1.0,
+  "continuation": [{"beta": 0.0, "steps": 30, "lr": 0.001}],
+  "checkpoint_every": 10,
+  "log_every": 1,
+  "field_save_every": 10
 }

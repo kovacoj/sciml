@@ -1,0 +1,7 @@
+outputs/
+checkpoints/
+*.pvd
+*.vtu
+*.pvtu
+__pycache__/
+.pytest_cache/

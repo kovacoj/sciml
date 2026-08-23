@@ -1,0 +1,19 @@
+{
+  "name": "tpfm_topology_b_transfer",
+  "geometry": {
+    "dataset": "../tpfm_unet_reference/data/mixer_64.npz",
+    "sample_index": 274
+  },
+  "mesh": {
+    "resolution": 20
+  },
+  "physics": {
+    "uin": 0.1,
+    "pout": 0.0,
+    "nu": 0.01
+  },
+  "continuation": [100, 50, 50, 200],
+  "checkpoint_every": 25,
+  "initialization": "transfer",
+  "initial_checkpoint": "outputs/tpfm_topology_a/checkpoint_0200.pt"
+}

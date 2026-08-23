@@ -1,0 +1,17 @@
+{
+  "name": "smoke",
+  "geometry": {
+    "dataset": "../tpfm_unet_reference/data/mixer_64.npz",
+    "sample_index": 0
+  },
+  "mesh": {
+    "resolution": 12
+  },
+  "physics": {
+    "uin": 0.1,
+    "pout": 0.0,
+    "nu": 0.01
+  },
+  "continuation": [100, 50, 50, 200],
+  "checkpoint_every": 25
+}

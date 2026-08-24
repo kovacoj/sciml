@@ -1,0 +1,10 @@
+{
+  "selected_case_ids": [
+    "topology_0291",
+    "topology_0292",
+    "topology_0290"
+  ],
+  "selection_method": "ordered geometry descriptors (fluid fraction, interface density, long horizontal paths), independent of model error",
+  "figure6_exact_matches_found": false,
+  "reason": "reference PDF unavailable locally"
+}

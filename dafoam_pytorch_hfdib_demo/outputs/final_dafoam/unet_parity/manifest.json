@@ -1,0 +1,18 @@
+{
+  "CAMPAIGN_STATUS.md": "36ba372b4b5d6271086cb5598008d3991a20a4d2b4613a0d7dfe20177169a275",
+  "PAPER_PARITY_REPORT.md": "bf265d72085107e566960c5968ed74d6ab8ec44c11544e3ac831399288525e1a",
+  "PRESENTATION_PARITY_TABLE.csv": "206a0e94e0597364ab62c28fd6125a488443f39429c9d0823d9dcb0b1c87377d",
+  "PRESENTATION_PARITY_TABLE.md": "a5a7cf2a328bed502523c45960f250135044029466d5d2ef49653103dd86abde",
+  "baseline_benchmark/aggregate_metrics.json": "79fdc4d07be45063439e52c53a372091afd437b0f7fee8866cb8be1975a67eba",
+  "baseline_benchmark/benchmark_fields.npz": "bcf89b5f867c799e68b406b3ebf393f63ea742e411c3a364964334c88b8e7487",
+  "baseline_benchmark/figure_selection.json": "01ab3fdd91d4bd304e851e6b649b9da25282aadd204e29878c149fac583c5dbb",
+  "baseline_benchmark/per_case_metrics.csv": "cd7ee9b567be763beddc58b3424d33a5103899e44c3c6493d12fda0b0bca258a",
+  "baseline_benchmark/topology_selection.csv": "a96789a94ce03c10ac58a503deca4012e8b41c83011c580b673109e628200ce4",
+  "figures/dafoam_error_maps.pdf": "9afcaa5d441fd0ffcc35cc393a2f5e8f84dc1633ff337fdc90c8bfdbb6eb5991",
+  "figures/dafoam_error_maps.png": "922dc49deafefac2a8d82aae32b48ccc5787e3f3739dc9c19b25c128336dd139",
+  "figures/dafoam_figure6_analogue_reference_vs_model.pdf": "40b9c71516c4f15856def0f6138c865495a5a4a327cb5728367f64bf4b9bbe4b",
+  "figures/dafoam_figure6_analogue_reference_vs_model.png": "17bba9e06a4c2f29578ce9553fcfa0dd4eed89b6dcf6b96e5b4dd4cf4e91a783",
+  "figures/dafoam_pressure_drop_parity.pdf": "eae84353401fc9487a452270b41d9111d4a4a71c9715e5d9eec5f0e2a4ce1c2c",
+  "figures/dafoam_pressure_drop_parity.png": "abc83230ab0b16d27b86bb6099a15900ab92dd8d5f2012fda84a6787f0942fdb",
+  "models/solver_distilled_seed22/model_card.json": "235d0485ff392605107b3372f45fa6f3ab6b0153ea6ddecec3e6ffeb62cad8f8"
+}

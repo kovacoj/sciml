@@ -1,0 +1,20 @@
+{
+  "model_name": "solver_distilled_seed22",
+  "architecture": "SimpleFlowNet",
+  "parameter_count": 3153264,
+  "training_objective": "imitate W20 truncated SIMPLE states",
+  "training_label_type": "W20",
+  "training_topology_count": 256,
+  "validation_topology_count": 32,
+  "test_topology_count": 16,
+  "evaluated_test_count": 8,
+  "classification": "TPFM_TOPOLOGIES_ONLY",
+  "intended_use": "DAFoam warm-start initialization",
+  "paper_velocity_parity": false,
+  "known_limitations": [
+    "not trained on converged CFD labels",
+    "weak pressure prediction",
+    "does not reduce convergence iterations",
+    "assumes campaign mesh and state convention"
+  ]
+}

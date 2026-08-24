@@ -1,0 +1,6 @@
+method,labels,velocity_mse_tv_median,relative_velocity_error_median,pressure_mse_tv_median,relative_pressure_error_median,pressure_drop_error_median,status
+Paper U-Net reported,converged CFD,0.015-0.040,N/A,0.053-0.140,N/A,0.13-0.15,external reported examples
+Solver-distilled,W20,0.0405276511,0.6456731034,3843.75784898,0.9950386694,0.9947002413,velocity parity FAIL
+W20 teacher,truncated SIMPLE,0.0129762988,0.4060789622,0.0395826331,0.3790523846,0.2389770423,diagnostic
+Supervised DAFoam,converged CFD,,,,,,NOT TRAINED
+Physics augmented,converged CFD plus physics,,,,,,NOT TRAINED

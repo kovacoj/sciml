@@ -19,6 +19,8 @@ def test_cfd_presentation_manifest_and_required_figures():
     for name in required:
         assert (root / "figures" / name).stat().st_size > 0
     manifest = json.loads((root / "manifest.json").read_text())
+    assert manifest["_metadata"]["cases_2d"] == 6
+    assert manifest["_metadata"]["has_completed_3d"] is True
     for name in required:
         assert f"figures/{name}" in manifest
     for name in "ABCDEF":

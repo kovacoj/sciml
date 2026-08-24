@@ -266,14 +266,18 @@ def plot_3d(cases, metrics):
 
 
 def hash_manifest(extra):
-    files = []
-    for path in sorted(FIGURES.iterdir()):
-        if path.is_file():
-            files.append({"path": str(path.relative_to(ROOT)), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "bytes": path.stat().st_size})
-    for path in sorted(PLOTTED.iterdir()):
-        if path.is_file():
-            files.append({"path": str(path.relative_to(ROOT)), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "bytes": path.stat().st_size})
-    (ROOT / "manifest.json").write_text(json.dumps({"style": {"geometry": "grayscale", "velocity": VELOCITY_CMAP, "pressure": PRESSURE_CMAP, "background": "white"}, **extra, "files": files}, indent=2) + "\n")
+    manifest = {
+        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(ROOT.rglob("*"))
+        if path.is_file() and path.name != "manifest.json"
+        and "study_2d_vs_3d" not in path.parts
+    }
+    manifest["_metadata"] = {
+        "style": {"geometry": "grayscale", "velocity": VELOCITY_CMAP,
+                  "pressure": PRESSURE_CMAP, "background": "white"},
+        **extra,
+    }
+    (ROOT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 def main():

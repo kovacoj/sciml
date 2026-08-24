@@ -89,7 +89,7 @@ def load_model(checkpoint: Path):
 
 def selected_cases(ds_dir: Path, value: str):
     splits = json.loads((ds_dir / "splits.json").read_text())
-    frozen = splits["test"][:8]
+    frozen = splits["test"]
     if not value:
         return frozen
     requested = [part.strip() for part in value.split(",") if part.strip()]
@@ -169,7 +169,7 @@ def main() -> int:
     w0 = np.load(ds_dir / "shared/base_state_k0.npy")
     assembler, _ = build_state_assembler(mesh, build_isothermal_layout(mesh.n_cells, mesh.n_faces), w0)
     previous = json.loads((Path(PROJECT_ROOT) / "outputs/final_dafoam/warm_start_raw.json").read_text())
-    frozen_cases = json.loads((ds_dir / "splits.json").read_text())["test"][:8]
+    frozen_cases = json.loads((ds_dir / "splits.json").read_text())["test"]
 
     from mpi4py import MPI
     for case in selected_cases(ds_dir, args.test_indices):
@@ -197,10 +197,11 @@ def main() -> int:
         })
 
         neural, inference_time = predict_full_state(model, np.load(topology_dir / "lambda.npy"), assembler)
-        expected = previous[case]["rel_errors"]["rel_u"]
         actual = relative_field_errors(neural, reference, mesh.n_cells)["rel_u"]
-        if not np.isclose(actual, expected, rtol=1e-9, atol=1e-12):
-            raise AssertionError(f"{case}: neural assembly regression {actual} != {expected}")
+        if case in previous:
+            expected = previous[case]["rel_errors"]["rel_u"]
+            if not np.isclose(actual, expected, rtol=1e-9, atol=1e-12):
+                raise AssertionError(f"{case}: neural assembly regression {actual} != {expected}")
         teacher = np.load(ds_dir / "solver_targets" / case / "state_k020.npy")
         starts = {"cold": w0, "teacher_k20": teacher, "neural": neural}
         pre_times = {"cold": 0.0, "teacher_k20": 0.0, "neural": 0.0}

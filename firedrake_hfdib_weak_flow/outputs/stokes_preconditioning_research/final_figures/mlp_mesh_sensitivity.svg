@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold">Five-seed coordinate-MLP mesh sensitivity</text>
+<text x="250" y="495" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#222">16x8</text>
+<circle cx="135" cy="301.91303752952655" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="140" cy="289.3118127540584" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="145" cy="281.7621257833672" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="150" cy="281.0130456344731" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="155" cy="280.7311376411702" r="5" fill="#d1495b" opacity=".65"/>
+<line x1="120" y1="281.7621257833672" x2="170" y2="281.7621257833672" stroke="#d1495b" stroke-width="4"/>
+<text x="145" y="473" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">raw</text>
+<circle cx="240" cy="433.43019471322185" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="245" cy="429.6981514395985" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="250" cy="425.8835276842277" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="255" cy="424.69573216156806" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="260" cy="421.61828750470096" r="5" fill="#277da1" opacity=".65"/>
+<line x1="225" y1="425.8835276842277" x2="275" y2="425.8835276842277" stroke="#277da1" stroke-width="4"/>
+<text x="250" y="473" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">dual</text>
+<circle cx="345" cy="449.6697361707641" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="350" cy="448.4743849849204" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="355" cy="445.797785489422" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="360" cy="444.6975431175403" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="365" cy="442.2716706598509" r="5" fill="#2a9d8f" opacity=".65"/>
+<line x1="330" y1="445.797785489422" x2="380" y2="445.797785489422" stroke="#2a9d8f" stroke-width="4"/>
+<text x="355" y="473" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">correction</text>
+<text x="980" y="495" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#222">32x16</text>
+<circle cx="865" cy="242.5503756581804" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="870" cy="230.36055047223348" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="875" cy="221.44949393696632" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="880" cy="133.64859325820996" r="5" fill="#d1495b" opacity=".65"/>
+<circle cx="885" cy="127.34622460655781" r="5" fill="#d1495b" opacity=".65"/>
+<line x1="850" y1="221.44949393696632" x2="900" y2="221.44949393696632" stroke="#d1495b" stroke-width="4"/>
+<text x="875" y="473" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">raw</text>
+<circle cx="970" cy="423.35390765891253" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="975" cy="421.1238608091734" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="980" cy="420.7857368728935" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="985" cy="418.323532002868" r="5" fill="#277da1" opacity=".65"/>
+<circle cx="990" cy="411.23184431395555" r="5" fill="#277da1" opacity=".65"/>
+<line x1="955" y1="420.7857368728935" x2="1005" y2="420.7857368728935" stroke="#277da1" stroke-width="4"/>
+<text x="980" y="473" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">dual</text>
+<circle cx="1075" cy="441.11276003891555" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="1080" cy="439.58236322468093" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="1085" cy="439.08099524990564" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="1090" cy="436.4159137033909" r="5" fill="#2a9d8f" opacity=".65"/>
+<circle cx="1095" cy="431.8125591005209" r="5" fill="#2a9d8f" opacity=".65"/>
+<line x1="1060" y1="439.08099524990564" x2="1110" y2="439.08099524990564" stroke="#2a9d8f" stroke-width="4"/>
+<text x="1085" y="473" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">correction</text>
+<text x="30" y="270" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="normal" fill="#222">relative velocity error</text>
+</svg>

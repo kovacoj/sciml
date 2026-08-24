@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold">Exact PDE correction closely tracks the FE-error oracle</text>
+<line x1="100.0" y1="455" x2="100.0" y2="88.44233392926176" stroke="#d1495b" stroke-width="28"/>
+<text x="100.0" y="477" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#222">Raw</text>
+<text x="100.0" y="78.44233392926176" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#222">0.978</text>
+<line x1="240.0" y1="455" x2="240.0" y2="166.90508162355422" stroke="#277da1" stroke-width="28"/>
+<text x="240.0" y="477" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#222">Dual</text>
+<text x="240.0" y="156.90508162355422" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#222">0.224</text>
+<line x1="380.0" y1="455" x2="380.0" y2="87.36464332606418" stroke="#f4a261" stroke-width="28"/>
+<text x="380.0" y="477" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#222">Jacobi-LS</text>
+<text x="380.0" y="77.36464332606418" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#222">0.998</text>
+<line x1="520.0" y1="455" x2="520.0" y2="175.94984335940876" stroke="#7b2cbf" stroke-width="28"/>
+<text x="520.0" y="477" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#222">Block</text>
+<text x="520.0" y="165.94984335940876" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#222">0.189</text>
+<line x1="660.0" y1="455" x2="660.0" y2="358.9962249649684" stroke="#2a9d8f" stroke-width="28"/>
+<text x="660.0" y="477" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#222">Exact correction</text>
+<text x="660.0" y="348.9962249649684" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#222">0.00607</text>
+<line x1="800.0" y1="455" x2="800.0" y2="366.92559942917285" stroke="#222222" stroke-width="28"/>
+<text x="800.0" y="477" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="normal" fill="#222">Oracle</text>
+<text x="800.0" y="356.92559942917285" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="bold" fill="#222">0.00523</text>
+<text x="30" y="270" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="normal" fill="#222">velocity error (log)</text>
+</svg>

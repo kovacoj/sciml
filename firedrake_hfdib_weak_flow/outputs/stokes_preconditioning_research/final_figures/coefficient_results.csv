@@ -1,0 +1,7 @@
+method,velocity_error,pressure_error,wall_time_s
+Raw,0.978,1.015,2.37
+Dual,0.224,0.711,7.49
+Jacobi-LS,0.998,1.001,4.63
+Block,0.189,0.606,12.32
+Exact correction,0.00607,0.429,10.16
+Oracle,0.00523,0.427,1.84

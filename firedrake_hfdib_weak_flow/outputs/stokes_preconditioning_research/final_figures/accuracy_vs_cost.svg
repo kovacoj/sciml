@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold">Accuracy versus optimization cost</text>
+<circle cx="217.663813459268" cy="83.79607955897917" r="8" fill="#d1495b"/>
+<text x="227.663813459268" y="73.79607955897917" text-anchor="start" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">Raw</text>
+<circle cx="493.4607438016528" cy="164.32363640312144" r="8" fill="#277da1"/>
+<text x="503.4607438016528" y="154.32363640312144" text-anchor="start" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">Dual</text>
+<circle cx="339.40230224321135" cy="82.69002867675009" r="8" fill="#f4a261"/>
+<text x="349.40230224321135" y="72.69002867675009" text-anchor="start" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">Jacobi-LS</text>
+<circle cx="753.6363636363636" cy="173.60641818465638" r="8" fill="#7b2cbf"/>
+<text x="763.6363636363636" y="163.60641818465638" text-anchor="start" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">Block</text>
+<circle cx="637.2845336481699" cy="361.4698098324676" r="8" fill="#2a9d8f"/>
+<text x="647.2845336481699" y="351.4698098324676" text-anchor="start" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">Exact correction</text>
+<circle cx="189.11452184179456" cy="369.60785204573006" r="8" fill="#222222"/>
+<text x="199.11452184179456" y="359.60785204573006" text-anchor="start" font-family="sans-serif" font-size="12" font-weight="normal" fill="#222">Oracle</text>
+<text x="455" y="498" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="normal" fill="#222">wall time (s)</text>
+<text x="25" y="270" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="normal" fill="#222">velocity error (log)</text>
+</svg>

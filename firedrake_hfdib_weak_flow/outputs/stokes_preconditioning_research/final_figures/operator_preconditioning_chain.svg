@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="600" viewBox="0 0 1100 600">
+<rect width="100%" height="100%" fill="white"/>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#333"/></marker></defs>
+<text x="550.0" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold">Operator preconditioning changes the neural optimization problem</text>
+<rect x="25" y="80" width="210" height="150" rx="16" fill="#edf6f9" stroke="#277da1" stroke-width="2"/>
+<text x="130" y="118" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#222">Raw residual</text>
+<text x="130" y="154" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="normal" fill="#222">||AU-b||²</text>
+<text x="130" y="192" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="normal" fill="#222">bad conditioning</text>
+<rect x="285" y="80" width="210" height="150" rx="16" fill="#edf6f9" stroke="#277da1" stroke-width="2"/>
+<text x="390" y="118" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#222">Dual residual</text>
+<text x="390" y="154" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="normal" fill="#222">rᵀG⁻¹r</text>
+<text x="390" y="192" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="normal" fill="#222">better</text>
+<rect x="545" y="80" width="210" height="150" rx="16" fill="#edf6f9" stroke="#277da1" stroke-width="2"/>
+<text x="650" y="118" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#222">Exact PDE correction</text>
+<text x="650" y="154" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="normal" fill="#222">Aδ = b-AU</text>
+<text x="650" y="192" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="normal" fill="#222">δ = Uₕ-U</text>
+<rect x="805" y="80" width="210" height="150" rx="16" fill="#edf6f9" stroke="#277da1" stroke-width="2"/>
+<text x="910" y="118" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#222">Correction loss</text>
+<text x="910" y="154" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="normal" fill="#222">||δ||²</text>
+<text x="910" y="192" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="normal" fill="#222">oracle error without labels</text>
+<path d="M250 155 L285 155" stroke="#333" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M510 155 L545 155" stroke="#333" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M770 155 L805 155" stroke="#333" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="550" y="390" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold" fill="#222">Discrete proposition: if Aₕ is invertible, Aₕδ=bₕ-AₕU implies δ=Uₕ-U.</text>
+<text x="550" y="435" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="normal" fill="#222">Exact correction changes the Hessian from 2AₕᵀAₕ to the chosen error norm 2Mₓ.</text>
+</svg>

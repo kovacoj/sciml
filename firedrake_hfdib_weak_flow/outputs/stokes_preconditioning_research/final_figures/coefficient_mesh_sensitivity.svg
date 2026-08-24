@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold">Coefficient optimization under mesh refinement</text>
+<line x1="90" y1="70" x2="90" y2="460" stroke="#333"/>
+<line x1="90" y1="460" x2="830" y2="460" stroke="#333"/>
+<text x="90.0" y="488" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="normal" fill="#222">16x8</text>
+<text x="460.0" y="488" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="normal" fill="#222">32x16</text>
+<text x="830.0" y="488" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="normal" fill="#222">64x32</text>
+<polyline points="90.0,113.68139935891426 460.0,91.38810205118286 830.0,88.4179334381915" fill="none" stroke="#d1495b" stroke-width="3"/>
+<circle cx="90.0" cy="113.68139935891426" r="5" fill="#d1495b"/>
+<circle cx="460.0" cy="91.38810205118286" r="5" fill="#d1495b"/>
+<circle cx="830.0" cy="88.4179334381915" r="5" fill="#d1495b"/>
+<polyline points="90.0,286.086878337119 460.0,205.77106654987176 830.0,147.36368553917026" fill="none" stroke="#277da1" stroke-width="3"/>
+<circle cx="90.0" cy="286.086878337119" r="5" fill="#277da1"/>
+<circle cx="460.0" cy="205.77106654987176" r="5" fill="#277da1"/>
+<circle cx="830.0" cy="147.36368553917026" r="5" fill="#277da1"/>
+<polyline points="90.0,441.5820665618086 460.0,318.16273024075474 830.0,291.6736574549286" fill="none" stroke="#2a9d8f" stroke-width="3"/>
+<circle cx="90.0" cy="441.5820665618086" r="5" fill="#2a9d8f"/>
+<circle cx="460.0" cy="318.16273024075474" r="5" fill="#2a9d8f"/>
+<circle cx="830.0" cy="291.6736574549286" r="5" fill="#2a9d8f"/>
+<text x="660" y="90" text-anchor="start" font-family="sans-serif" font-size="14" font-weight="bold" fill="#d1495b">raw</text>
+<text x="660" y="114" text-anchor="start" font-family="sans-serif" font-size="14" font-weight="bold" fill="#277da1">dual</text>
+<text x="660" y="138" text-anchor="start" font-family="sans-serif" font-size="14" font-weight="bold" fill="#2a9d8f">correction</text>
+<text x="28" y="270" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="normal" fill="#222">relative velocity error (log)</text>
+</svg>

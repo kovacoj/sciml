@@ -1,0 +1,17 @@
+[
+  {
+    "case_id": "topology_0291",
+    "morphology_class": "tortuous_irregular",
+    "selection_reason": "geometry descriptor ordering independent of neural error; persisted converged CFD available"
+  },
+  {
+    "case_id": "topology_0292",
+    "morphology_class": "merge_split",
+    "selection_reason": "geometry descriptor ordering independent of neural error; persisted converged CFD available"
+  },
+  {
+    "case_id": "topology_0290",
+    "morphology_class": "simpler_parallel",
+    "selection_reason": "geometry descriptor ordering independent of neural error; persisted converged CFD available"
+  }
+]

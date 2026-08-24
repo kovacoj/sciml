@@ -1,0 +1,18 @@
+{
+  "paper_ibm_reported_s": 28.0,
+  "paper_unet_reported_s": 0.2,
+  "our_cold_median_s": 60.03022181648157,
+  "our_nn_inference_median_ms": 13.553502998547629,
+  "our_nn_plus_5_simple_s": 0.48772587121720146,
+  "our_nn_plus_20_simple_s": 1.910242975873163,
+  "our_nn_to_convergence_median_s": 58.875555409977096,
+  "mean_simple_step_s": 0.09483447364373077,
+  "w20_label_generation_per_topology_s": 1.8966894728746153,
+  "converged_label_generation_per_topology_s": 60.03022181648157,
+  "dataset_cost_w20_s": 485.5525050559015,
+  "dataset_cost_converged_s": 15367.736785019282,
+  "training_time_estimate_s": 200.0,
+  "break_even_w20": 11.422701798025148,
+  "break_even_converged": 259.39021979202266,
+  "hardware_note": "Paper timings are reported values on unknown hardware; our timings measured on host CPU."
+}

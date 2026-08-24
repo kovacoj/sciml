@@ -1,45 +1,190 @@
 {
-  "PRESENTATION_RESULTS.md": "19e883270557a853edd75fecaf144d531216593a8d039c13a0cf052ec55fdd9a",
-  "README.md": "2e25fa2a2640de6bdd380296fe30061f659d27ed9311f72bc9299d1c4d1b5932",
-  "figures/fitted_cfd_2d_3d_comparison.png": "03706f43c967982597a3e65fcf5df1c1fe84500007e16c2d43f4d05d8917f6d8",
-  "figures/fitted_cfd_3d_chamber.pdf": "fb0fc28e659ff464b968760dbd6435c836a0d0efa3b34fae36280f2b0f7652b2",
-  "figures/fitted_cfd_3d_chamber.png": "2a187fc20021c68b10ccfb68a81a3708c914c4182224a994a585c18b9d05d0eb",
-  "figures/fitted_cfd_gallery_common_scale.pdf": "c240036990fae3a6cc14db9768d736041e54f8d469344e66c704688286dd937b",
-  "figures/fitted_cfd_gallery_common_scale.png": "812d3f78651d1dafbaa60659a6ac6f8f2fe68e5eaa15f83a0a6f131d188cd685",
-  "figures/fitted_cfd_gallery_relative.pdf": "a5e8137bd0c107468c16e4a3a1bc75a81bfa96c4b858ea305d66e94352654819",
-  "figures/fitted_cfd_gallery_relative.png": "9fc804e014a61766bb8c00d1bf16e4dc21481c1ce6d9e13dbd0cc3344b1ab14c",
-  "figures/fitted_cfd_mesh_example.png": "bf84145cea16000a99654be44afceb0b5914bf617a772824e253a4671113ccc3",
-  "figures/fitted_cfd_pressure_drop.png": "c3e0bccc32bd22310d85995fbf15e4e227bbfc678fcd3691d71b6e1234426c50",
-  "figures/fitted_cfd_streamlines.png": "de25d56a24f8f7ffcc8b2a7d69b51fb40e322a54b658bde81269642b0b099368",
-  "fitted_cfd_gallery_metrics.csv": "4f309fb5449b97cb2a78c9cdafd67b5bdbbc5e276d6956298941dd1330ecbc55",
-  "fitted_cfd_gallery_summary.json": "b2119df0d2281dd42fab1ee21db4e9128bb7704465fa92e786b1ca3fd6bb4e6f",
-  "fitted_gallery/summary.json": "d7fd44aa1d3a2248e0d8d5d7fd85a7b0b2554ed21525b43de05f6050e2c3b53a",
-  "fitted_gallery/topology_A/fields.npz": "c9d73dde5f883235a0efcdf9009e851ccd36dd300b1376bfbc9227fb770997e4",
-  "fitted_gallery/topology_A/mesh.msh": "104e8cabfb842e680da5ecd734f00a2abebb6110c557f28a02d52f8997e84ae4",
-  "fitted_gallery/topology_A/metrics.json": "63775f091dd1489983f520bab90bb5567f5ee7634cd666024131a52f2d131a1e",
-  "fitted_gallery/topology_A/solution.h5": "1871c56dc860cd7cbd698664122bf29493480030832189783e60d78005f75482",
-  "fitted_gallery/topology_B/fields.npz": "51262409ece3a6012f61918191737864244ea841d4a8e7c85c558620362ebd10",
-  "fitted_gallery/topology_B/mesh.msh": "84469efb4950339147e4b439ad3c3f308016d694096b5550a700592f334a859f",
-  "fitted_gallery/topology_B/metrics.json": "17170a377831a946c1c24c43b78ee8adfc5d7971883e7a18fd979370223fe3e7",
-  "fitted_gallery/topology_B/solution.h5": "4d10e6b6dfae8f94a77e83cf187dfddd17e593377bb2dd3462164bd2049be6f3",
-  "fitted_gallery/topology_C/fields.npz": "6eca6ecb7ab092939e62a15617a95ae6fc3a4413526b7af314552f16838c5cbf",
-  "fitted_gallery/topology_C/mesh.msh": "69360457598d947beb06dbf21e61bfd714e13222ee8e4d9292ba340eaf605514",
-  "fitted_gallery/topology_C/metrics.json": "5f4908135a0e3019597b98929cd1849f1e39c10039ebd62d8836cdffdc2529ee",
-  "fitted_gallery/topology_C/solution.h5": "552c8de01094c43b7c6d4890451141bc554aa93b33c4a7fbd689973ecbee4f83",
-  "fitted_gallery/topology_D/fields.npz": "eb42ed05f3446ccf3643425b3a4137e7e20a12d7730678f371ec7469eaa679c8",
-  "fitted_gallery/topology_D/mesh.msh": "e6464f605566edc6d9ef7a0162936a1abb18893b5edcf2c48a57b71389827f56",
-  "fitted_gallery/topology_D/metrics.json": "f46b94d30597151ba43a03a84833266a6f43abd7d52f1e3309b469ddd5220f43",
-  "fitted_gallery/topology_D/solution.h5": "26b20e6f04f8aff91a86f51641364b8ee5268f215ed9143bbc179a71fa0d1c84",
-  "fitted_gallery/topology_E/fields.npz": "dec2a70b7878cb2e04a9f77620070bac139ed7777707faa4074408872f02fb6f",
-  "fitted_gallery/topology_E/mesh.msh": "65e2e816d9e89c954a4a2f2d91a3de5ce68f445a988d6a85ed1bcae5a7618f05",
-  "fitted_gallery/topology_E/metrics.json": "d7401ac6d86f8637048d584e25aa2bfc38ef75d19f3ac67ad61af64504dee332",
-  "fitted_gallery/topology_E/solution.h5": "dc25ded82a7f111841763bcfa495bf0447adc40887034a0810d1375dffa09ad1",
-  "fitted_gallery/topology_E_3d/base_mesh.msh": "c86b878ab655686de4bd199d9077cd9da841bb066ac7ad3f1dbb811f34a51bae",
-  "fitted_gallery/topology_E_3d/fields_3d.npz": "0f5865d9a11394a540e8c7f219eae1067a032cc400470c600cdd7019a32e4c81",
-  "fitted_gallery/topology_E_3d/metrics.json": "7b722125efe36fd7453c40934b3fbf75e064ebf9b94f794c420e74847abae1e9",
-  "fitted_gallery/topology_E_3d/solution_3d.h5": "a522c7e9b5e1646cd6467e44956406e3916c435c2f8b309fa9823cc9fa3001e2",
-  "fitted_gallery/topology_F/fields.npz": "81421f9c5199be8ad6c60e6374424c6659db7e2b4579cda4a47b1ef835a18468",
-  "fitted_gallery/topology_F/mesh.msh": "141ed2ea2ad35e0b2eed11596eba317992b94e616566d55db68e92319cbfa2b8",
-  "fitted_gallery/topology_F/metrics.json": "690702b805e8a0f3afda5be1068912f906d9027928e6fb4efc356af41f4369b2",
-  "fitted_gallery/topology_F/solution.h5": "f22c23cc2cc91b56c04db1c4cf22d75e2204a122a24195c8121b049a9edd20cb"
+  "style": {
+    "geometry": "grayscale",
+    "velocity": "viridis",
+    "pressure": "coolwarm",
+    "background": "white"
+  },
+  "cases_2d": 6,
+  "has_completed_3d": true,
+  "three_d_metrics": {
+    "topology_id": "E_extruded_3d",
+    "height": 0.016,
+    "layers": 4,
+    "mesh_cells": 656,
+    "solve_time": 55.0428205119988,
+    "stages": [
+      {
+        "beta": 0.0,
+        "seconds": 48.38815361900015,
+        "reason": 2
+      },
+      {
+        "beta": 1.0,
+        "seconds": 6.654666892998648,
+        "reason": 2
+      }
+    ],
+    "Q_in": -4.302222222222224e-05,
+    "Q_out": 4.302222222222227e-05,
+    "mass_imbalance": 3.150122494500621e-16,
+    "divergence_L2": 0.036340427188583754,
+    "u_max": 0.22482024414328322,
+    "delta_p": 19.872847182586458,
+    "weak_residual": 8.676113262345966e-12,
+    "velocity_dofs": 40527,
+    "pressure_dofs": 2115
+  },
+  "files": [
+    {
+      "path": "figures/firedrake_2d_vs_3d.pdf",
+      "sha256": "3815aa5af14517eb2d195700cee016f8e5901722ab4ca7accb495febc6f67a40",
+      "bytes": 48585
+    },
+    {
+      "path": "figures/firedrake_2d_vs_3d.png",
+      "sha256": "886b9ead23e75011f578c636a2148aa3d64e6ac24e44948266309c1fd5214ec2",
+      "bytes": 833540
+    },
+    {
+      "path": "figures/firedrake_3d_flow_topology_E.pdf",
+      "sha256": "8d2c6bc6da210d8676ebf3c78d3537b3654120d52c566f54fb56afbd36c932d2",
+      "bytes": 495463
+    },
+    {
+      "path": "figures/firedrake_3d_flow_topology_E.png",
+      "sha256": "9bfe854306147f882ce43b0e9864a2a7c0c333f1c03302dce18163e5c25ded41",
+      "bytes": 1593658
+    },
+    {
+      "path": "figures/firedrake_cfd_gallery_common_scale.pdf",
+      "sha256": "8b31bb73d3782fbc225b32a61988b7e6dd1e1a32d1e94a84eddf6f0f76bce8c1",
+      "bytes": 575104
+    },
+    {
+      "path": "figures/firedrake_cfd_gallery_common_scale.png",
+      "sha256": "63deecd2f19ff2fd6b23378704738125c78ac9bd7dc8b17d1368758f1a830baf",
+      "bytes": 2488171
+    },
+    {
+      "path": "figures/firedrake_cfd_gallery_relative.pdf",
+      "sha256": "a741ccb2a338a55869a1600d9ce683cd180222d3866de6cf67e9403bf1af9a00",
+      "bytes": 577425
+    },
+    {
+      "path": "figures/firedrake_cfd_gallery_relative.png",
+      "sha256": "a078024bf32b0f48afe1699044595a3e6227c5963b0d9c16920c189e067ee07d",
+      "bytes": 2798498
+    },
+    {
+      "path": "figures/firedrake_detailed_topology.pdf",
+      "sha256": "0670d1667ddbc1ab1ca8541209ac2a1a23791d71d810227ac8c8139345515dcc",
+      "bytes": 580765
+    },
+    {
+      "path": "figures/firedrake_detailed_topology.png",
+      "sha256": "febd054c30ce7ccedd71ddbbd38815f04af6f503ef7c8afa84a8bd30c9b7c4b0",
+      "bytes": 1122576
+    },
+    {
+      "path": "figures/firedrake_fitted_mesh_examples.pdf",
+      "sha256": "0dcd54b7a9e07a8ffe49dd99fd29d24683cff05462a2a330626b3e68df6d0521",
+      "bytes": 41116
+    },
+    {
+      "path": "figures/firedrake_fitted_mesh_examples.png",
+      "sha256": "dc57fa7e009ed7e5d922c08a8f2b5f81787e888bdb231e126faf109385ada857",
+      "bytes": 277052
+    },
+    {
+      "path": "figures/firedrake_pressure_drop_topologies.pdf",
+      "sha256": "d02853af456b1eee0e3b0069f8a7630bc8c0538263e66d0c3fa6623fb15ab43b",
+      "bytes": 16021
+    },
+    {
+      "path": "figures/firedrake_pressure_drop_topologies.png",
+      "sha256": "bf18d1018977b7085f533941bfab11391f9bd3d7060993e331f0361a79719331",
+      "bytes": 80847
+    },
+    {
+      "path": "figures/firedrake_streamline_gallery.pdf",
+      "sha256": "177192aef26b6decc3ad2e99b6408818df14c613429fd550e9612f54c434c2b8",
+      "bytes": 1727137
+    },
+    {
+      "path": "figures/firedrake_streamline_gallery.png",
+      "sha256": "dd5db95ea87739a86de1a81710329a67456dfec50256c1a7dd44ea3087dbb87e",
+      "bytes": 562498
+    },
+    {
+      "path": "figures/fitted_cfd_2d_3d_comparison.png",
+      "sha256": "03706f43c967982597a3e65fcf5df1c1fe84500007e16c2d43f4d05d8917f6d8",
+      "bytes": 105183
+    },
+    {
+      "path": "figures/fitted_cfd_3d_chamber.pdf",
+      "sha256": "fb0fc28e659ff464b968760dbd6435c836a0d0efa3b34fae36280f2b0f7652b2",
+      "bytes": 79174
+    },
+    {
+      "path": "figures/fitted_cfd_3d_chamber.png",
+      "sha256": "2a187fc20021c68b10ccfb68a81a3708c914c4182224a994a585c18b9d05d0eb",
+      "bytes": 1081598
+    },
+    {
+      "path": "figures/fitted_cfd_gallery_common_scale.pdf",
+      "sha256": "c240036990fae3a6cc14db9768d736041e54f8d469344e66c704688286dd937b",
+      "bytes": 209745
+    },
+    {
+      "path": "figures/fitted_cfd_gallery_common_scale.png",
+      "sha256": "812d3f78651d1dafbaa60659a6ac6f8f2fe68e5eaa15f83a0a6f131d188cd685",
+      "bytes": 696784
+    },
+    {
+      "path": "figures/fitted_cfd_gallery_relative.pdf",
+      "sha256": "a5e8137bd0c107468c16e4a3a1bc75a81bfa96c4b858ea305d66e94352654819",
+      "bytes": 218891
+    },
+    {
+      "path": "figures/fitted_cfd_gallery_relative.png",
+      "sha256": "9fc804e014a61766bb8c00d1bf16e4dc21481c1ce6d9e13dbd0cc3344b1ab14c",
+      "bytes": 881926
+    },
+    {
+      "path": "figures/fitted_cfd_mesh_example.png",
+      "sha256": "bf84145cea16000a99654be44afceb0b5914bf617a772824e253a4671113ccc3",
+      "bytes": 375300
+    },
+    {
+      "path": "figures/fitted_cfd_pressure_drop.png",
+      "sha256": "c3e0bccc32bd22310d85995fbf15e4e227bbfc678fcd3691d71b6e1234426c50",
+      "bytes": 46091
+    },
+    {
+      "path": "figures/fitted_cfd_streamlines.png",
+      "sha256": "de25d56a24f8f7ffcc8b2a7d69b51fb40e322a54b658bde81269642b0b099368",
+      "bytes": 674570
+    },
+    {
+      "path": "plotted_data/firedrake_3d_topology_E_data.npz",
+      "sha256": "2e53494aa693a607bf177558bfb69c8c37a2d8ec6213a9920ad17b0c3418c898",
+      "bytes": 32206
+    },
+    {
+      "path": "plotted_data/firedrake_cfd_gallery_data.npz",
+      "sha256": "c08d6bf8d170c7d804de782512b638ea473adb17156c5efc319a2f8cb1ea588e",
+      "bytes": 191782
+    },
+    {
+      "path": "plotted_data/firedrake_pressure_drop_topologies.csv",
+      "sha256": "8ad247834fda5d52e879f7f93a6c474056f9fa96befa046860b629a4a2781218",
+      "bytes": 148
+    },
+    {
+      "path": "plotted_data/firedrake_streamline_gallery_data.npz",
+      "sha256": "c4e536b9822463e724b7d8ece10f52cd2ea2e3a6bd67b7c3ee88a2da540a943c",
+      "bytes": 918521
+    }
+  ]
 }

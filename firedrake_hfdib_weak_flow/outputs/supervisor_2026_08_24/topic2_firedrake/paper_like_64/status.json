@@ -1,0 +1,42 @@
+{
+  "status": "GEOMETRY_COMPLETE_CFD_BLOCKED",
+  "topology_source": "official TPFM mixer_64.npz (550 samples)",
+  "selection_method": "geometry-only descriptors and robust-z class scoring",
+  "selected_cases": {
+    "P64_A": {
+      "source_topology_id": 34,
+      "class": "tortuous_network",
+      "tortuosity": 1.794,
+      "fluid_fraction": 0.361
+    },
+    "P64_B": {
+      "source_topology_id": 431,
+      "class": "central_merge_split",
+      "central_fluid_fraction": 0.792,
+      "fluid_fraction": 0.409
+    },
+    "P64_C": {
+      "source_topology_id": 508,
+      "class": "parallel_channels",
+      "parallel_band_fluid_fraction": 0.731,
+      "tortuosity": 1.0
+    }
+  },
+  "geometry_artifacts": [
+    "lambda_64x64.npy",
+    "lambda_64x64.png",
+    "binary_mask.npy",
+    "bitmap_8x8.npy",
+    "mesh.msh",
+    "connectivity.json",
+    "config.json"
+  ],
+  "cfd_status": {
+    "P64_A": "NOT_RUN_DOCKER_UNAVAILABLE",
+    "P64_B": "NOT_RUN_DOCKER_UNAVAILABLE",
+    "P64_C": "NOT_RUN_DOCKER_UNAVAILABLE"
+  },
+  "solver_code": "src/solve_rugged_topologies.py (resumable, continuation, checkpointing)",
+  "meshing_code": "src/rugged_bitmap_mesh.py (exact pixel-union, stubs, Gmsh v2)",
+  "claim": "procedurally generated paper-like 64x64 topology cases with fitted FEM; not article reproduction"
+}

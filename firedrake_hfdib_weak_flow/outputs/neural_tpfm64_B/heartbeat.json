@@ -1,0 +1,12 @@
+{
+  "status": "done",
+  "global_step": 400,
+  "stage": 4,
+  "beta": 1.0,
+  "loss": 0.25316944948426323,
+  "best_beta1_loss": 0.2405847818614782,
+  "seconds_per_step": 0.48444684733999993,
+  "estimated_remaining_minutes": 0.0,
+  "elapsed_minutes": 3.3122369469666655,
+  "rss_mb": 691.8125
+}

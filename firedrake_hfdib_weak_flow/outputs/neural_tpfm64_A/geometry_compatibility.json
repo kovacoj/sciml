@@ -1,0 +1,19 @@
+{
+  "domain_classification": "CONTROLLED_TPFM_DERIVED_DOMAIN",
+  "article_reproduction": false,
+  "patch_mapping_valid": true,
+  "inlet_geometry_conflicts": 0,
+  "outlet_geometry_conflicts": 0,
+  "inlet_node_count": 10,
+  "outlet_node_count": 5,
+  "lambda_finite": true,
+  "sigma_finite": true,
+  "normals_finite": true,
+  "fluid_connected": true,
+  "hx": 0.006399999999999989,
+  "hy": 0.006399999999999989,
+  "aspect_ratio": 1.0,
+  "aspect_error": 0.0,
+  "allow_anisotropic_mesh": false,
+  "hard_gate_passed": true
+}

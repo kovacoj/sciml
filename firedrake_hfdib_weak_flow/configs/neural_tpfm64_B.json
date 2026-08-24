@@ -26,5 +26,5 @@
   "log_every": 5,
   "field_save_every": 50,
   "allow_anisotropic_mesh": false,
-  "init_from": "outputs/neural_tpfm64_A/checkpoint_latest.pt"
+  "init_from": "outputs/neural_tpfm64_A/checkpoint_best_beta1.pt"
 }

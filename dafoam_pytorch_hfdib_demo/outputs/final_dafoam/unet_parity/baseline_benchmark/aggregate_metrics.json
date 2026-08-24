@@ -1,0 +1,65 @@
+{
+  "solver_distilled": {
+    "paper_velocity_mse_tv": {
+      "median": 0.04052765111918318,
+      "max": 0.08501398046139293
+    },
+    "relative_velocity_error": {
+      "median": 0.6456731034229688,
+      "max": 0.7412309397721711
+    },
+    "paper_pressure_mse_tv": {
+      "median": 3843.757848980605,
+      "max": 20528.84438114389
+    },
+    "relative_pressure_error": {
+      "median": 0.9950386694218922,
+      "max": 0.9977543368174908
+    },
+    "pressure_drop_relative_error": {
+      "median": 0.99470024127541,
+      "max": 0.9979690527986952
+    }
+  },
+  "teacher_W20": {
+    "paper_velocity_mse_tv": {
+      "median": 0.012976298828875965,
+      "max": 0.0679298885179829
+    },
+    "relative_velocity_error": {
+      "median": 0.40607896221506823,
+      "max": 0.6809806113545269
+    },
+    "paper_pressure_mse_tv": {
+      "median": 0.0395826331119788,
+      "max": 0.245111840350332
+    },
+    "relative_pressure_error": {
+      "median": 0.37905238455701706,
+      "max": 0.6389717283969899
+    },
+    "pressure_drop_relative_error": {
+      "median": 0.23897704228978084,
+      "max": 0.583240799953416
+    }
+  },
+  "paper_reported": {
+    "velocity_mse_tv_range": [
+      0.015,
+      0.04
+    ],
+    "pressure_mse_tv_range": [
+      0.053,
+      0.14
+    ],
+    "pressure_drop_error_range": [
+      0.13,
+      0.15
+    ]
+  },
+  "metric_definition": {
+    "normalization": "paper_figure6 prediction min/max",
+    "tv": "reconstructed mean absolute forward differences",
+    "exact_reference_implementation": false
+  }
+}

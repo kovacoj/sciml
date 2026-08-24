@@ -1,0 +1,11 @@
+{
+  "immutable": true,
+  "training_objective": "lambda_to_W20_solver_distillation",
+  "original_training_checkpoint_sha256": "8fe6c8397590462c09e61689dad7daf700d5080c4b84c52848b628d13fd20c72",
+  "exported_checkpoint": "../../../supervisor_2026_08_24/model/seed22_checkpoint.pt",
+  "exported_checkpoint_sha256": "b5e44869813522cde59ab12e5f009b4eebd95b3f559740a4ae4cd8fc74f73583",
+  "state_dict": "../../../supervisor_2026_08_24/model/seed22_state_dict.pt",
+  "state_dict_sha256": "c6522cd882b498da8c626a955b0469d7855cba4934d297ad243830e38776b618",
+  "torchscript": "../../../supervisor_2026_08_24/model/seed22_torchscript.pt",
+  "torchscript_sha256": "3a5a87a7e692d0075f66ec9faf8cf77167943c595ff00e3cbc3c7e2d08aa3e3"
+}

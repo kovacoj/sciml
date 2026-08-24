@@ -19,3 +19,13 @@ Neural initialization improves equal-budget flow approximation, but does not red
 
 ## Limitation
 The one-shot network is not a converged CFD replacement, and pressure accuracy remains weak.
+
+## Presentation Figures
+
+- CFD problem: `figures/dafoam_streamlines.png`
+- Topology diversity: `figures/dafoam_tpfm_cfd_gallery_relative.png`
+- Neural result: `figures/dafoam_k5_error_paired.png`
+
+The common-scale gallery uses converged `case/5000` OpenFOAM fields and a shared
+velocity/pressure range. The warm-start field-comparison gallery is not generated
+because the direct audit did not persist full T5 states before Docker failed.

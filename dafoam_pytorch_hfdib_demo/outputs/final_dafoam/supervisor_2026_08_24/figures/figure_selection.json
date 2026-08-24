@@ -1,0 +1,10 @@
+{
+  "streamline_selection_rule": "minimum, median, maximum converged gauge-pressure range",
+  "cases": [
+    "topology_0296",
+    "topology_0293",
+    "topology_0290"
+  ],
+  "detailed_case": "topology_0293",
+  "warmstart_flow_comparison": "NOT_GENERATED_NO_DIRECT_AUDIT_T5_STATES"
+}

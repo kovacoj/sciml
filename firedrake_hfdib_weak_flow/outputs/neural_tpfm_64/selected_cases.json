@@ -1,0 +1,22 @@
+{
+  "N64_A": {
+    "source_topology_id": 508,
+    "class": "parallel_channels",
+    "config": "configs/neural_tpfm64_A.json",
+    "reason": "simplest topology; pilot case"
+  },
+  "N64_B": {
+    "source_topology_id": 431,
+    "class": "central_merge_split",
+    "config": "configs/neural_tpfm64_B.json",
+    "init_from": "outputs/neural_tpfm64_A/checkpoint_latest.pt",
+    "reason": "transfer from A; tests weight recycling"
+  },
+  "N64_C": {
+    "source_topology_id": 34,
+    "class": "tortuous_network",
+    "config": "configs/neural_tpfm64_C.json",
+    "init_from": "outputs/neural_tpfm64_A/checkpoint_latest.pt",
+    "reason": "transfer from A; hardest topology"
+  }
+}

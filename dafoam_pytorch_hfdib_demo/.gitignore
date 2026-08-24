@@ -35,3 +35,5 @@ outputs/shared_hfdib/
 !outputs/comparison_distill_train/
 !outputs/comparison_distill_train/*.png
 !outputs/comparison_distill_train/metrics.json
+!outputs/harmonic_oscillator_comparison/
+!outputs/harmonic_oscillator_comparison/*.png

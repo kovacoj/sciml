@@ -50,3 +50,11 @@ Topology E was extruded through a 0.016 m depth with no-slip top and bottom wall
 These are procedurally generated article-inspired fitted geometries solved with Firedrake Taylor-Hood FEM. They are not reproductions of the article CFD domain and do not use HFDIB. The paper uses fixed-grid HFDIB; this gallery uses geometry-dependent fitted meshes and strong no-slip wall conditions.
 
 The final figures use grayscale geometry, viridis velocity, and coolwarm pressure, matching the DAFoam presentation package.
+
+## Reference-paper morphology comparison
+
+- R1 complex irregular network: topology D — asymmetric, offset, multi-bend paths with the strongest tortuosity.
+- R2 central merge/split: topology E — broad central chamber with four connected feeder/exit branches.
+- R3 parallel channels: topology A — two dominant horizontal channels with one communicating bridge.
+
+Selection uses geometry-only ordinal scores in `paper_morphology_matching.csv`; CFD metrics were not used. Primary scientific fields share common velocity and gauge-pressure scales. Relative fields are explicitly presentation-only displays.

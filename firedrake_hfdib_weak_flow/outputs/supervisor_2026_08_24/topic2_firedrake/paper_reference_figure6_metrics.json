@@ -1,0 +1,21 @@
+{
+  "resolution": "64x64",
+  "case_1": {
+    "velocity_MSE_TV": 0.04,
+    "pressure_MSE_TV": 0.14,
+    "global_continuity": -3.9e-06,
+    "pressure_drop_ratio": 1.14
+  },
+  "case_2": {
+    "velocity_MSE_TV": 0.025,
+    "pressure_MSE_TV": 0.093,
+    "global_continuity": 3.8e-06,
+    "pressure_drop_ratio": 1.13
+  },
+  "case_3": {
+    "velocity_MSE_TV": 0.015,
+    "pressure_MSE_TV": 0.053,
+    "global_continuity": -6.6e-07,
+    "pressure_drop_ratio": 1.15
+  }
+}

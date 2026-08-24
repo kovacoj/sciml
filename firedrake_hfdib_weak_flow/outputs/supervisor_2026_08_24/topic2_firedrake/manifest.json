@@ -1,6 +1,7 @@
 {
-  "PRESENTATION_RESULTS.md": "f228fa2e49b2652e4ec39e8856b2a0942a95b0d9b3241f205c97582df765cc2c",
-  "README.md": "12165a777749be31e08040cbaf7c88ccd5a09b242918295b4a952f696de697ba",
+  "PAPER_COMPARISON_NOTES.md": "2d36263aa9977565d061c46ffdc6643f13469cce38436a8e2cc7cdc10f0181a9",
+  "PRESENTATION_RESULTS.md": "edda3afdb8ef407eab54950b67deb3bb3a82eaf418fa3c504df72ade1f9a93f6",
+  "README.md": "7e9c18d85ac304a9442ee8af19c1dfd4d33cdbd654f41d965758a60729660c8c",
   "figures/firedrake_2d_vs_3d.pdf": "1eecc14044c66b4c5a6168dba709c87fa75af8014300b35d996432a72b15c3c0",
   "figures/firedrake_2d_vs_3d.png": "886b9ead23e75011f578c636a2148aa3d64e6ac24e44948266309c1fd5214ec2",
   "figures/firedrake_3d_flow_topology_E.pdf": "d142747af18498101b6fc79778244d92514e18fbedb6d1d6fc1cffd17e4f3420",
@@ -13,8 +14,13 @@
   "figures/firedrake_detailed_topology.png": "febd054c30ce7ccedd71ddbbd38815f04af6f503ef7c8afa84a8bd30c9b7c4b0",
   "figures/firedrake_fitted_mesh_examples.pdf": "fa008d1180b913bdb400cc2c546691e34fa593f46742b6e0c51ea13a6498e478",
   "figures/firedrake_fitted_mesh_examples.png": "dc57fa7e009ed7e5d922c08a8f2b5f81787e888bdb231e126faf109385ada857",
+  "figures/firedrake_paper_morphology_cfd_comparison.pdf": "23a2fd796cfd219404c555c1d6624c0618b71a20580d98592fe831e34a2ad82e",
+  "figures/firedrake_paper_morphology_cfd_comparison.png": "c50fb8fb2c6e324c98e6763811f2a9cb92ba4266f6e9e3e5e886f60f95167faa",
+  "figures/firedrake_paper_morphology_cfd_comparison_relative.pdf": "4c0b9a218af4865cd5a535f7bb7717f2cddd3051f1b5b71e8b62e85d0c3118db",
+  "figures/firedrake_paper_morphology_cfd_comparison_relative.png": "17a3f4b9b407deb7c3062006a01a7eca83f7234de8bfbae1625874ca8fc72601",
   "figures/firedrake_pressure_drop_topologies.pdf": "6c4e5c94f2326412c9040123a259921e8f2ba90f93ad0e0286f85d59164fdebb",
   "figures/firedrake_pressure_drop_topologies.png": "bf18d1018977b7085f533941bfab11391f9bd3d7060993e331f0361a79719331",
+  "figures/firedrake_reference_morphology_selection.png": "b189404dace2bd65c7c5160deffc0884d9e46cb484ffec6d19185aac0733cb91",
   "figures/firedrake_streamline_gallery.pdf": "9eee8827b0b38004d575ae8e54c8cfbf81b949b9db48b196068e9d1e2f7d3a6b",
   "figures/firedrake_streamline_gallery.png": "dd5db95ea87739a86de1a81710329a67456dfec50256c1a7dd44ea3087dbb87e",
   "figures/fitted_cfd_2d_3d_comparison.png": "03706f43c967982597a3e65fcf5df1c1fe84500007e16c2d43f4d05d8917f6d8",
@@ -27,6 +33,10 @@
   "figures/fitted_cfd_mesh_example.png": "bf84145cea16000a99654be44afceb0b5914bf617a772824e253a4671113ccc3",
   "figures/fitted_cfd_pressure_drop.png": "c3e0bccc32bd22310d85995fbf15e4e227bbfc678fcd3691d71b6e1234426c50",
   "figures/fitted_cfd_streamlines.png": "de25d56a24f8f7ffcc8b2a7d69b51fb40e322a54b658bde81269642b0b099368",
+  "figures/reference_morphology_classes_vs_AtoF.pdf": "444802f451c9f93b5f98622e97681dc4e9e058626e73b96cc0391a55a912ab80",
+  "figures/reference_morphology_classes_vs_AtoF.png": "726733aabdcede597efbe8d9ed8a1766d2c2e0456a17ef3355628cf2ef1a070d",
+  "figures/reference_vs_firedrake_method.pdf": "8b106a5879e59442679ed7bae3c30167d22d4eec002095d3fadc15f2419f7e8c",
+  "figures/reference_vs_firedrake_method.png": "bc4998a0df298f4926c42f2fe4454a69fc1a38205ee93a1d084ed9353575f5b0",
   "fitted_cfd_gallery_metrics.csv": "4f309fb5449b97cb2a78c9cdafd67b5bdbbc5e276d6956298941dd1330ecbc55",
   "fitted_cfd_gallery_summary.json": "b2119df0d2281dd42fab1ee21db4e9128bb7704465fa92e786b1ca3fd6bb4e6f",
   "fitted_gallery/summary.json": "d7fd44aa1d3a2248e0d8d5d7fd85a7b0b2554ed21525b43de05f6050e2c3b53a",
@@ -58,6 +68,9 @@
   "fitted_gallery/topology_F/mesh.msh": "141ed2ea2ad35e0b2eed11596eba317992b94e616566d55db68e92319cbfa2b8",
   "fitted_gallery/topology_F/metrics.json": "690702b805e8a0f3afda5be1068912f906d9027928e6fb4efc356af41f4369b2",
   "fitted_gallery/topology_F/solution.h5": "f22c23cc2cc91b56c04db1c4cf22d75e2204a122a24195c8121b049a9edd20cb",
+  "paper_morphology_comparison_data.npz": "47ff057b727fe95dd9de47efda7acf1c8259f8c81ee5f11899c4fbc348fd588f",
+  "paper_morphology_matching.csv": "9325700e3a1323b6299b386de781232fd3a83c0d7f0122be911918040b17be51",
+  "paper_reference_figure6_metrics.json": "6a3f2a04195f83e44d2042e15e203a504a86cc9c1e4d4a152241c3944027c835",
   "plotted_data/firedrake_3d_topology_E_data.npz": "2e53494aa693a607bf177558bfb69c8c37a2d8ec6213a9920ad17b0c3418c898",
   "plotted_data/firedrake_cfd_gallery_data.npz": "c08d6bf8d170c7d804de782512b638ea473adb17156c5efc319a2f8cb1ea588e",
   "plotted_data/firedrake_pressure_drop_topologies.csv": "8ad247834fda5d52e879f7f93a6c474056f9fa96befa046860b629a4a2781218",
@@ -76,41 +89,20 @@
   "study_2d_vs_3d_pilot_proven/E/eta_1p0/solution.h5": "bccfb52f52256975f0cdbe3f609d7fea98ac228f044ab6a368a1ef34e77ab50f",
   "study_2d_vs_3d_pilot_proven/E/eta_1p0/stages.json": "d9f6c1021507fef7bc619a9ff082ac75e02a0abf0fbecd86038ca474372d0870",
   "_metadata": {
+    "cases_2d": 6,
+    "has_completed_3d": true,
+    "morphology_selection": {
+      "R1": "D",
+      "R2": "E",
+      "R3": "A"
+    },
+    "morphology_selection_basis": "geometry-only ordinal scores",
+    "common_scales": true,
     "style": {
-      "geometry": "grayscale",
+      "geometry": "muted gray/cyan",
       "velocity": "viridis",
       "pressure": "coolwarm",
       "background": "white"
-    },
-    "cases_2d": 6,
-    "has_completed_3d": true,
-    "three_d_metrics": {
-      "topology_id": "E_extruded_3d",
-      "height": 0.016,
-      "layers": 4,
-      "mesh_cells": 656,
-      "solve_time": 55.0428205119988,
-      "stages": [
-        {
-          "beta": 0.0,
-          "seconds": 48.38815361900015,
-          "reason": 2
-        },
-        {
-          "beta": 1.0,
-          "seconds": 6.654666892998648,
-          "reason": 2
-        }
-      ],
-      "Q_in": -4.302222222222224e-05,
-      "Q_out": 4.302222222222227e-05,
-      "mass_imbalance": 3.150122494500621e-16,
-      "divergence_L2": 0.036340427188583754,
-      "u_max": 0.22482024414328322,
-      "delta_p": 19.872847182586458,
-      "weak_residual": 8.676113262345966e-12,
-      "velocity_dofs": 40527,
-      "pressure_dofs": 2115
     }
   }
 }

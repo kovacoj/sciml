@@ -35,6 +35,11 @@ including with one worker and a 4 GB cap. No partial campaign artifacts were
 created. These entries are recorded as `NOT_RUN_DOCKER_UNSTABLE`, not failed
 numerical experiments.
 
+A later recovery attempt reproduced the same failure: `docker info` returned
+server version 29.6.2, but an immediately following one-line Firedrake container
+failed to connect to `/run/containerd/containerd.sock`. Campaign execution is
+therefore paused until Docker remains stable across actual container starts.
+
 ## Next experiment
 
 After environment recovery:

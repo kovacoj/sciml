@@ -23,6 +23,7 @@ def test_cfd_presentation_manifest_and_required_figures():
     assert manifest["_metadata"]["has_completed_3d"] is True
     for name in required:
         assert f"figures/{name}" in manifest
+    assert not any(path.endswith(".pdf") for path in manifest)
     for name in "ABCDEF":
         assert f"fitted_gallery/topology_{name}/fields.npz" in manifest
         assert f"fitted_gallery/topology_{name}/solution.h5" in manifest

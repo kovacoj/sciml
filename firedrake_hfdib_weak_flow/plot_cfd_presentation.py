@@ -270,6 +270,7 @@ def hash_manifest(extra):
         str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(ROOT.rglob("*"))
         if path.is_file() and path.name != "manifest.json"
+        and path.suffix.lower() != ".pdf"
         and "study_2d_vs_3d" not in path.parts
     }
     manifest["_metadata"] = {

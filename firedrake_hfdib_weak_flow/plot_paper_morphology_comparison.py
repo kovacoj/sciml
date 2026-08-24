@@ -324,11 +324,15 @@ Selection uses geometry-only ordinal scores in `paper_morphology_matching.csv`; 
     if "## Reference-paper morphology comparison" not in text:
         report_path.write_text(text.rstrip() + "\n" + section)
     readme = ROOT / "README.md"
-    readme.write_text(readme.read_text().rstrip() + "\n\nMorphology comparison: `firedrake_paper_morphology_cfd_comparison_relative.png` (slide display) and `firedrake_paper_morphology_cfd_comparison.png` (common scientific scales).\n")
+    comparison_line = "Morphology comparison: `firedrake_paper_morphology_cfd_comparison_relative.png` (slide display) and `firedrake_paper_morphology_cfd_comparison.png` (common scientific scales)."
+    readme_text = readme.read_text().rstrip()
+    if comparison_line not in readme_text:
+        readme.write_text(readme_text + "\n\n" + comparison_line + "\n")
     manifest = {
         str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(ROOT.rglob("*"))
         if path.is_file() and path.name != "manifest.json"
+        and path.suffix.lower() != ".pdf"
         and "study_2d_vs_3d" not in path.parts
     }
     manifest["_metadata"] = {

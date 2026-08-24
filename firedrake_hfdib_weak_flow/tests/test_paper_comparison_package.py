@@ -51,5 +51,5 @@ def test_paper_comparison_package_is_complete_and_consistent():
     assert manifest["_metadata"]["morphology_selection"] == expected
     for stem in required:
         assert f"figures/{stem}.png" in manifest
-        assert f"figures/{stem}.pdf" in manifest
+        assert f"figures/{stem}.pdf" not in manifest
     assert "paper_morphology_comparison_data.npz" in manifest

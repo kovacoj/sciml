@@ -1,0 +1,201 @@
+{
+  "status": "PASS",
+  "source": "warm_start_raw.json sequential k=0,1,2,5 entries plus convergence history k=0,5",
+  "cases_audited": 8,
+  "total_trajectory_points": 48,
+  "convergence_history_check": [
+    {
+      "case_id": "topology_0290",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 5.360310925418875,
+      "delta": 4.360310925418875,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0290",
+      "method": "neural",
+      "k0_rho": 3.9921127705596406,
+      "k5_rho": 1.9544126083288689,
+      "delta": 2.037700162230772,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0290",
+      "method": "teacher_k20",
+      "k0_rho": 0.6189565973507528,
+      "k5_rho": 0.4260444010714261,
+      "delta": 0.1929121962793267,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0291",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 7.073041095606005,
+      "delta": 6.073041095606005,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0291",
+      "method": "neural",
+      "k0_rho": 4.890037700171734,
+      "k5_rho": 1.8827874458754978,
+      "delta": 3.0072502542962365,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0291",
+      "method": "teacher_k20",
+      "k0_rho": 0.8234874428619734,
+      "k5_rho": 0.5246941470591734,
+      "delta": 0.2987932958028,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0292",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 4.861227295952053,
+      "delta": 3.8612272959520526,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0292",
+      "method": "neural",
+      "k0_rho": 3.7063535464893747,
+      "k5_rho": 1.7839648513610136,
+      "delta": 1.922388695128361,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0292",
+      "method": "teacher_k20",
+      "k0_rho": 0.5316732028987977,
+      "k5_rho": 0.313761160658683,
+      "delta": 0.21791204224011473,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0293",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 5.2695816877618755,
+      "delta": 4.2695816877618755,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0293",
+      "method": "neural",
+      "k0_rho": 3.781805306276035,
+      "k5_rho": 1.5914697050771367,
+      "delta": 2.1903356011988984,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0293",
+      "method": "teacher_k20",
+      "k0_rho": 0.5903722158260957,
+      "k5_rho": 0.40057421484202965,
+      "delta": 0.18979800098406602,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0294",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 5.334287727093509,
+      "delta": 4.334287727093509,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0294",
+      "method": "neural",
+      "k0_rho": 3.819068428371103,
+      "k5_rho": 1.260103510292624,
+      "delta": 2.5589649180784795,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0294",
+      "method": "teacher_k20",
+      "k0_rho": 0.4073229560378634,
+      "k5_rho": 0.23036207627842406,
+      "delta": 0.17696087975943933,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0295",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 6.583432885548077,
+      "delta": 5.583432885548077,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0295",
+      "method": "neural",
+      "k0_rho": 4.889821619813264,
+      "k5_rho": 1.669390057214001,
+      "delta": 3.220431562599263,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0295",
+      "method": "teacher_k20",
+      "k0_rho": 0.6554886678324675,
+      "k5_rho": 0.46354776707663164,
+      "delta": 0.19194090075583586,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0296",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 5.0272846868578185,
+      "delta": 4.0272846868578185,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0296",
+      "method": "neural",
+      "k0_rho": 3.909993003535597,
+      "k5_rho": 1.7959501886029403,
+      "delta": 2.114042814932657,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0296",
+      "method": "teacher_k20",
+      "k0_rho": 0.8212337928014276,
+      "k5_rho": 0.5451184925436862,
+      "delta": 0.27611530025774145,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0297",
+      "method": "cold",
+      "k0_rho": 1.0,
+      "k5_rho": 5.003231855778674,
+      "delta": 4.003231855778674,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0297",
+      "method": "neural",
+      "k0_rho": 3.742579369754647,
+      "k5_rho": 1.2487977205767737,
+      "delta": 2.4937816491778735,
+      "passes": true
+    },
+    {
+      "case_id": "topology_0297",
+      "method": "teacher_k20",
+      "k0_rho": 0.48064661121372076,
+      "k5_rho": 0.28850849171481663,
+      "delta": 0.19213811949890414,
+      "passes": true
+    }
+  ],
+  "assertion": "all sequential state changes have |delta_rel_u| > 1e-14"
+}

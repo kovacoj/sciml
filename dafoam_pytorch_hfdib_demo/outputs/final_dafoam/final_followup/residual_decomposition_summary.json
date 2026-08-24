@@ -1,0 +1,26 @@
+{
+  "cold": {
+    "residual_total": 1.0,
+    "residual_momentum_u": 0.9934555760790902,
+    "residual_pressure_p": 0.11421916708483623,
+    "residual_flux_phi": 1.509333807283185e-05,
+    "velocity_error": 1.0,
+    "pressure_error": 1.0
+  },
+  "neural": {
+    "residual_total": 3.86453071595335,
+    "residual_momentum_u": 3.8622593475726017,
+    "residual_pressure_p": 0.14230301353525393,
+    "residual_flux_phi": 0.0001528316361776521,
+    "velocity_error": 0.6456731034229687,
+    "pressure_error": 0.9983590059326749
+  },
+  "teacher_W20": {
+    "residual_total": 0.6046644065884242,
+    "residual_momentum_u": 0.6045174544286622,
+    "residual_pressure_p": 0.015158076849953083,
+    "residual_flux_phi": 3.2889696390866423e-05,
+    "velocity_error": 0.40607896221506823,
+    "pressure_error": 0.5490425996547011
+  }
+}

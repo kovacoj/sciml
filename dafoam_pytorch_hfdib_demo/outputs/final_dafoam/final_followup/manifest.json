@@ -1,0 +1,15 @@
+{
+  "dafoam_finite_budget_comparison.pdf": "ee0e95c0348dfadbc6471967741160a9a5402860744e5a5a1954b58a033dbec3",
+  "dafoam_finite_budget_comparison.png": "a6932e474d3897f9eca5e7d384e1e2eff728f5440d836e8bb3201fab7845377d",
+  "dafoam_finite_budget_pressure.pdf": "4960f5070f170e5f43da42ef227fd869d7f08756634ff038dbb2f024e73bfac5",
+  "dafoam_finite_budget_pressure.png": "06561df0a5895dea873fdc50b73a7af2b4f9a5cd1fd3cb8d3afd96e02e29b2b8",
+  "dafoam_method_summary.svg": "9402498c7a6d0a84b8c364ea7cc8dacdb861cf89b05ca9192b3e26a7492bfe31",
+  "field_error_vs_solver_residual.pdf": "0cdce0c654e31500db3961609033734c3c6fbf1dde1f16004f0734522cb1b5ea",
+  "field_error_vs_solver_residual.png": "d9528d18b65351b3d9e23c5e0d2f8f0ae28a7b523fad6a59b13eb44ed0377f3e",
+  "residual_decomposition_summary.json": "3cc8a098a9d5d02918a38d428484045c62f64357c0d4fd9b28b761971ed2443d",
+  "solver_residual_components.pdf": "a89898ac6d38f32572f0fb6b0a5a5ef8f6475374033834b4f7cffdde72779e6e",
+  "solver_residual_components.png": "0d0be145c54948552e3f267907dbf9410b548514a12732d27eede83ad49c80c6",
+  "solver_residual_decomposition.csv": "e47397fa0545902e973e599480c7716611cfa40e8026b74a559c8ded2e7e6782",
+  "trajectory_integrity.csv": "054cb1f2c7d8c5e802e2cf49bdfc3f569b2b3b0d2a8f48e5b3a05f07ee7633aa",
+  "trajectory_integrity.json": "d338762c6578da1ab4a2ed0ba327edff6a84ec893de6829752e7d4eff95a3f99"
+}

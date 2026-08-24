@@ -1,0 +1,11 @@
+{
+  "train_pressure_mean_of_means": 14.457211737618877,
+  "train_pressure_std_of_means": 4.509764039700059,
+  "train_pressure_range_of_means": [
+    3.444492479317134,
+    25.627513927989895
+  ],
+  "val_pressure_mean_of_means": NaN,
+  "gauge_fixed": false,
+  "finding": "W20 pressure targets carry sample-dependent arbitrary offsets \u2014 pressure mean varies widely across training samples"
+}

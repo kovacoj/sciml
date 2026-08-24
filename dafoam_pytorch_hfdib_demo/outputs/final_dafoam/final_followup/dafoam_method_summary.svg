@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620">
+<rect width="100%" height="100%" fill="white"/>
+<text x="550" y="28" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="bold">DAFoam solver-distillation: cost and quality summary</text>
+<text x="180" y="60" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="#277da1">OFFLINE</text>
+<rect x="60" y="75" width="140" height="50" rx="10" fill="#edf6f9" stroke="#277da1"/>
+<text x="130" y="105" text-anchor="middle" font-family="sans-serif" font-size="11">λ → 20 SIMPLE → W₂₀</text>
+<text x="130" y="145" text-anchor="middle" font-family="sans-serif" font-size="10">~1.9 s/case × 256 = ~486 s</text>
+<rect x="280" y="75" width="120" height="50" rx="10" fill="#edf6f9" stroke="#277da1"/>
+<text x="340" y="105" text-anchor="middle" font-family="sans-serif" font-size="11">Train NN</text>
+<text x="340" y="145" text-anchor="middle" font-family="sans-serif" font-size="10">~200 s</text>
+<path d="M200 100 L280 100" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+<text x="550" y="60" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="#2a9d8f">ONLINE</text>
+<rect x="470" y="75" width="100" height="50" rx="10" fill="#d8f3dc" stroke="#2a9d8f"/>
+<text x="520" y="100" text-anchor="middle" font-family="sans-serif" font-size="11">NN inference</text>
+<text x="520" y="118" text-anchor="middle" font-family="sans-serif" font-size="10">~13.6 ms</text>
+<rect x="620" y="75" width="100" height="50" rx="10" fill="#d8f3dc" stroke="#2a9d8f"/>
+<text x="670" y="100" text-anchor="middle" font-family="sans-serif" font-size="11">+ 5 SIMPLE</text>
+<text x="670" y="118" text-anchor="middle" font-family="sans-serif" font-size="10">~0.49 s</text>
+<rect x="770" y="75" width="120" height="50" rx="10" fill="#ffe5d9" stroke="#e76f51"/>
+<text x="830" y="100" text-anchor="middle" font-family="sans-serif" font-size="11">→ convergence</text>
+<text x="830" y="118" text-anchor="middle" font-family="sans-serif" font-size="10">~58.9 s</text>
+<path d="M570 100 L620 100" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+<path d="M720 100 L770 100" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+<text x="960" y="75" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="#e76f51">Cold CFD</text>
+<rect x="910" y="85" width="100" height="40" rx="10" fill="#ffe5d9" stroke="#e76f51"/>
+<text x="960" y="110" text-anchor="middle" font-family="sans-serif" font-size="11">~60.0 s</text>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#333"/></marker></defs>
+<text x="180" y="200" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold">Finite-budget result</text>
+<rect x="60" y="215" width="450" height="140" rx="12" fill="#f7f7f7" stroke="#999"/>
+<text x="80" y="245" font-family="sans-serif" font-size="12">✓ NN + 5 SIMPLE improves velocity on 8/8 cases</text>
+<text x="80" y="268" font-family="sans-serif" font-size="12">  cold k=5: median e_u = 0.7386</text>
+<text x="80" y="288" font-family="sans-serif" font-size="12">  NN   k=5: median e_u = 0.5881</text>
+<text x="80" y="311" font-family="sans-serif" font-size="12">  improvement: 20.4%</text>
+<text x="80" y="334" font-family="sans-serif" font-size="12" fill="#888">  cost: 0.49 s vs 60.0 s cold</text>
+<text x="800" y="200" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold">Full convergence</text>
+<rect x="560" y="215" width="450" height="140" rx="12" fill="#f7f7f7" stroke="#999"/>
+<text x="580" y="245" font-family="sans-serif" font-size="12">✗ No iteration saving (0/8 wins)</text>
+<text x="580" y="268" font-family="sans-serif" font-size="12">  cold: 616 iterations, ~60.0 s</text>
+<text x="580" y="288" font-family="sans-serif" font-size="12">  NN:   629 iterations, ~58.9 s</text>
+<text x="580" y="311" font-family="sans-serif" font-size="12">  residual ratio NN/cold: 3.86×</text>
+<text x="580" y="334" font-family="sans-serif" font-size="12" fill="#888">  field error ratio: 0.646×</text>
+<text x="550" y="400" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="bold">Diagnosis</text>
+<rect x="60" y="415" width="950" height="120" rx="12" fill="#fff8e1" stroke="#f4a261"/>
+<text x="80" y="445" font-family="sans-serif" font-size="12">• Velocity field is closer to converged, but momentum residual is 3.9× worse</text>
+<text x="80" y="468" font-family="sans-serif" font-size="12">• Pressure is weak: W₂₀ teacher e_p=0.379, NN e_p=0.995 (imitation adds error)</text>
+<text x="80" y="491" font-family="sans-serif" font-size="12">• Break-even: ~11 evaluations (W₂₀) vs ~259 (converged labels)</text>
+<text x="80" y="514" font-family="sans-serif" font-size="12">• Next step: physics-informed residual training to improve solver-state quality</text>
+<text x="550" y="580" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#888">All times measured on host CPU; paper timings are reported values on unknown hardware</text>
+</svg>

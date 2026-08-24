@@ -32,3 +32,6 @@ outputs/shared_hfdib/
 **/checkpoint*.pt
 *.pt
 !*.json
+!outputs/comparison_distill_train/
+!outputs/comparison_distill_train/*.png
+!outputs/comparison_distill_train/metrics.json

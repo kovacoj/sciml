@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold">Paired velocity error after five SIMPLE calls</text>
+<line x1="90.0" y1="175.83129777593146" x2="90.0" y2="263.1978202690059" stroke="#999"/>
+<circle cx="90.0" cy="175.83129777593146" r="6" fill="#277da1"/><circle cx="90.0" cy="263.1978202690059" r="6" fill="#d1495b"/>
+<text x="90.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">290</text>
+<line x1="192.85714285714286" y1="168.50086161180303" x2="192.85714285714286" y2="279.8767537571974" stroke="#999"/>
+<circle cx="192.85714285714286" cy="168.50086161180303" r="6" fill="#277da1"/><circle cx="192.85714285714286" cy="279.8767537571974" r="6" fill="#d1495b"/>
+<text x="192.85714285714286" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">291</text>
+<line x1="295.7142857142857" y1="188.53262895010704" x2="295.7142857142857" y2="299.50369573161197" stroke="#999"/>
+<circle cx="295.7142857142857" cy="188.53262895010704" r="6" fill="#277da1"/><circle cx="295.7142857142857" cy="299.50369573161197" r="6" fill="#d1495b"/>
+<text x="295.7142857142857" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">292</text>
+<line x1="398.57142857142856" y1="165.01133836383065" x2="398.57142857142856" y2="236.70857209418065" stroke="#999"/>
+<circle cx="398.57142857142856" cy="165.01133836383065" r="6" fill="#277da1"/><circle cx="398.57142857142856" cy="236.70857209418065" r="6" fill="#d1495b"/>
+<text x="398.57142857142856" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">293</text>
+<line x1="501.42857142857144" y1="252.49785893656824" x2="501.42857142857144" y2="427.81757023250765" stroke="#999"/>
+<circle cx="501.42857142857144" cy="252.49785893656824" r="6" fill="#277da1"/><circle cx="501.42857142857144" cy="427.81757023250765" r="6" fill="#d1495b"/>
+<text x="501.42857142857144" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">294</text>
+<line x1="604.2857142857143" y1="104.74485085273486" x2="604.2857142857143" y2="175.49524423571143" stroke="#999"/>
+<circle cx="604.2857142857143" cy="104.74485085273486" r="6" fill="#277da1"/><circle cx="604.2857142857143" cy="175.49524423571143" r="6" fill="#d1495b"/>
+<text x="604.2857142857143" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">295</text>
+<line x1="707.1428571428571" y1="165.43002037392176" x2="707.1428571428571" y2="279.4253753466866" stroke="#999"/>
+<circle cx="707.1428571428571" cy="165.43002037392176" r="6" fill="#277da1"/><circle cx="707.1428571428571" cy="279.4253753466866" r="6" fill="#d1495b"/>
+<text x="707.1428571428571" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">296</text>
+<line x1="810.0" y1="222.3300350016715" x2="810.0" y2="393.5427829079803" stroke="#999"/>
+<circle cx="810.0" cy="222.3300350016715" r="6" fill="#277da1"/><circle cx="810.0" cy="393.5427829079803" r="6" fill="#d1495b"/>
+<text x="810.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#222">297</text>
+</svg>

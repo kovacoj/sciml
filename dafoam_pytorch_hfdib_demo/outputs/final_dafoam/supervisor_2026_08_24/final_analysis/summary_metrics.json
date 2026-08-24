@@ -1,0 +1,43 @@
+{
+  "docker_status": "BLOCKED_CONTAINERD",
+  "test_cases": 8,
+  "audit": {
+    "status": "PASS_FROM_PERSISTED_SEQUENTIAL_HISTORY",
+    "cold_k0_mean": 1.0,
+    "cold_k5_mean": 0.727162971018377,
+    "distinct": true
+  },
+  "convergence": {
+    "median_iteration_saving": -0.024121242995415182,
+    "mean_iteration_saving": -0.02179700079269664,
+    "mean_95_ci": [
+      -0.030691140245565518,
+      -0.011944602321438652
+    ],
+    "wins": 0
+  },
+  "mechanism": {
+    "median_initial_field_error_ratio": 0.6456731034229687,
+    "median_initial_residual_ratio": 3.86453071595335,
+    "pearson_residual_vs_iteration": -0.9520590519415773,
+    "spearman_residual_vs_iteration": -0.7857142857142858
+  },
+  "finite_budget_k5": {
+    "cold_median": 0.738636918962241,
+    "neural_median": 0.588123132691302,
+    "relative_improvement": 0.2037723574424165,
+    "wins": 8
+  },
+  "finite_budget_k10": {
+    "cold_median": 0.5671756953576107,
+    "neural_median": 0.5141955724977751,
+    "relative_improvement": 0.0934104251883201,
+    "wins": 8
+  },
+  "finite_budget_k20": {
+    "cold_median": 0.40607896221506823,
+    "neural_median": 0.41550309950095365,
+    "relative_improvement": -0.023207647188810077,
+    "wins": 1
+  }
+}

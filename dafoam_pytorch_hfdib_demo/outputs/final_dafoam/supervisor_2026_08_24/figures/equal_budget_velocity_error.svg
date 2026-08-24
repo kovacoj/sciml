@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold">Finite-budget velocity error</text>
+<circle cx="90.0" cy="97.09155289246345" r="6" fill="#277da1"/>
+<text x="90.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">0</text>
+<circle cx="330.0" cy="212.56987947012064" r="6" fill="#277da1"/>
+<text x="330.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">5</text>
+<circle cx="570.0" cy="288.32677327548447" r="6" fill="#277da1"/>
+<text x="570.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">10</text>
+<circle cx="810.0" cy="359.5043132959153" r="6" fill="#277da1"/>
+<text x="810.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">20</text>
+<polyline points="90.0,97.09155289246345 330.0,212.56987947012064 570.0,288.32677327548447 810.0,359.5043132959153" fill="none" stroke="#277da1" stroke-width="4"/>
+<circle cx="90.0" cy="253.64418043154163" r="6" fill="#d1495b"/>
+<text x="90.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">0</text>
+<circle cx="330.0" cy="279.07154487910833" r="6" fill="#d1495b"/>
+<text x="330.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">5</text>
+<circle cx="570.0" cy="311.7350370036298" r="6" fill="#d1495b"/>
+<text x="570.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">10</text>
+<circle cx="810.0" cy="355.3404367495758" r="6" fill="#d1495b"/>
+<text x="810.0" y="480" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#222">20</text>
+<polyline points="90.0,253.64418043154163 330.0,279.07154487910833 570.0,311.7350370036298 810.0,355.3404367495758" fill="none" stroke="#d1495b" stroke-width="4"/>
+</svg>
